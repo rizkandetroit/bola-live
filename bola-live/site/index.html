@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bola live</title>
+<style>
+:root{--bg:#f7f6f2;--card:#fff;--ink:#0b0b0b;--mut:#6b6a66;--line:#e1e0d9;--h:#2a78d6;--a:#eb6834;--d:#c3c2b7;--g1:#0f8a3c;--g2:#1baf7a;--g3:#d99a00;--g4:#888780;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141413;--card:#1f1f1d;--ink:#f0efec;--mut:#a7a69e;--line:#2f2f2c;--h:#3987e5;--a:#d95926;--d:#4a4a46}}
+:root[data-theme="dark"]{--bg:#141413;--card:#1f1f1d;--ink:#f0efec;--mut:#a7a69e;--line:#2f2f2c;--h:#3987e5;--a:#d95926;--d:#4a4a46}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.w{max-width:760px;margin:0 auto;padding:16px 14px 40px}
+h1{font-size:21px;margin:4px 0 2px;font-weight:600}
+h2{font-size:16px;margin:26px 0 8px;font-weight:600}
+.sub{color:var(--mut);font-size:13px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 12px 8px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 54px;gap:8px;align-items:center;margin:0 0 9px;font-size:12.5px}
+.rl{display:flex;justify-content:space-between;gap:6px;margin-bottom:2px}
+.rl b{font-weight:600}
+.track{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.fill{height:100%;border-radius:5px}
+.val{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.leg{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mut);margin:8px 0 4px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.ctl{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+button{font:inherit;font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer}
+button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 12px}
+.top{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-bottom:8px}
+.tm{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start}
+.tm div{min-width:0}
+.tm .n{font-weight:600;font-size:15px;overflow-wrap:anywhere}
+.tm .s{font-size:12px;color:var(--mut)}
+.tm .r{text-align:right}
+.tm .v{color:var(--mut);font-size:12px;padding-top:3px}
+.pb{display:flex;height:14px;border-radius:7px;overflow:hidden;margin:10px 0 4px;gap:2px}
+.pb span{display:block;height:100%}
+.pl{display:flex;justify-content:space-between;font-size:12px;font-variant-numeric:tabular-nums}
+.pk{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);flex-wrap:wrap}
+.bd{font-size:12px;font-weight:600;padding:3px 9px;border-radius:8px;border:1px solid currentColor}
+.nt{font-size:13px;color:var(--mut);margin-top:8px}
+.ft{font-size:12px;color:var(--mut);margin-top:22px}
+.sc{font-weight:600;font-size:17px;text-align:center;padding-top:1px}</style>
+</head>
+<body>
+<div class="w">
+<h1>Bola live: hari ini dan besok</h1>
+<div class="sub" id="up">Memuat data...</div>
+<h2>Peringkat keunggulan</h2>
+<div class="panel" id="rank"></div>
+<div class="leg"><span><i style="background:var(--g1)"></i>Sangat kuat 40+</span><span><i style="background:var(--g2)"></i>Kuat 20-39</span><span><i style="background:var(--g3)"></i>Sedang 10-19</span><span><i style="background:var(--g4)"></i>Tipis di bawah 10</span></div>
+<h2>Detail per pertandingan</h2>
+<div class="ctl" id="lg"></div><div class="ctl" id="so"></div>
+<div id="cards"></div>
+<div class="ft">Peluang dihitung dari klasemen (gol dan hasil musim ini) dengan model Poisson plus keuntungan kandang, belum memperhitungkan cedera, susunan pemain, atau skor live. Skor di paket gratis bisa terlambat. Ini perkiraan, bukan jaminan.</div>
+</div>
+<script>
+var $=function(i){return document.getElementById(i)};
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var LC={"Sangat kuat":"var(--g1)","Kuat":"var(--g2)","Sedang":"var(--g3)","Tipis":"var(--g4)"};
+var F=new Intl.DateTimeFormat("id-ID",{timeZone:"Asia/Makassar",weekday:"short",hour:"2-digit",minute:"2-digit",hour12:false});
+var LG=["Semua","Premier League","Serie A","Bundesliga","La Liga","Ligue 1"],D=null,cur="Semua",srt="jam";
+function pk(x){return x.pick==="h"?x.home:x.away}
+function op(x){return x.pick==="h"?x.away:x.home}
+function draw(){
+  var A=D.matches.filter(function(x){return x.status!=="FT"});
+  var R=A.slice().sort(function(a,b){return b.edge-a.edge});
+  var top=R.slice(0,8).map(function(x){return x.id});
+  var rk="";
+  R.forEach(function(x,i){rk+='<div class="row"><div><div class="rl"><span><b>'+(i+1)+'. '+esc(pk(x).name)+'</b> vs '+esc(op(x).name)+'</span></div><div class="track"><div class="fill" style="width:'+Math.min(100,x.edge/60*100)+'%;background:'+LC[x.level]+'"></div></div></div><div class="val">'+x.edge.toFixed(1)+'</div></div>'});
+  $("rank").innerHTML=rk||'<div class="sub">Tidak ada pertandingan yang akan tayang.</div>';
+  var L=D.matches.filter(function(x){return cur==="Semua"||x.league===cur});
+  L.sort(srt==="jam"?function(a,b){return a.utc.localeCompare(b.utc)}:function(a,b){return b.edge-a.edge});
+  var c="";
+  L.forEach(function(x){
+    var bad=x.status==="LIVE"?'<b style="color:var(--a)">LIVE</b> · ':x.status==="FT"?'<b>SELESAI</b> · ':"";
+    var mid=x.status==="NS"?"vs":'<div class="sc">'+(x.score[0]===null?"-":x.score[0])+" - "+(x.score[1]===null?"-":x.score[1])+"</div>";
+    c+='<div class="card"><div class="top"><span>'+esc(x.league)+'</span><span>'+bad+F.format(new Date(x.utc))+' WITA</span></div>'
+    +'<div class="tm"><div><div class="n">H '+esc(x.home.name)+'</div><div class="s">#'+x.home.pos+' · '+x.home.pts+' poin · '+x.home.gp+' main</div></div><div class="v">'+mid+'</div><div class="r"><div class="n">A '+esc(x.away.name)+'</div><div class="s">#'+x.away.pos+' · '+x.away.pts+' poin · '+x.away.gp+' main</div></div></div>'
+    +'<div class="pb"><span style="width:'+x.p.h+'%;background:var(--h)"></span><span style="width:'+x.p.d+'%;background:var(--d)"></span><span style="width:'+x.p.a+'%;background:var(--a)"></span></div>'
+    +'<div class="pl"><span style="color:var(--h)">'+x.p.h.toFixed(1)+'%</span><span style="color:var(--mut)">Seri '+x.p.d.toFixed(1)+'%</span><span style="color:var(--a)">'+x.p.a.toFixed(1)+'%</span></div>'
+    +'<div class="pk"><span class="bd" style="color:'+LC[x.level]+'">'+x.level+'</span><span><b>Pilihan: '+esc(pk(x).name)+'</b> ('+(x.pick==="h"?"kandang":"tandang")+', selisih '+x.edge.toFixed(1)+')</span>'+(top.indexOf(x.id)>-1?'<span class="bd" style="color:var(--h)">Top 8</span>':"")+'</div></div>'});
+  $("cards").innerHTML=c||'<div class="sub">Tidak ada pertandingan.</div>';
+  var b="";LG.forEach(function(g){b+='<button class="'+(g===cur?"on":"")+'" data-g="'+g+'">'+g+'</button>'});$("lg").innerHTML=b;
+  $("so").innerHTML='<button class="'+(srt==="jam"?"on":"")+'" data-s="jam">Urut jam tayang</button><button class="'+(srt==="kuat"?"on":"")+'" data-s="kuat">Urut kekuatan</button>';
+}
+document.addEventListener("click",function(e){var t=e.target;if(!D||!t.dataset)return;if(t.dataset.g){cur=t.dataset.g;draw()}if(t.dataset.s){srt=t.dataset.s;draw()}});
+fetch("data.json?"+Date.now()).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}).then(function(j){
+  D=j;$("up").textContent="Diperbarui "+F.format(new Date(j.updated))+" WITA · "+j.matches.length+" pertandingan"+(j.errors&&j.errors.length?" · "+j.errors.length+" liga gagal dimuat":"");draw();
+}).catch(function(e){$("up").textContent="Data belum tersedia ("+e.message+"). Jalankan workflow di tab Actions."});
+</script>
+</body>
+</html>
