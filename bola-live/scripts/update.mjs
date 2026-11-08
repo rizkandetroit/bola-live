@@ -19,8 +19,8 @@ async function get(path){
 }
 const WITA=8*3600e3,now=Date.now();
 const day=t=>new Date(t+WITA).toISOString().slice(0,10);
-const today=day(now),tomorrow=day(now+864e5),from=day(now-864e5),to=day(now+2*864e5);
-const nm=t=>t.shortName||t.name;
+const back=(new Date(now+WITA).getUTCDay()+6)%7,w0=now-back*864e5,wkA=day(w0),wkB=day(w0+6*864e5),from=day(w0-864e5),to=day(w0+7*864e5);
+const nm=t=>(t.name||t.shortName||"?").replace(/\s+(FC|AFC|CF|SC)$/,"");
 const rec=r=>r?{gp:r.playedGames,w:r.won,d:r.draw,l:r.lost,gf:r.goalsFor,ga:r.goalsAgainst}:null;
 const side=(t,r,sp)=>({name:nm(t),pos:r.position,pts:r.points,gp:r.playedGames,gf:r.goalsFor,ga:r.goalsAgainst,w:r.won,d:r.draw,l:r.lost,form:r.form||null,sp:rec(sp)});
 const out=[],errors=[];
@@ -34,7 +34,7 @@ for(const [code,name] of LEAGUES){
     const ms=await get(`/competitions/${code}/matches?dateFrom=${from}&dateTo=${to}`);
     for(const m of ms.matches){
       const d=day(Date.parse(m.utcDate));
-      if(d!==today&&d!==tomorrow)continue;
+      if(d<wkA||d>wkB)continue;
       const h=byId.get(m.homeTeam.id),a=byId.get(m.awayTeam.id);
       if(!h||!a)continue;
       const p=predict(h,a,base),e=r1(Math.abs(p.h-p.a));
@@ -51,6 +51,6 @@ if(!out.length&&errors.length){console.error("Gagal mengambil data:\n"+errors.jo
 out.sort((a,b)=>a.utc.localeCompare(b.utc));
 const file=fileURLToPath(new URL("../site/data.json",import.meta.url));
 mkdirSync(dirname(file),{recursive:true});
-writeFileSync(file,JSON.stringify({updated:new Date().toISOString(),matches:out,errors}));
+writeFileSync(file,JSON.stringify({updated:new Date().toISOString(),week:[wkA,wkB],matches:out,errors}));
 console.log("OK:",out.length,"pertandingan;",errors.length,"liga gagal");
 if(errors.length)console.log(errors.join("\n"));
