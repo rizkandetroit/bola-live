@@ -1,14 +1,16 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import {fit,predictM,formOf,backtest,calibrate,shrink,level,r1} from "./lib.mjs";
+import {tfetch,siteBase,outDir,overDeadline} from "./net.mjs";
 // Liga di luar football-data.org, dari TheSportsDB (data komunitas). Tidak pernah menggagalkan deploy.
-const KEY=process.env.TSDB_KEY||"123",API=`https://www.thesportsdb.com/api/v1/json/${KEY}`;
+const KEY=process.env.TSDB_KEY||"123",API=process.env.TSDB_API||`https://www.thesportsdb.com/api/v1/json/${KEY}`;
 const GAP=Number(process.env.GAP_MS??2200),sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function get(path){
   const nm=path.split("?")[0];
   for(let i=0;i<3;i++){
     let r;
-    try{r=await fetch(API+path)}catch(e){await sleep(Number(process.env.RETRY_MS??20000));continue}
+    if(overDeadline())throw new Error(nm+" dilewati: batas waktu run habis");
+    try{r=await tfetch(API+path)}catch(e){await sleep(Number(process.env.RETRY_MS??20000));continue}
     if(r.status===429){await sleep(Number(process.env.RETRY_MS??20000));continue}
     if(!r.ok)throw new Error(nm+" HTTP "+r.status);
     try{return JSON.parse(await r.text())}catch(e){throw new Error(nm+" bukan JSON")}
@@ -17,8 +19,8 @@ async function get(path){
 }
 async function loadPrev(){
   try{const f=process.env.PREV_FILE;if(f)return JSON.parse(readFileSync(f,"utf8"));
-    const repo=process.env.GITHUB_REPOSITORY;if(!repo)return null;const [o,n]=repo.split("/");
-    const r=await fetch(`https://${o.toLowerCase()}.github.io/${n}/world.json?t=${Date.now()}`);return r.ok?await r.json():null}catch(e){return null}
+    const base=siteBase();if(!base)return null;
+    const r=await tfetch(base+"world.json?t="+Date.now());return r.ok?await r.json():null}catch(e){return null}
 }
 const WITA=8*3600e3,now=Date.now(),day=t=>new Date(t+WITA).toISOString().slice(0,10);
 const wkA=day(now-2*864e5),wkB=day(now+7*864e5),Y=Number(day(now).slice(0,4)),MO=Number(day(now).slice(5,7));
@@ -80,7 +82,7 @@ for(const x of out){const k=shrink([x.p.h,x.p.d,x.p.a],x.p.fr,cal.lam);x.p.raw={
 out.sort((a,b)=>a.utc.localeCompare(b.utc));
 let res={updated:new Date(now).toISOString(),cal:{lam:cal.lam},leagues,unresolved,warn,errors,matches:out};
 if(!leagues.length&&errors.length){const prev=await loadPrev();if(prev&&prev.matches)res={...prev,stale:true,errors:errors.concat(prev.errors||[])}}
-const dir=fileURLToPath(new URL("../site/",import.meta.url));mkdirSync(dir,{recursive:true});
+const dir=outDir(import.meta.url);mkdirSync(dir,{recursive:true});
 writeFileSync(dir+"world.json",JSON.stringify(res));
 if(catalog.length)writeFileSync(dir+"catalog.json",JSON.stringify(catalog.map(l=>({id:l.idLeague,n:l.strLeague}))));
 console.log("OK dunia:",res.matches.length,"pertandingan;",res.leagues.length,"liga;",res.unresolved.length,"tidak ditemukan;",res.errors.length,"error",res.stale?"(data lama)":"");
