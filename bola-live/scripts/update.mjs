@@ -2,33 +2,47 @@ import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import {dirname} from "node:path";
 import {LEAGUES,fit,predictM,formOf,pcts,backtest,evaluate,calibrate,shrink,level,r1} from "./lib.mjs";
-const KEY=process.env.FOOTBALL_DATA_KEY;
-if(!KEY){console.error("FOOTBALL_DATA_KEY belum diisi di Secrets.");process.exit(1)}
-const API="https://api.football-data.org/v4";
-const GAP=Number(process.env.GAP_MS??6500);
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+import {sleep,tfetch,cleanKey,siteBase,outDir,overDeadline,ghError,ghWarn} from "./net.mjs";
+const KEY=cleanKey(process.env.FOOTBALL_DATA_KEY);
+if(!KEY){ghError("Secret FOOTBALL_DATA_KEY kosong atau belum dibuat. Buka repo > Settings > Secrets and variables > Actions > New repository secret. Nama harus persis FOOTBALL_DATA_KEY, isi dengan token dari email football-data.org.");process.exit(1)}
+if(/[^\x21-\x7e]/.test(KEY)){ghError("Secret FOOTBALL_DATA_KEY mengandung spasi/karakter tak valid di tengah. Tempel ulang token-nya (hanya token, tanpa kata lain).");process.exit(1)}
+const API=process.env.FOOTBALL_DATA_API||"https://api.football-data.org/v4";
+const GAP=Number(process.env.GAP_MS??6500),RETRY=Number(process.env.RETRY_MS??30000);
+// Hanya galat jaringan / 429 / 5xx yang dicoba ulang. 4xx lain langsung dilaporkan beserta isi pesan dari server.
 async function get(path){
+  let last="";
   for(let i=0;i<3;i++){
+    if(overDeadline())throw new Error(path+" dilewati: batas waktu run habis");
     let r;
-    try{r=await fetch(API+path,{headers:{"X-Auth-Token":KEY}})}catch(e){await sleep(Number(process.env.RETRY_MS??30000));continue}
-    if(r.status===429){await sleep(Number(process.env.RETRY_MS??30000));continue}
-    if(!r.ok)throw new Error(path+" HTTP "+r.status);
+    try{r=await tfetch(API+path,{headers:{"X-Auth-Token":KEY}})}catch(e){last=e.message;await sleep(RETRY);continue}
+    if(r.status===429||r.status>=500){last="HTTP "+r.status;await sleep(RETRY);continue}
+    if(!r.ok){let b="";try{b=(await r.text?.())||""}catch(e){}const err=new Error(path+" HTTP "+r.status+(b?" "+b.slice(0,140):""));err.status=r.status;err.body=b;throw err}
     return r.json();
   }
-  throw new Error(path+" terlalu banyak permintaan");
+  throw new Error(path+" gagal setelah 3 percobaan ("+last+")");
 }
 // Riwayat prediksi disimpan di situs Pages itu sendiri (history.json), diambil dari versi yang sedang tayang.
-// 404 = belum ada riwayat (mulai kosong). Kegagalan lain = hentikan, supaya riwayat lama tidak tertimpa kosong.
+// Belum ada / tidak bisa diakses publik / bukan JSON = mulai kosong. Galat jaringan atau 5xx yang menetap = hentikan,
+// supaya riwayat lama tidak tertimpa kosong (run berikutnya, 15 menit lagi, mencoba lagi).
 async function loadHistory(){
   const f=process.env.HISTORY_FILE;
   if(f){try{return JSON.parse(readFileSync(f,"utf8"))}catch(e){return[]}}
-  const repo=process.env.GITHUB_REPOSITORY;if(!repo)return[];
-  const [o,n]=repo.split("/"),url=`https://${o.toLowerCase()}.github.io/${n}/history.json?t=${Date.now()}`;
+  const base=siteBase();if(!base)return[];
+  const url=base+"history.json?t="+Date.now();let last="";
   for(let i=0;i<3;i++){
-    try{const r=await fetch(url);if(r.status===404)return[];if(r.ok){const j=await r.json();if(Array.isArray(j))return j}}catch(e){}
+    try{
+      const r=await tfetch(url);
+      if([401,403,404].includes(r.status))return[];
+      if(r.ok){
+        let j=null;try{j=JSON.parse(await r.text())}catch(e){}
+        if(Array.isArray(j))return j;
+        ghWarn("history.json di "+url+" bukan JSON larik; riwayat dimulai dari kosong.");return[];
+      }
+      last="HTTP "+r.status;
+    }catch(e){last=e.message}
     await sleep(Number(process.env.RETRY_MS??5000));
   }
-  throw new Error("Riwayat prediksi (history.json) tidak bisa dimuat; run dihentikan agar riwayat tidak hilang.");
+  throw new Error("Riwayat prediksi (history.json) tidak bisa dimuat ("+last+"); run dihentikan agar riwayat tidak hilang. Akan dicoba lagi pada run berikutnya.");
 }
 const WITA=8*3600e3,now=Date.now();
 const day=t=>new Date(t+WITA).toISOString().slice(0,10);
@@ -66,10 +80,13 @@ for(const [code,name] of LEAGUES){
         home:{...side(m.homeTeam,h,hm.get(hid)),elo:p.el[0],f:formOf(mdl,hid,"h")},away:{...side(m.awayTeam,a,am.get(aid)),elo:p.el[1],f:formOf(mdl,aid,"a")},
         p,pick:p.h>=p.a?"h":"a",edge:e,level:level(e)});
     }
-  }catch(e){errors.push(code+": "+e.message)}
+  }catch(e){
+    if(e.status===401||(e.status===400&&/token/i.test(e.body||""))){ghError("Token football-data.org ditolak ("+e.message+"). Periksa secret FOOTBALL_DATA_KEY: harus token dari email pendaftaran, tanpa tanda kutip.");process.exit(1)}
+    errors.push(code+": "+e.message)
+  }
   await sleep(GAP);
 }
-if(!out.length&&!later.length&&errors.length){console.error("Gagal mengambil data:\n"+errors.join("\n"));process.exit(1)}
+if(!out.length&&!later.length&&errors.length){ghError("Gagal mengambil data dari semua liga:\n"+errors.join("\n"));process.exit(1)}
 for(const [id,e] of hist)if(e.r==null&&Date.parse(e.u)<now-5*864e5)hist.delete(id);
 // kalau tidak ada laga yang akan tayang dalam jendela, tampilkan hari laga berikutnya
 let extra=null;
@@ -82,7 +99,7 @@ const grp=rows=>{const by={},o={};for(const r of rows)(by[r.lg]=by[r.lg]||[]).pu
 const hv=[...hist.values()],liveRows=hv.filter(e=>e.r).map(e=>({lg:e.lg,o:e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,pp:e.pp,pe:e.pe,pb:e.pb,pk:e.pk}));
 const ev={updated:new Date(now).toISOString(),cal:{lam:cal.lam},backtest:{...evaluate(btRows),byLeague:grp(btRows)},live:{...evaluate(liveRows),byLeague:grp(liveRows),pending:hv.filter(e=>e.r==null).length}};
 out.sort((a,b)=>a.utc.localeCompare(b.utc));
-const dir=fileURLToPath(new URL("../site/",import.meta.url));
+const dir=outDir(import.meta.url);
 mkdirSync(dir,{recursive:true});
 writeFileSync(dir+"data.json",JSON.stringify({updated:new Date(now).toISOString(),week:[wkA,wkB],extra,cal:{lam:cal.lam},matches:out,errors}));
 writeFileSync(dir+"history.json",JSON.stringify(hv));
