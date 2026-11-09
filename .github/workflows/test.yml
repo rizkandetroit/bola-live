@@ -13,6 +13,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: node scripts/test.mjs
-      - run: node scripts/test-world.mjs
-      - run: node scripts/test-ci.mjs
+      - run: node bola-live/scripts/test.mjs
+      - run: node bola-live/scripts/test-world.mjs
+      - run: node bola-live/scripts/test-ci.mjs

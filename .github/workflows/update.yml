@@ -24,21 +24,21 @@ jobs:
         with:
           node-version: 24
       - name: Pemeriksaan awal (token dan GitHub Pages)
-        run: node scripts/preflight.mjs
+        run: node bola-live/scripts/preflight.mjs
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Ambil data liga Eropa (football-data.org)
-        run: node scripts/update.mjs
+        run: node bola-live/scripts/update.mjs
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
       - name: Ambil liga dunia (TheSportsDB, opsional)
-        run: node scripts/world.mjs
+        run: node bola-live/scripts/world.mjs
         continue-on-error: true
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: bola-live/site
   deploy:
     needs: build
     runs-on: ubuntu-latest
