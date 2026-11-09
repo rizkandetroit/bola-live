@@ -1,7 +1,7 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import {dirname} from "node:path";
-import {LEAGUES,fit,predictM,formOf,pcts,backtest,evaluate,calibrate,shrink,level,r1} from "./lib.mjs";
+import {LEAGUES,fit,predictM,formOf,pcts,backtest,evaluate,calibrate,shrink,finalP,level,r1} from "./lib.mjs";
 import {sleep,tfetch,cleanKey,siteBase,outDir,overDeadline,ghError,ghWarn} from "./net.mjs";
 const KEY=cleanKey(process.env.FOOTBALL_DATA_KEY);
 if(!KEY){ghError("Secret FOOTBALL_DATA_KEY kosong atau belum dibuat. Buka repo > Settings > Secrets and variables > Actions > New repository secret. Nama harus persis FOOTBALL_DATA_KEY, isi dengan token dari email football-data.org.");process.exit(1)}
@@ -93,8 +93,8 @@ let extra=null;
 if(!out.some(x=>x.status==="NS")&&later.length){later.sort((a,b)=>a.utc.localeCompare(b.utc));extra=day(Date.parse(later[0].utc));for(const x of later)if(day(Date.parse(x.utc))===extra)out.push(x)}
 // kalibrasi: lam dipelajari dari uji mundur, lalu dipakai ke semua prediksi
 const cal=calibrate(btRows);
-for(const x of out){const k=shrink([x.p.h,x.p.d,x.p.a],x.p.fr,cal.lam);x.p.raw={h:x.p.h,d:x.p.d,a:x.p.a};x.p.h=k[0];x.p.d=k[1];x.p.a=k[2];x.edge=r1(Math.abs(k[0]-k[2]));x.pick=k[0]>=k[2]?"h":"a";x.level=level(x.edge)}
-for(const e of hist.values())if(e.r==null&&e.fr&&Date.parse(e.u)>now)e.pk=shrink(e.pp,e.fr,cal.lam);
+for(const x of out){const k=finalP(x.p,cal.lam);x.p.raw={h:x.p.h,d:x.p.d,a:x.p.a};x.p.h=k[0];x.p.d=k[1];x.p.a=k[2];x.edge=r1(Math.abs(k[0]-k[2]));x.pick=k[0]>=k[2]?"h":"a";x.level=level(x.edge)}
+for(const e of hist.values())if(e.r==null&&e.fr&&Date.parse(e.u)>now)e.pk=shrink(e.pb,e.fr,cal.lam);
 const grp=rows=>{const by={},o={};for(const r of rows)(by[r.lg]=by[r.lg]||[]).push(r);for(const k in by)o[k]=evaluate(by[k]);return o};
 const hv=[...hist.values()],liveRows=hv.filter(e=>e.r).map(e=>({lg:e.lg,o:e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,pp:e.pp,pe:e.pe,pb:e.pb,pk:e.pk}));
 const ev={updated:new Date(now).toISOString(),cal:{lam:cal.lam},backtest:{...evaluate(btRows),byLeague:grp(btRows)},live:{...evaluate(liveRows),byLeague:grp(liveRows),pending:hv.filter(e=>e.r==null).length}};

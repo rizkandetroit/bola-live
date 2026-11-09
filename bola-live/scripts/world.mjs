@@ -1,6 +1,6 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
-import {fit,predictM,formOf,backtest,calibrate,shrink,level,r1} from "./lib.mjs";
+import {fit,predictM,formOf,backtest,calibrate,shrink,finalP,level,r1} from "./lib.mjs";
 import {tfetch,siteBase,outDir,overDeadline} from "./net.mjs";
 // Liga di luar football-data.org, dari TheSportsDB (data komunitas). Tidak pernah menggagalkan deploy.
 const KEY=process.env.TSDB_KEY||"123",API=process.env.TSDB_API||`https://www.thesportsdb.com/api/v1/json/${KEY}`;
@@ -78,7 +78,7 @@ for(const p of cfg){
   }catch(e){errors.push(lg.name+": "+e.message)}
 }
 const cal=calibrate(rows);
-for(const x of out){const k=shrink([x.p.h,x.p.d,x.p.a],x.p.fr,cal.lam);x.p.raw={h:x.p.h,d:x.p.d,a:x.p.a};x.p.h=k[0];x.p.d=k[1];x.p.a=k[2];x.edge=r1(Math.abs(k[0]-k[2]));x.pick=k[0]>=k[2]?"h":"a";x.level=level(x.edge)}
+for(const x of out){const k=finalP(x.p,cal.lam);x.p.raw={h:x.p.h,d:x.p.d,a:x.p.a};x.p.h=k[0];x.p.d=k[1];x.p.a=k[2];x.edge=r1(Math.abs(k[0]-k[2]));x.pick=k[0]>=k[2]?"h":"a";x.level=level(x.edge)}
 out.sort((a,b)=>a.utc.localeCompare(b.utc));
 let res={updated:new Date(now).toISOString(),cal:{lam:cal.lam},leagues,unresolved,warn,errors,matches:out};
 if(!leagues.length&&errors.length){const prev=await loadPrev();if(prev&&prev.matches)res={...prev,stale:true,errors:errors.concat(prev.errors||[])}}

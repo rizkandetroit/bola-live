@@ -57,11 +57,13 @@ export function backtest(ms,minGames=5){
 // Kalibrasi: tarik peluang 1X2 sedikit ke frekuensi hasil liga. Kekuatan tarikan tiap laga dipilih hanya dari laga sebelumnya (tanpa mengintip).
 export const LAMS=[0,.05,.1,.15,.2,.25,.3,.35,.4,.5],LAM0=.15;
 export const shrink=(p,fr,lam)=>{const h=r1((1-lam)*p[0]+lam*fr[0]),a=r1((1-lam)*p[2]+lam*fr[2]);return[h,r1(100-h-a),a]};
+// Model akhir: gabungan Poisson dan Elo (70/30), lalu ditarik ke frekuensi hasil liga.
+export const finalP=(p,lam)=>shrink(pcts(p).pb,p.fr,lam);
 const nll=(p,o)=>-Math.log(Math.max(p[o]/100,1e-6));
 export function calibrate(rows){
   rows.sort((a,b)=>a.t-b.t);
   const cum=LAMS.map(()=>0),best=()=>{let b=0;for(let i=1;i<cum.length;i++)if(cum[i]<cum[b]-1e-9)b=i;return LAMS[b]};
-  rows.forEach((r,i)=>{const lam=i<30?LAM0:best();r.pk=shrink(r.pp,r.fr,lam);LAMS.forEach((l,k)=>{cum[k]+=nll(shrink(r.pp,r.fr,l),r.o)})});
+  rows.forEach((r,i)=>{const lam=i<30?LAM0:best();r.pk=shrink(r.pb,r.fr,lam);LAMS.forEach((l,k)=>{cum[k]+=nll(shrink(r.pb,r.fr,l),r.o)})});
   return{lam:rows.length<30?LAM0:best()};
 }
 export function evaluate(rows){
