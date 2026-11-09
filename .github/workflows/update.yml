@@ -4,38 +4,48 @@ on:
     - cron: "*/15 * * * *"
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, master]
 permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
+# false = run yang sedang deploy tidak dibatalkan di tengah jalan (pembatalan saat deploy bisa membuat Pages macet)
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
-      - run: node scripts/update.mjs
+          node-version: 24
+      - name: Pemeriksaan awal (token dan GitHub Pages)
+        run: node scripts/preflight.mjs
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
-      - run: node scripts/world.mjs
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Ambil data liga Eropa (football-data.org)
+        run: node scripts/update.mjs
+        env:
+          FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
+      - name: Ambil liga dunia (TheSportsDB, opsional)
+        run: node scripts/world.mjs
         continue-on-error: true
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
