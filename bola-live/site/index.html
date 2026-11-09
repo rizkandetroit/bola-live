@@ -168,7 +168,7 @@ function verdict(e){if(!e.n)return"";var se=1.96*Math.sqrt(.25/e.n)*100,d=e.pp.a
   t+=d>0?"Model unggul "+d.toFixed(1).replace(".",",")+" poin. ":"Model belum mengalahkan tebakan sederhana itu. ";
   t+="Dengan sampel sebesar ini, selisih di bawah sekitar "+se.toFixed(0)+" poin belum bisa dibedakan dari kebetulan. ";
   t+=e.pp.brier<e.fr.brier?"Brier model lebih baik dari patokan, artinya persentasenya lebih informatif daripada angka rata-rata liga.":"Brier model belum lebih baik dari patokan rata-rata liga.";
-  return '<p class="'+(d>0&&e.pp.brier<e.fr.brier?"good":"warn")+'">'+t+'</p>'}
+  return '<p class="'+(d>se&&e.pp.brier<e.fr.brier?"good":"warn")+'">'+t+'</p>'}
 function renderEval(){
   var el=$("#v-e");if(!EV){el.innerHTML='<div class="em">Data evaluasi belum tersedia. Muncul setelah workflow selesai satu putaran dengan versi terbaru.</div>';return}
   var b=EV.backtest,l=EV.live,h='<div class="evs"><h2>Uji mundur (musim ini)</h2><p>Setiap laga yang sudah selesai diprediksi ulang <b>hanya dari hasil sebelum laga itu</b>, jadi tidak mengintip hasilnya. Laga dinilai kalau kedua tim sudah main minimal 5 kali.</p>';
