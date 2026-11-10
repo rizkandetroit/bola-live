@@ -3,6 +3,7 @@ import {tmpdir} from "node:os";
 import assert from "node:assert";
 // Tes langkah semua-liga (API-Football) dengan server tiruan; keluaran ke folder sementara.
 const tmp=mkdtempSync(tmpdir()+"/all-");
+delete process.env.GITHUB_REPOSITORY;delete process.env.SITE_URL; // di GitHub Actions variabel ini terisi sehingga skrip ikut mengunduh cache dari situs asli lewat fetch tiruan dan menambah hitungan permintaan
 process.env.OUT_DIR=tmp;process.env.BOOT_MAX="0";process.env.GAP_MS="0";process.env.RETRY_MS="0";process.env.API_FOOTBALL_KEY='"kunci-uji"';
 const now=Date.now(),H=36e5,uday=t=>new Date(t).toISOString().slice(0,10);
 const YEST=Date.parse(uday(now)+"T06:00:00Z")-864e5,TOMO=Date.parse(uday(now)+"T12:00:00Z")+864e5; // waktu tetap agar tes tidak bergantung jam berjalan
