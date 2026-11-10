@@ -15,4 +15,5 @@ jobs:
           node-version: 24
       - run: node bola-live/scripts/test.mjs
       - run: node bola-live/scripts/test-world.mjs
+      - run: node bola-live/scripts/test-all.mjs
       - run: node bola-live/scripts/test-ci.mjs

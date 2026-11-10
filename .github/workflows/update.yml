@@ -32,7 +32,15 @@ jobs:
         run: node bola-live/scripts/update.mjs
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
-      - name: Ambil liga dunia (TheSportsDB, opsional)
+      - name: Ambil SEMUA liga (API-Football, jadwal dan skor)
+        run: node bola-live/scripts/all.mjs
+        continue-on-error: true
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      # TheSportsDB gratis terbukti hanya mengirim potongan kecil musim (tidak berguna), jadi dimatikan.
+      # Untuk mengaktifkan lagi (mis. setelah berlangganan), hapus baris "if: false".
+      - name: Ambil liga dunia (TheSportsDB, nonaktif)
+        if: false
         run: node bola-live/scripts/world.mjs
         continue-on-error: true
         env:
