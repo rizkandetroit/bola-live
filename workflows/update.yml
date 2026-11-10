@@ -1,0 +1,61 @@
+name: Update dan deploy
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: read
+# false = run yang sedang deploy tidak dibatalkan di tengah jalan (pembatalan saat deploy bisa membuat Pages macet)
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Pemeriksaan awal (token dan GitHub Pages)
+        run: node bola-live/scripts/preflight.mjs
+        env:
+          FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Ambil data liga Eropa (football-data.org)
+        run: node bola-live/scripts/update.mjs
+        env:
+          FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
+      - name: Ambil SEMUA liga (API-Football, jadwal dan skor)
+        run: node bola-live/scripts/all.mjs
+        continue-on-error: true
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      # TheSportsDB gratis terbukti hanya mengirim potongan kecil musim (tidak berguna), jadi dimatikan.
+      # Untuk mengaktifkan lagi (mis. setelah berlangganan), hapus baris "if: false".
+      - name: Ambil liga dunia (TheSportsDB, nonaktif)
+        if: false
+        run: node bola-live/scripts/world.mjs
+        continue-on-error: true
+        env:
+          TSDB_KEY: ${{ secrets.TSDB_KEY }}
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: bola-live/site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
