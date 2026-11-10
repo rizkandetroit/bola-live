@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-t="siang">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -87,12 +87,12 @@ input[type=search]{min-width:160px;flex:1;max-width:240px}
 <body>
 <div class="w" id="app">
 <div class="hd"><div><h1>Bola live</h1><div class="sub"><i class="dot" id="dot"></i><span id="up">Memuat data...</span></div></div>
-<div class="nvb"><div class="seg" id="nv" aria-label="Halaman"><button data-n="j">Jadwal</button><button data-n="e">Evaluasi</button></div><div class="seg" id="th" aria-label="Tema"><button data-t="malam">Malam</button><button data-t="siang">Siang</button><button data-t="stadion">Stadion</button></div></div></div>
+<div class="nvb"><div class="seg" id="nv" aria-label="Halaman"><button data-n="j">Jadwal</button><button data-n="e">Evaluasi</button></div></div></div>
 <div id="v-j"><div class="kpi" id="kpi"></div>
 <h2>8 pilihan teratas (laga yang akan tayang)</h2><div class="hero" id="hero"></div>
 <h2 id="wk">Jadwal dan hasil</h2>
-<div class="ctl" id="lg"></div><div class="ctl" id="dy"></div>
-<div class="ctl"><div class="seg" id="st"></div><select id="so" aria-label="Urutan"><option value="jam">Urut jam tayang</option><option value="kuat">Urut keunggulan</option></select><input type="search" id="q" placeholder="Cari tim"><div class="seg" id="vw" style="margin-left:auto"><button data-v="card">Kartu</button><button data-v="tabel">Tabel</button></div></div>
+<div class="ctl" id="lg"></div>
+<div class="ctl"><div class="seg" id="st"></div><div class="seg" id="vw" style="margin-left:auto"><button data-v="card">Kartu</button><button data-v="tabel">Tabel</button></div></div>
 <div id="list"></div></div><div id="v-e" hidden></div>
 <p class="ex">Peluang dihitung dari hasil semua laga musim ini (serangan dan pertahanan kandang/tandang, laga terbaru lebih berbobot) dengan model Poisson yang digabung dengan rating Elo (70/30), lalu ditarik sedikit ke frekuensi hasil liga (kalibrasi) supaya tidak terlalu percaya diri. Prediksi laga yang sudah selesai dihitung ulang hanya dari hasil sebelum laga itu. Cedera, susunan pemain, dan skor live belum diperhitungkan, dan skor paket gratis bisa terlambat. Liga di luar lima liga besar (misalnya Indonesia) memakai data komunitas TheSportsDB: klasemen dihitung dari hasil laga, datanya bisa telat atau kurang lengkap, dan peluangnya lebih kasar. Ini perkiraan statistik, bukan jaminan hasil.</p>
 </div>
@@ -103,9 +103,9 @@ var TZ="Asia/Makassar",tf=new Intl.DateTimeFormat("id-ID",{timeZone:TZ,hour:"2-d
 dkf=new Intl.DateTimeFormat("en-CA",{timeZone:TZ}),
 dnf=new Intl.DateTimeFormat("id-ID",{timeZone:TZ,weekday:"long",day:"numeric",month:"long"});
 var LV={"Sangat kuat":4,"Kuat":3,"Sedang":2,"Tipis":1};
-var OPEN={},S={dy:"all",lg:"Semua",st:"all",so:"jam",q:"",v:"card",t:"malam"},D=null,DEMO=false;
-try{var sv=JSON.parse(localStorage.getItem("bl")||"{}");if(sv.v)S.v=sv.v;if(sv.t)S.t=sv.t}catch(e){}
-function save(){try{localStorage.setItem("bl",JSON.stringify({v:S.v,t:S.t}))}catch(e){}}
+var OPEN={},S={lg:"Semua",st:"NS",so:"jam",q:"",v:"card",t:"siang"},D=null,DEMO=false;
+try{var sv=JSON.parse(localStorage.getItem("bl")||"{}");if(sv.v)S.v=sv.v}catch(e){}
+function save(){try{localStorage.setItem("bl",JSON.stringify({v:S.v}))}catch(e){}}
 function pk(x){return x.pick==="h"?x.home:x.away}
 function t(x){return tf.format(new Date(x.utc))}
 function pb(x){if(x.np)return"";return '<div class="pb"><i class="h" style="width:'+x.p.h+'%"></i><i class="d" style="width:'+x.p.d+'%"></i><i class="a" style="width:'+x.p.a+'%"></i></div><div class="pl"><span class="h">'+x.p.h.toFixed(0)+'%</span><span class="d">Seri '+x.p.d.toFixed(0)+'%</span><span class="a">'+x.p.a.toFixed(0)+'%</span></div>'}
@@ -196,7 +196,6 @@ function catHtml(q){
   return '<p class="cap">Liga di katalog TheSportsDB yang cocok: '+hit.map(function(c){return esc(c.n)+(tr.indexOf(c.n.toLowerCase())>-1?" (dilacak)":" (belum dilacak)")}).join(", ")+'. Untuk melacak liga baru, tambahkan namanya ke scripts/world-leagues.json di repositori.</p>'}
 function draw(){
   document.documentElement.dataset.t=S.t;
-  [].forEach.call(document.querySelectorAll("#th button"),function(b){b.className=b.dataset.t===S.t?"on":""});
   [].forEach.call(document.querySelectorAll("#vw button"),function(b){b.className=b.dataset.v===S.v?"on":""});
   var M=D.matches,open=M.filter(function(x){return x.status!=="FT"&&!x.np&&!x.est}),live=M.filter(function(x){return x.status==="LIVE"}).length;
   var strong=open.filter(function(x){return x.edge>=20}).length,avg=open.length?open.reduce(function(a,x){return a+x.edge},0)/open.length:0;
@@ -206,29 +205,23 @@ function draw(){
   var lgs=["Semua"].concat(Array.from(new Set(M.map(function(x){return x.league}))).sort(function(a,b){return a.localeCompare(b)}));
   if(lgs.indexOf(S.lg)<0)S.lg="Semua";
   if(lgs.length>9)$("#lg").innerHTML='<select id="lgs" aria-label="Liga">'+lgs.map(function(l){return'<option value="'+esc(l)+'"'+(l===S.lg?" selected":"")+'>'+esc(l==="Semua"?"Semua liga":l)+'</option>'}).join("")+'</select>';else chips("#lg",lgs.map(function(l){return[l,l]}),"lg");
-  chips("#st",[["all","Semua"],["LIVE","Live"],["NS","Akan tayang"],["FT","Selesai"]],"st");
+  chips("#st",[["NS","Akan Tayang"],["LIVE","Live"],["FT","Selesai"]],"st");
   var dks=Array.from(new Set(M.map(function(x){return dkf.format(new Date(x.utc))}))).sort(),td=dkf.format(new Date());
-  if(S.dy!=="all"&&dks.indexOf(S.dy)<0)S.dy="all";
-  var dsf=new Intl.DateTimeFormat("id-ID",{timeZone:TZ,weekday:"short",day:"numeric"});
-  chips("#dy",[["all","Semua hari"]].concat(dks.map(function(k){return[k,k===td?"Hari ini":dsf.format(new Date(k+"T06:00:00Z"))]})),"dy");
   if(D.week){var wf=new Intl.DateTimeFormat("id-ID",{timeZone:"UTC",day:"numeric",month:"short"});$("#wk").textContent="Jadwal dan hasil ("+wf.format(new Date(D.week[0]+"T12:00:00Z"))+" sampai "+wf.format(new Date(D.week[1]+"T12:00:00Z"))+")"}
-  $("#so").value=S.so;
   var q=S.q.trim().toLowerCase();
-  var L=M.filter(function(x){return(S.lg==="Semua"||x.league===S.lg)&&(S.dy==="all"||dkf.format(new Date(x.utc))===S.dy)&&(S.st==="all"||x.status===S.st)&&(!q||(x.home.name+" "+x.away.name+" "+x.league).toLowerCase().indexOf(q)>-1)});
+  var L=M.filter(function(x){return(S.lg==="Semua"||x.league===S.lg)&&x.status===S.st&&(!q||(x.home.name+" "+x.away.name+" "+x.league).toLowerCase().indexOf(q)>-1)});
   L.sort(S.so==="jam"?function(a,b){return a.utc.localeCompare(b.utc)}:function(a,b){return(b.edge||0)-(a.edge||0)});
   var groups={},order=[];L.forEach(function(x){var k=dkf.format(new Date(x.utc));if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(x)});
-  var h=catHtml(q)+(D.extra?'<p class="cap">Belum ada laga yang akan tayang dalam 7 hari ke depan. Menampilkan hari laga berikutnya.</p>':"");order.sort().forEach(function(k){
+  var h=catHtml(q)+(D.extra?'<p class="cap">Belum ada laga yang akan tayang pada sisa bulan ini. Menampilkan hari laga berikutnya.</p>':"");order.sort().forEach(function(k){
     h+='<div class="day">'+dnf.format(new Date(groups[k][0].utc))+(k===td?" (hari ini)":"")+'</div>';
     h+=S.v==="card"?'<div class="g">'+groups[k].map(function(x){return card(x)}).join("")+'</div>':'<div class="ov"><div class="tb">'+groups[k].map(row).join("")+'</div></div>'});
-  $("#list").innerHTML=h||'<div class="em">Tidak ada pertandingan yang cocok. Ubah filter atau kata pencarian.</div>';
+  $("#list").innerHTML=h||'<div class="em">Tidak ada pertandingan pada tab ini.</div>';
   stamp();
 }
 document.addEventListener("toggle",function(e){var t=e.target;if(t.classList&&t.classList.contains("why")){if(t.open)OPEN[t.dataset.id]=1;else delete OPEN[t.dataset.id]}},true);
 document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.dataset.n){nav(b.dataset.n);return}if(!D)return;
-  if(b.dataset.t){S.t=b.dataset.t;save()}else if(b.dataset.v){S.v=b.dataset.v;save()}else if(b.dataset.k){S[b.dataset.k]=b.dataset.val}else return;draw()});
+  if(b.dataset.v){S.v=b.dataset.v;save()}else if(b.dataset.k){S[b.dataset.k]=b.dataset.val}else return;draw()});
 document.addEventListener("change",function(e){if(e.target.id==="lgs"){S.lg=e.target.value;draw()}});
-$("#so").addEventListener("change",function(e){S.so=e.target.value;draw()});
-$("#q").addEventListener("input",function(e){S.q=e.target.value;draw()});
 function demo(){
   var n=Date.now(),T=function(h){return new Date(n+h*36e5).toISOString()};
   function sd(nm,pos,pts){var el=1400+pts*12;var w=Math.floor(pts/3),d=pts%3,l=12-w-d,gf=Math.round(pts*.9)+8,ga=Math.round((40-pts)*.5)+7;return{name:nm,pos:pos,pts:pts,gp:12,gf:gf,ga:ga,w:w,d:d,l:l,elo:el,f:{l5:"MMSKM",t:{w:6,d:2,l:2,gf:15,ga:9,cs:3,n:10},v:{w:3,d:1,l:1,gf:8,ga:4,n:5}},sp:{gp:6,w:Math.round(w/2),d:d>0?1:0,l:Math.max(0,6-Math.round(w/2)-(d>0?1:0)),gf:Math.round(gf/2),ga:Math.round(ga/2)}}}
