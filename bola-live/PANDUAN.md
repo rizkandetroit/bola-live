@@ -5,6 +5,7 @@ Di akar repositori ada dua hal: folder `.github/workflows/` (berisi `update.yml`
 (berisi `scripts/`, `site/`, `PANDUAN.md`, `README.md`). Semua path di workflow sudah memakai awalan `bola-live/`.
 
 ## Isi (semua gratis)
+- **Jadwal liga football-data.org: satu bulan penuh.** Skrip menampilkan seluruh laga bulan berjalan (tanggal 1 sampai akhir bulan, waktu WITA), baik yang sudah selesai maupun yang akan tayang. Tidak ada permintaan tambahan ke API karena satu permintaan sudah memuat satu musim. Ganti bulan terjadi otomatis. Liga API-Football tetap dibatasi paket gratisnya (kemarin sampai besok).
 - **10 liga dengan prediksi** (football-data.org): Premier League, Serie A, Bundesliga, La Liga, Ligue 1, Champions League, Eredivisie,
   Primeira Liga, Championship, Brasileirão. Yang di luar paket akun Anda (HTTP 403) dilewati otomatis.
 - **Semua liga lainnya** (API-Football, paket gratis 100 permintaan per hari): jadwal dan skor. Diambil per tanggal (satu permintaan =
