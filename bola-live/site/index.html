@@ -81,19 +81,20 @@ input[type=search]{min-width:160px;flex:1;max-width:240px}
 .cap{color:var(--mut);font-size:12.5px}.good{color:var(--ok);font-weight:600}.warn{color:var(--gold);font-weight:600}
 .ex{color:var(--mut);font-size:12.5px;margin-top:26px;max-width:80ch}
 .em{padding:26px;text-align:center;color:var(--mut)}
+.pitchgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}.pitchcard{background:var(--pn);border:1px solid var(--ln);border-radius:var(--r);padding:14px}.pitchhead{display:flex;justify-content:space-between;gap:8px;color:var(--mut);font-size:12px}.pitchteams{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin:12px 0}.pitchteams b:last-child{text-align:right}.formation{display:flex;justify-content:space-between;gap:8px;margin:8px 0;color:var(--H);font-weight:700}.lineupcols{display:grid;grid-template-columns:1fr 1fr;gap:10px}.lineupcols h3{font-size:13px;margin:6px 0}.players{font-size:12px;color:var(--mut);line-height:1.65}.players b{color:var(--ink)}.pitchmetrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}.metric{background:var(--pn2);padding:8px;border-radius:7px}.metric b{display:block;font:700 19px var(--hd)}.metric span{font-size:11px;color:var(--mut)}.pitchnote{font-size:12px;color:var(--mut);margin-top:8px}.pitchfield{background:linear-gradient(90deg,#145b3b,#1c754a);border:1px solid #6ab78a;border-radius:8px;padding:8px;color:#fff;margin-top:8px}.pitchfield .lineupcols{gap:4px}.pitchfield .players{color:#e4f5e9}.pitchfield .players b{color:#fff}
 @media(max-width:720px){.kpi{grid-template-columns:repeat(2,minmax(0,1fr))}h1{font-size:25px}.g{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="w" id="app">
 <div class="hd"><div><h1>Bola live</h1><div class="sub"><i class="dot" id="dot"></i><span id="up">Memuat data...</span></div></div>
-<div class="nvb"><div class="seg" id="nv" aria-label="Halaman"><button data-n="j">Jadwal</button><button data-n="e">Evaluasi</button></div></div></div>
+<div class="nvb"><div class="seg" id="nv" aria-label="Halaman"><button data-n="j">Jadwal</button><button data-n="e">Evaluasi</button><button data-n="p">Skuad &amp; Analitik</button></div></div></div>
 <div id="v-j"><div class="kpi" id="kpi"></div>
 <h2>8 pilihan teratas (laga yang akan tayang)</h2><div class="hero" id="hero"></div>
 <h2 id="wk">Jadwal dan hasil</h2>
 <div class="ctl" id="lg"></div>
 <div class="ctl"><div class="seg" id="st"></div><div class="seg" id="vw" style="margin-left:auto"><button data-v="card">Kartu</button><button data-v="tabel">Tabel</button></div></div>
-<div id="list"></div></div><div id="v-e" hidden></div>
+<div id="list"></div></div><div id="v-e" hidden></div><div id="v-p" hidden><h2>Line-up, formasi &amp; analitik pertandingan</h2><p class="cap">Data PitchAPI. Susunan pemain dapat berupa prediksi sebelum kick-off; periksa status konfirmasi pada masing-masing tim.</p><div id="pitch-list"><div class="em">Memuat data PitchAPI...</div></div></div>
 <p class="ex">Peluang dihitung dari hasil semua laga musim ini (serangan dan pertahanan kandang/tandang, laga terbaru lebih berbobot) dengan model Poisson yang digabung dengan rating Elo (70/30), lalu ditarik sedikit ke frekuensi hasil liga (kalibrasi) supaya tidak terlalu percaya diri. Prediksi laga yang sudah selesai dihitung ulang hanya dari hasil sebelum laga itu. Cedera, susunan pemain, dan skor live belum diperhitungkan, dan skor paket gratis bisa terlambat. Liga di luar lima liga besar (misalnya Indonesia) memakai data komunitas TheSportsDB: klasemen dihitung dari hasil laga, datanya bisa telat atau kurang lengkap, dan peluangnya lebih kasar. Ini perkiraan statistik, bukan jaminan hasil.</p>
 </div>
 <script>
@@ -103,7 +104,7 @@ var TZ="Asia/Makassar",tf=new Intl.DateTimeFormat("id-ID",{timeZone:TZ,hour:"2-d
 dkf=new Intl.DateTimeFormat("en-CA",{timeZone:TZ}),
 dnf=new Intl.DateTimeFormat("id-ID",{timeZone:TZ,weekday:"long",day:"numeric",month:"long"});
 var LV={"Sangat kuat":4,"Kuat":3,"Sedang":2,"Tipis":1};
-var OPEN={},S={lg:"Semua",st:"NS",so:"jam",q:"",v:"card",t:"siang"},D=null,DEMO=false;
+var PITCH=null,OPEN={},S={lg:"Semua",st:"NS",so:"jam",q:"",v:"card",t:"siang"},D=null,DEMO=false;
 try{var sv=JSON.parse(localStorage.getItem("bl")||"{}");if(sv.v)S.v=sv.v}catch(e){}
 function save(){try{localStorage.setItem("bl",JSON.stringify({v:S.v}))}catch(e){}}
 function pk(x){return x.pick==="h"?x.home:x.away}
@@ -181,7 +182,13 @@ function renderEval(){
   if(l&&l.n){h+=verdict(l)+mtab(l)+(l.n<100?'<p class="warn">Baru '+l.n+' laga. Jangan menyimpulkan apa pun sebelum minimal sekitar 100 laga.</p>':"")}else h+='<p class="cap">Belum ada laga yang selesai dinilai.</p>';
   h+='<p class="cap">Prediksi menunggu hasil: '+((l&&l.pending)||0)+' laga. Diperbarui '+tf.format(new Date(EV.updated))+' WITA.</p></div>';el.innerHTML=h}
 function loadEval(){fetch("eval.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){EV=j;renderEval()}).catch(function(){renderEval()})}
-function nav(v){VIEW=v;$("#v-j").hidden=v!=="j";$("#v-e").hidden=v!=="e";[].forEach.call(document.querySelectorAll("#nv button"),function(b){b.className=b.dataset.n===v?"on":""});if(v==="e")loadEval()}
+function nav(v){VIEW=v;$("#v-j").hidden=v!=="j";$("#v-e").hidden=v!=="e";$("#v-p").hidden=v!=="p";[].forEach.call(document.querySelectorAll("#nv button"),function(b){b.className=b.dataset.n===v?"on":""});if(v==="e")loadEval();if(v==="p")loadPitch()}
+function fmtMetric(v){return v==null||v===""?"—":typeof v==="number"?v.toFixed(2):String(v)}
+function lineupSide(side){if(!side)return'<div class="players">Data line-up belum tersedia.</div>';var starters=side.starters||[],subs=side.subs||[];return '<div><div class="formation">'+esc(side.formation||"Formasi —")+' <span class="tag">'+(side.confirmed?'Terkonfirmasi':'Prediksi')+'</span></div>'+(side.coach&&side.coach.name?'<div class="players">Pelatih: '+esc(side.coach.name)+'</div>':'')+'<div class="players">'+starters.map(function(p,i){return '<div><b>'+(p.shirt_number?esc(p.shirt_number)+'. ':'')+esc(p.name||'Pemain')+'</b>'+(p.is_captain?' ©':'')+'</div>'}).join('')+'</div><h3>Cadangan ('+subs.length+')</h3><div class="players">'+subs.map(function(p){return esc(p.shirt_number? p.shirt_number+'. ':'')+esc(p.name||'Pemain')}).join(' · ')+'</div></div>'}
+function pitchCard(m){var d=PITCH.details&&PITCH.details[m.id]||{},l=d.lineups||{},home=l.home||null,away=l.away||null,ad=d.advanced&&d.advanced.teams||[],st=d.stats&&d.stats.periods||[],all=st.find(function(x){return x.period==='All'}),groups=all&&all.groups||[];function findStat(rx){for(var i=0;i<groups.length;i++){var g=groups[i];for(var j=0;j<(g.statistics||[]).length;j++){var q=g.statistics[j];if(rx.test(q.name||q.type||''))return q}}return null}var xgh=null,xga=null;if(d.shots&&d.shots.periods&&ad.length>=2){var hs=ad[0].team&&ad[0].team.id,as=ad[1].team&&ad[1].team.id;xgh=0;xga=0;d.shots.periods.forEach(function(period){(period.shots||[]).forEach(function(sh){if(sh.team_id===hs&&sh.expected_goals!=null)xgh+=sh.expected_goals;else if(sh.team_id===as&&sh.expected_goals!=null)xga+=sh.expected_goals})})}var kickoff=m.time_utc?tf.format(new Date(m.time_utc))+' WITA':'Waktu belum tersedia';var status=m.status==='finished'?'Selesai':m.status==='started'?'Live':'Akan datang';var score=m.score_home==null?'vs':m.score_home+' - '+m.score_away;var metrics=ad.length>=2?'<div class="pitchmetrics">'+[['xG',xgh==null?null:xgh.toFixed(2),xga==null?null:xga.toFixed(2)],['xT',ad[0].possession_value&&ad[0].possession_value.xt_total,ad[1].possession_value&&ad[1].possession_value.xt_total],['PPDA',ad[0].defending&&ad[0].defending.ppda,ad[1].defending&&ad[1].defending.ppda],['Field tilt',ad[0].territory&&ad[0].territory.field_tilt,ad[1].territory&&ad[1].territory.field_tilt],['VAEP',ad[0].possession_value&&ad[0].possession_value.vaep_total,ad[1].possession_value&&ad[1].possession_value.vaep_total]].map(function(q){return '<div class="metric"><b>'+fmtMetric(q[1])+' <span style="font-size:12px">/</span> '+fmtMetric(q[2])+'</b><span>'+q[0]+' · kandang / tandang</span></div>'}).join('')+'</div>':'';var lineups=(home||away)?'<div class="lineupcols">'+lineupSide(home)+lineupSide(away)+'</div>':'<div class="pitchnote">Line-up belum tersedia dari penyedia data.</div>';return '<article class="pitchcard"><div class="pitchhead"><span>'+esc(m.league&&m.league.name||'Kompetisi')+'</span><span>'+status+' · '+kickoff+'</span></div><div class="pitchteams"><b>'+esc(m.home_team&&m.home_team.name||'Home')+'</b><strong>'+score+'</strong><b>'+esc(m.away_team&&m.away_team.name||'Away')+'</b></div>'+lineups+metrics+(d.shots&&d.shots.periods?'<div class="pitchnote">Data tembakan tersedia: '+d.shots.periods.reduce(function(n,p){return n+(p.shots||[]).length},0)+' tembakan.</div>':'')+'</article>'}
+function loadPitch(){if(PITCH){renderPitch();return}fetch('pitch.json?'+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){PITCH=j;renderPitch()}).catch(function(){$('#pitch-list').innerHTML='<div class="em">Data PitchAPI belum tersedia. Pastikan secret PITCHAPI_KEY tersimpan di GitHub Actions dan workflow sudah berjalan.</div>'})}
+function renderPitch(){if(!PITCH)return;var arr=(PITCH.fixtures||[]).filter(function(m){return m.status!=='finished'||PITCH.details&&PITCH.details[m.id]});arr.sort(function(a,b){return String(a.time_utc).localeCompare(String(b.time_utc))});$('#pitch-list').innerHTML='<p class="cap">Diperbarui '+tf.format(new Date(PITCH.updated))+' WITA · '+arr.length+' pertandingan · '+(PITCH.coverage&&PITCH.coverage.upcoming||0)+' line-up diproses · '+(PITCH.coverage&&PITCH.coverage.played||0)+' laga dengan analitik</p><div class="pitchgrid">'+arr.map(pitchCard).join('')+'</div>'+(PITCH.errors&&PITCH.errors.length?'<p class="warn">Sebagian tanggal gagal dimuat: '+PITCH.errors.map(esc).join(' · ')+'</p>':'')}
+
 function stamp(){
   var age=(Date.now()-new Date(D.updated))/6e4;
   $("#dot").className="dot"+(age>45?" old":"");
@@ -233,7 +240,7 @@ function load(){Promise.all([fj("data.json"),fj("world.json").catch(function(){r
   if(w&&w.matches){j.matches=j.matches.concat(w.matches);j.worldInfo=w;j.errors=(j.errors||[]).concat((w.errors||[]).map(function(e){return"dunia "+e}))}
   if(al&&al.matches){j.matches=j.matches.concat(al.matches);j.allInfo=al;j.errors=(j.errors||[]).concat((al.errors||[]).map(function(e){return"semua liga "+e}))}
   j.key=key;D=j;DEMO=false;same?stamp():draw()}).catch(function(){if(!D){D=demo();DEMO=true;draw()}})}
-nav("j");load();setInterval(load,60000);
+nav("j");load();setInterval(load,60000);setInterval(function(){if(VIEW==="p"){PITCH=null;loadPitch()}},300000);
 </script>
 </body>
 </html>
