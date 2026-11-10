@@ -49,6 +49,8 @@ jobs:
           PITCH_FUTURE_DAYS: 31
           V10_SIM_ODDS: 2.00
           V10_SIM_MIN_PROB: 0.55
+          V10_HEADLINE: lite
+          V10_MIN_XG_GAMES: 3
       # TheSportsDB gratis terbukti hanya mengirim potongan kecil musim (tidak berguna), jadi dimatikan.
       # Untuk mengaktifkan lagi (mis. setelah berlangganan), hapus baris "if: false".
       - name: Ambil liga dunia (TheSportsDB, nonaktif)

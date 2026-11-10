@@ -17,5 +17,8 @@ jobs:
       - run: node bola-live/scripts/test-world.mjs
       - run: node bola-live/scripts/test-all.mjs
       - run: node bola-live/scripts/test-pred.mjs
+      - run: node bola-live/scripts/test-lite.mjs
+      - run: node bola-live/scripts/test-ui.mjs
       - run: node bola-live/scripts/test-ci.mjs
       - run: node bola-live/scripts/test-pitch.mjs
+      - run: node bola-live/scripts/test-intelligence.mjs
