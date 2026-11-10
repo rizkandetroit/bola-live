@@ -10,6 +10,10 @@ const MAX_LINEUPS=Math.max(1,Number(process.env.PITCH_MAX_LINEUPS||48));
 const MAX_ANALYTICS=Math.max(0,Number(process.env.PITCH_MAX_ANALYTICS||12));
 const HISTORY_PER_TEAM=Math.max(2,Number(process.env.PITCH_HISTORY_PER_TEAM||5));
 const MAX_HISTORY=Math.max(0,Number(process.env.PITCH_MAX_HISTORY_MATCHES||80));
+// Tampilan utama: 'lite' = model ringkas gol 60 + xG 25 + Elo 15 (bawaan); 'v10' = V10 penuh. Keduanya selalu dihitung dan dibandingkan di tab Evaluasi.
+const HEADLINE=process.env.V10_HEADLINE==='v10'?'v10':'lite';
+// Syarat aktivasi xG: minimal laga berdata xG per tim (bawaan 3 karena riwayat per tim di workflow hanya 4 laga).
+const MIN_XG=Math.max(1,Number(process.env.V10_MIN_XG_GAMES||3));
 const FUTURE_DAYS=Math.max(7,Number(process.env.PITCH_FUTURE_DAYS||31));
 const now=Date.now(),day=t=>new Date(t).toISOString().slice(0,10),add=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*864e5).toISOString().slice(0,10);
 let lastRequest=0;
@@ -91,17 +95,17 @@ try{const d=JSON.parse(readFileSync(join(dir,'data.json'),'utf8'));calibration=N
 const patched={};
 for(const name of ['data.json','all.json','world.json']){
  const path=join(dir,name);if(!existsSync(path))continue;
- patched[name]=applyV10ToSiteFile(path,allSchedule,details,profiles,calibration);
+ patched[name]=applyV10ToSiteFile(path,allSchedule,details,profiles,calibration,{headline:HEADLINE,minXgGames:MIN_XG});
 }
 
-const bt=backtestV10(historyFixtures,details,{minGames:3,odds:Number(process.env.V10_SIM_ODDS||2),minProb:Number(process.env.V10_SIM_MIN_PROB||.55)});
+const bt=backtestV10(historyFixtures,details,{minGames:3,odds:Number(process.env.V10_SIM_ODDS||2),minProb:Number(process.env.V10_SIM_MIN_PROB||.55),minXgGames:MIN_XG});
 let evalData={};try{evalData=JSON.parse(readFileSync(join(dir,'eval.json'),'utf8'))}catch{}
 evalData.v10Comparison=bt;evalData.v10Comparison.updated=new Date().toISOString();
 writeFileSync(join(dir,'eval.json'),JSON.stringify(evalData));
 
 const out={
  updated:new Date(now).toISOString(),source:'PitchAPI',fixtures:uniq,schedule:schedule.slice(0,500),details,intelligence,
- coverage:{dates,upcoming:lineupSet.size,played:datePlayed.length,history:historyFixtures.length,teams:targetTeams.size,activeLeagues:leagueIds.length,maxLineups:MAX_LINEUPS,maxAnalytics:MAX_ANALYTICS,maxHistory:MAX_HISTORY,historyPerTeam:HISTORY_PER_TEAM,patched},
+ coverage:{dates,upcoming:lineupSet.size,played:datePlayed.length,history:historyFixtures.length,teams:targetTeams.size,activeLeagues:leagueIds.length,maxLineups:MAX_LINEUPS,maxAnalytics:MAX_ANALYTICS,maxHistory:MAX_HISTORY,historyPerTeam:HISTORY_PER_TEAM,headline:HEADLINE,minXgGames:MIN_XG,patched},
  errors:[...errors,...scheduleErrors]
 };
 writeFileSync(join(dir,'pitch.json'),JSON.stringify(out));

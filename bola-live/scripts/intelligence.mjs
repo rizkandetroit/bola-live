@@ -120,6 +120,8 @@ export function buildTeamProfiles(fixtures,details,asOf=Date.now(),maxMatches=6)
     const recs=all.slice(0,maxMatches),player=playerForm(recs);
     const lineups=recs.filter(r=>r.starters.length);
     const profile={id,n:recs.length,
+      // jumlah laga yang punya xG untuk dan xG lawan sekaligus (syarat aktivasi komponen xG)
+      xgN:recs.filter(r=>num(r.xgFor)!==null&&num(r.xgAgainst)!==null).length,
       xgFor:weighted(recs,'xgFor'),xgAgainst:weighted(recs,'xgAgainst'),
       ppda:weighted(recs,'ppda'),fieldTilt:weighted(recs,'fieldTilt'),possession:weighted(recs,'possession'),
       xt:weighted(recs,'xt'),vaep:weighted(recs,'vaep'),
@@ -244,6 +246,47 @@ export function predictV10(base,context,options={}){
     tactical:context?.tactical||null,reasons,coverage:context?.coverage||null,calibrationLambda:lam
   };
 }
+
+// ---------- Model ringkas: Poisson-gol 60% + Poisson-xG 25% + Elo 15% ----------
+// Bila xG belum cukup (kurang dari minXgGames laga berdata xG per tim), komponen xG dilewati dan bobot kembali ke gol 70% + Elo 30%.
+// Line-up, performa, dan taktik TIDAK ikut menjadi pengali di model ini; catatan skuad hanya teks di dashboard.
+const LITE_W={withXg:{poisson:.60,xg:.25,elo:.15},plain:{poisson:.70,elo:.30}};
+const r2=v=>v===null||v===undefined||!Number.isFinite(Number(v))?null:Math.round(Number(v)*100)/100;
+export function predictLite(base,context,options={}){
+  const raw=base?.raw||base?.poisson||{h:base?.h,d:base?.d,a:base?.a};
+  const poissonP=[num(raw?.h),num(raw?.d),num(raw?.a)];
+  if(poissonP.some(v=>v===null))return null;
+  const elo=base?.pe||base?.elo||null,eloP=elo?[num(elo.h),num(elo.d),num(elo.a)]:null;
+  const minXg=Math.max(1,Math.round(num(options.minXgGames)??3));
+  const H=context?.teams?.home||{},A=context?.teams?.away||{},hp=H.profile||null,ap=A.profile||null;
+  const xgh=hp&&ap&&num(hp.xgFor)!==null&&num(ap.xgAgainst)!==null?(hp.xgFor+ap.xgAgainst)/2:null;
+  const xga=hp&&ap&&num(ap.xgFor)!==null&&num(hp.xgAgainst)!==null?(ap.xgFor+hp.xgAgainst)/2:null;
+  const hn=hp?.xgN||0,an=ap?.xgN||0;
+  const xgOn=xgh!==null&&xga!==null&&hn>=minXg&&an>=minXg;
+  const xgP=xgOn?probsFromRate(xgh*1.06,xga):null;
+  const W=xgOn?LITE_W.withXg:LITE_W.plain;
+  const cand={poisson:poissonP,xg:xgP,elo:eloP};
+  const actual=Object.entries(cand).filter(([k,v])=>W[k]&&v&&v.every(x=>x!==null&&Number.isFinite(x)));
+  const total=actual.reduce((s,[k])=>s+W[k],0)||1,weights={},blended=[0,0,0];
+  for(const [k,v] of actual){const w=W[k]/total;weights[k]=r1(w*100);for(let i=0;i<3;i++)blended[i]+=v[i]*w}
+  const fr=base?.fr||null,lam=clamp(num(options.lambda)??.075,0,.5),calibrated=fr?shrink(blended,fr,lam):blended;
+  const s=calibrated.reduce((a,b)=>a+b,0)||100;
+  const h=r1(calibrated[0]/s*100),d=r1(calibrated[1]/s*100),a=r1(100-h-d);
+  // skor, over/under, BTTS: Poisson dari rata-rata gol model, dicampur xG hanya bila xG aktif
+  const baseGoals=base?.xg||base?.lambda||[1.35,1.15];
+  const gH=num(baseGoals[0])??1.35,gA=num(baseGoals[1])??1.15;
+  const lamH=clamp(xgOn?.72*gH+.28*xgh:gH,.2,4.5),lamA=clamp(xgOn?.72*gA+.28*xga:gA,.2,4.5),goals=scoreDist(lamH,lamA);
+  let reason;
+  if(xgOn)reason='Model gabungan: Poisson-gol 60%, Poisson-xG 25%, Elo 15% (xG dari '+hn+' dan '+an+' laga terakhir).';
+  else if(!hp||!ap)reason='xG belum cukup data (tidak ada profil xG tim untuk laga ini); prediksi memakai gol + Elo saja.';
+  else reason='xG belum cukup data ('+hn+' laga tuan rumah dan '+an+' laga tamu berdata xG, minimal '+minXg+'); prediksi memakai gol + Elo saja.';
+  return{
+    engine:'ringkas',h,d,a,raw:{h:poissonP[0],d:poissonP[1],a:poissonP[2]},
+    components:Object.fromEntries(actual.map(([k,v])=>[k,v.map(x=>r1(x))])),weights,xgOn,minXgGames:minXg,
+    xg:{home:{for:r2(hp?.xgFor),against:r2(hp?.xgAgainst),n:hn},away:{for:r2(ap?.xgFor),against:r2(ap?.xgAgainst),n:an}},
+    lambda:[r1(lamH),r1(lamA)],ms:goals.ms,sc5:goals.sc5,ou:goals.ou,bt:goals.bt,reason,calibrationLambda:lam
+  };
+}
 function metric(rows,key,odds=2,minProb=.55){
   const n=rows.length;if(!n)return{n:0,acc:null,brier:null,ll:null,roi:null,profit:null,staked:0,bets:0};
   let hit=0,brier=0,ll=0,profit=0,staked=0,bets=0;
@@ -270,20 +313,25 @@ export function backtestV10(fixtures,details,options={}){
     if(hg<minGames||ag<minGames)continue;
     const ms=old.map(x=>({t:matchTime(x),h:teamId(x,'home'),a:teamId(x,'away'),gh:num(x.score_home),ga:num(x.score_away)}));
     const model=fit(ms,t),p=predictM(model,hid,aid),base=pcts(p);
-    const fr=p.fr,lam9=bestLambda(previous,'v9base'),lam10=bestLambda(previous,'v10base');
+    const fr=p.fr,lam9=bestLambda(previous,'v9base'),lam10=bestLambda(previous,'v10base'),lamL=bestLambda(previous,'litebase');
     const ctx=buildMatchContext(m,detailOf(details,m.id),buildTeamProfiles(ordered,details,t,6));
     const v10raw=predictV10({raw:{h:p.h,d:p.d,a:p.a},pe:p.pe,xg:p.xg,fr,lam:0.075},{...ctx},{lambda:0});
     const v10=shrink([v10raw.h,v10raw.d,v10raw.a],fr,lam10);
+    const liteRaw=predictLite({raw:{h:p.h,d:p.d,a:p.a},pe:p.pe,xg:p.xg,fr},ctx,{lambda:0,minXgGames:options.minXgGames});
+    const lite=liteRaw?shrink([liteRaw.h,liteRaw.d,liteRaw.a],fr,lamL):shrink(base.pb,fr,lam9);
     const v8=[p.h,p.d,p.a],v9=shrink(base.pb,fr,lam9);
-    const result={t,o:num(m.score_home)>num(m.score_away)?0:num(m.score_home)===num(m.score_away)?1:2,fr,v8,v9,v10,home:sideObj(m,'home')?.name,away:sideObj(m,'away')?.name,lg:m.league?.name||m.league_name||'PitchAPI'};
-    results.push(result);previous.push({fr,v9base:base.pb,v10base:[v10raw.h,v10raw.d,v10raw.a],o:result.o});
+    const result={t,o:num(m.score_home)>num(m.score_away)?0:num(m.score_home)===num(m.score_away)?1:2,fr,v8,v9,v10,lite,xgOn:!!liteRaw?.xgOn,home:sideObj(m,'home')?.name,away:sideObj(m,'away')?.name,lg:m.league?.name||m.league_name||'PitchAPI'};
+    results.push(result);previous.push({fr,v9base:base.pb,v10base:[v10raw.h,v10raw.d,v10raw.a],litebase:liteRaw?[liteRaw.h,liteRaw.d,liteRaw.a]:base.pb,o:result.o});
   }
   const versions={
     v8:{...metric(results,'v8',odds,minProb),label:'V8 benchmark proxy (Poisson-only)',note:'Bukan kode V8 asli; dipakai sebagai baseline Poisson karena arsip V8 tidak ada di paket yang diunggah.'},
     v9:{...metric(results,'v9',odds,minProb),label:'V9 (Poisson + Elo 70/30 + kalibrasi)'},
-    v10:{...metric(results,'v10',odds,minProb),label:'V10 (fitur line-up, xG dan taktik)'}
+    v10:{...metric(results,'v10',odds,minProb),label:'V10 penuh (line-up, xG, performa, taktik)'},
+    lite:{...metric(results,'lite',odds,minProb),label:'V10-ringkas (gol 60 + xG 25 + Elo 15; tanpa xG: gol 70 + Elo 30)'}
   };
-  return{updated:new Date().toISOString(),n:results.length,minGames,simulation:{odds,minProbability:r1(minProb*100),unitStake:1,description:'Simulasi datar: taruhan 1 unit pada peluang tertinggi bila probabilitas >= ambang, dengan odds desimal asumsi. Bukan odds historis/bookmaker.'},versions,coverage:{fixtures:ordered.length,details:Object.keys(details||{}).length},results:results.slice(-200)};
+  // Penilaian terpisah hanya pada laga saat komponen xG benar-benar aktif: apakah xG membantu dibanding gol + Elo saja?
+  const xgRows=results.filter(r=>r.xgOn),xgSubset={n:xgRows.length,minGames:options.minXgGames??3,v9:metric(xgRows,'v9',odds,minProb),lite:metric(xgRows,'lite',odds,minProb),v10:metric(xgRows,'v10',odds,minProb)};
+  return{updated:new Date().toISOString(),n:results.length,minGames,simulation:{odds,minProbability:r1(minProb*100),unitStake:1,description:'Simulasi datar: taruhan 1 unit pada peluang tertinggi bila probabilitas >= ambang, dengan odds desimal asumsi. Bukan odds historis/bookmaker.'},versions,xgSubset,coverage:{fixtures:ordered.length,details:Object.keys(details||{}).length},results:results.slice(-200)};
 }
 
 export function matchFixtureForSite(match,fixtures){
@@ -292,14 +340,18 @@ export function matchFixtureForSite(match,fixtures){
   for(const f of fixtures||[]){const fh=norm(sideObj(f,'home')?.name),fa=norm(sideObj(f,'away')?.name),ft=matchTime(f);if(fh!==h||fa!==a||!Number.isFinite(ft))continue;const d=Math.abs(ft-t);if(d<delta){best=f;delta=d}}
   return delta<=6*3600e3?best:null;
 }
-export function applyV10ToSiteFile(filePath,fixtures,details,profiles,lambda=.075){
+export function applyV10ToSiteFile(filePath,fixtures,details,profiles,lambda=.075,opts={}){
+  const headline=opts.headline==='v10'?'v10':'lite',minXgGames=opts.minXgGames;
   let data;try{data=JSON.parse((awaitlessRead(filePath)))}catch{return{updated:0}}
   if(!Array.isArray(data.matches))return{updated:0};let updated=0;
   for(const m of data.matches){if(!m.p||m.status!=='NS')continue;const f=matchFixtureForSite(m,fixtures);if(!f)continue;
     const ctx=buildMatchContext(f,detailOf(details,f.id),profiles),p=m.p;
     const old={h:p.h,d:p.d,a:p.a,ou:p.ou,bt:p.bt,ms:p.ms};
     const v10=predictV10({raw:p.raw||p,pe:p.pe,xg:p.xg,fr:p.fr,lam:lambda},ctx,{lambda:lambda*.5});
+    // Model ringkas dihitung dari data awal (sebelum p.xg ditimpa) dan disimpan di samping V10 penuh agar bisa dibandingkan.
+    const lite=predictLite({raw:p.raw||p,pe:p.pe,xg:p.xg,fr:p.fr},ctx,{lambda,minXgGames});
     p.v9=p.v9||old;p.v10=v10;p.engine='V10';p.h=v10.h;p.d=v10.d;p.a=v10.a;p.xg=v10.lambda;p.ou=v10.ou;p.bt=v10.bt;p.ms=v10.ms;p.sc5=v10.sc5;
+    if(lite){p.lite=lite;if(headline==='lite'){p.engine='V10-ringkas';p.h=lite.h;p.d=lite.d;p.a=lite.a;p.xg=lite.lambda;p.ou=lite.ou;p.bt=lite.bt;p.ms=lite.ms;p.sc5=lite.sc5}}
     m.pick=p.h>=p.a?'h':'a';m.edge=r1(Math.abs(p.h-p.a));m.level=level(m.edge);updated++;
   }
   awaitlessWrite(filePath,JSON.stringify(data));return{updated};
