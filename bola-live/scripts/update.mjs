@@ -1,7 +1,7 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import {dirname} from "node:path";
-import {LEAGUES,fit,predictM,formOf,pcts,backtest,evaluate,calibrate,shrink,finalP,level,r1} from "./lib.mjs";
+import {LEAGUES,fit,predictM,formOf,pcts,backtest,evaluate,calibrate,shrink,finalP,level,r1,monthWindow} from "./lib.mjs";
 import {sleep,tfetch,cleanKey,siteBase,outDir,overDeadline,ghError,ghWarn} from "./net.mjs";
 const KEY=cleanKey(process.env.FOOTBALL_DATA_KEY);
 if(!KEY){ghError("Secret FOOTBALL_DATA_KEY kosong atau belum dibuat. Buka repo > Settings > Secrets and variables > Actions > New repository secret. Nama harus persis FOOTBALL_DATA_KEY, isi dengan token dari email football-data.org.");process.exit(1)}
@@ -46,7 +46,8 @@ async function loadHistory(){
 }
 const WITA=8*3600e3,now=Date.now();
 const day=t=>new Date(t+WITA).toISOString().slice(0,10);
-const wkA=day(now-2*864e5),wkB=day(now+7*864e5); // jendela: 2 hari lalu sampai 7 hari ke depan
+// jendela: seluruh bulan berjalan (tanggal 1 sampai akhir bulan, WITA). WINDOW=week = mode lama (2 hari lalu sampai 7 hari ke depan), dipakai tes.
+const [wkA,wkB]=process.env.WINDOW==="week"?[day(now-2*864e5),day(now+7*864e5)]:monthWindow(now,WITA);
 const nm=t=>(t.name||t.shortName||"?").replace(/\s+(FC|AFC|CF|SC)$/,"");
 const rec=r=>r?{gp:r.playedGames,w:r.won,d:r.draw,l:r.lost,gf:r.goalsFor,ga:r.goalsAgainst}:null;
 const side=(t,r,sp)=>({name:nm(t),pos:r.position,pts:r.points,gp:r.playedGames,gf:r.goalsFor,ga:r.goalsAgainst,w:r.won,d:r.draw,l:r.lost,sp:rec(sp)});

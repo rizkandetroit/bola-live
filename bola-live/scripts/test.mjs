@@ -1,6 +1,7 @@
 import {readFileSync,rmSync,writeFileSync} from "node:fs";
 import {fit,predictM,pcts,backtest,evaluate,formOf,shrink,calibrate,LEAGUES} from "./lib.mjs";
 import assert from "node:assert";
+process.env.WINDOW="week"; // tes jendela 7 hari tetap memakai mode pekan; jendela bulan diuji di bawah lewat monthWindow
 // data tiruan: 6 tim, tim 1 terkuat, tim 6 terlemah, hasil deterministik
 const t0=Date.now(),D=864e5,S={1:3,2:2.2,3:1.6,4:1.2,5:.9,6:.5};
 let seed=11;const rnd=()=>(seed=seed*16807%2147483647)/2147483647;
@@ -59,5 +60,10 @@ h=JSON.parse(readFileSync(new URL("history.json",dir)));e=JSON.parse(readFileSyn
 assert.deepEqual(h.find(x=>x.id===1).r,[2,0]);assert.equal(e.live.n,1);assert.equal(e.live.pending,1);
 d=JSON.parse(readFileSync(new URL("data.json",dir)));
 assert(d.extra&&d.matches.some(x=>x.id===3&&x.status==="NS")&&!d.matches.some(x=>x.id===6),"hari laga berikutnya");
+{const {monthWindow:mw}=await import("./lib.mjs");
+assert.deepEqual(mw(Date.parse("2026-11-10T00:00:00Z")),["2026-11-01","2026-11-30"],"November 30 hari");
+assert.deepEqual(mw(Date.parse("2028-02-15T00:00:00Z")),["2028-02-01","2028-02-29"],"Februari kabisat");
+assert.deepEqual(mw(Date.parse("2026-12-31T20:00:00Z")),["2027-01-01","2027-01-31"],"lewat tengah malam WITA masuk bulan berikutnya");
+assert.deepEqual(mw(Date.parse("2026-10-31T15:59:00Z")),["2026-10-01","2026-10-31"],"31 Oktober 23.59 WITA masih Oktober");}
 console.log("update ok");
 for(const n of["data.json","history.json","eval.json"])rmSync(new URL(n,dir));

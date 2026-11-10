@@ -79,3 +79,6 @@ export function evaluate(rows){
   const rp=rows.filter(r=>r.pk);
   return{n,pp:mk(per("pp"),rows),pe:mk(per("pe"),rows),pb:mk(per("pb"),rows),fr:mk(()=>base,rows),pk:rp.length?mk(per("pk"),rp):null,homeAcc:r1(fr[0]/n*100),calib:cal(rows,"pp"),calibK:rp.length?cal(rp,"pk"):null,ou:bin("ou","go"),bt:bin("bt","gb")};
 }
+
+// Jendela jadwal: seluruh bulan berjalan menurut WITA, dari tanggal 1 sampai hari terakhir bulan itu.
+export function monthWindow(now,off=8*3600e3){const d=new Date(now+off),y=d.getUTCFullYear(),m=d.getUTCMonth(),p=n=>String(n).padStart(2,"0");return[`${y}-${p(m+1)}-01`,`${y}-${p(m+1)}-${p(new Date(Date.UTC(y,m+1,0)).getUTCDate())}`]}
