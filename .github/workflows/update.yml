@@ -37,6 +37,13 @@ jobs:
         continue-on-error: true
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      - name: Ambil line-up dan analitik (PitchAPI)
+        run: node bola-live/scripts/pitch.mjs
+        continue-on-error: true
+        env:
+          PITCHAPI_KEY: ${{ secrets.PITCHAPI_KEY }}
+          PITCH_MAX_LINEUPS: 48
+          PITCH_MAX_ANALYTICS: 12
       # TheSportsDB gratis terbukti hanya mengirim potongan kecil musim (tidak berguna), jadi dimatikan.
       # Untuk mengaktifkan lagi (mis. setelah berlangganan), hapus baris "if: false".
       - name: Ambil liga dunia (TheSportsDB, nonaktif)

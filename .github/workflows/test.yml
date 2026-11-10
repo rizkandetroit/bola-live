@@ -18,3 +18,4 @@ jobs:
       - run: node bola-live/scripts/test-all.mjs
       - run: node bola-live/scripts/test-pred.mjs
       - run: node bola-live/scripts/test-ci.mjs
+      - run: node bola-live/scripts/test-pitch.mjs
