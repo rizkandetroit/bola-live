@@ -35,6 +35,8 @@ jobs:
       - name: Ambil liga dunia (TheSportsDB, opsional)
         run: node bola-live/scripts/world.mjs
         continue-on-error: true
+        env:
+          TSDB_KEY: ${{ secrets.TSDB_KEY }}
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
