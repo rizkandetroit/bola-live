@@ -1,0 +1,52 @@
+name: Cek API-Football
+# Dijalankan manual sekali saja (Actions > Cek API-Football > Run workflow). Memakai sekitar 6 permintaan dari kuota harian.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cek:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Periksa akses cedera dan susunan pemain
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          node --input-type=module <<'EOF_CEK'
+          // Pemeriksaan sekali jalan: apakah kunci API-Football Anda boleh memakai data cedera dan susunan pemain? (sekitar 6 permintaan)
+          const KEY=(process.env.API_FOOTBALL_KEY||"").trim().replace(/^["']+|["']+$/g,"");
+          if(!KEY){console.log("GAGAL: secret API_FOOTBALL_KEY kosong");process.exit(1)}
+          const B="https://v3.football.api-sports.io",today=new Date().toISOString().slice(0,10);
+          const errs=j=>{const e=j&&j.errors;if(!e)return"";const v=Array.isArray(e)?e:Object.values(e);return v.join("; ")};
+          async function g(p){
+            try{
+              const r=await fetch(B+p,{headers:{"x-apisports-key":KEY}});let j=null;try{j=await r.json()}catch(e){}
+              return{st:r.status,rem:r.headers.get("x-ratelimit-requests-remaining"),lim:r.headers.get("x-ratelimit-requests-limit"),j,e:errs(j)};
+            }catch(e){return{st:0,j:null,e:e.message}}
+          }
+          const out=[];const say=(k,v)=>{out.push([k,v]);console.log(k+": "+v)};
+          const s=await g("/status");
+          if(s.j&&s.j.response&&s.j.response.subscription)say("Paket",s.j.response.subscription.plan+", terpakai "+s.j.response.requests.current+" dari "+s.j.response.requests.limit_day+" permintaan hari ini");
+          else say("Paket","tidak terbaca (HTTP "+s.st+") "+s.e);
+          const L=await g("/leagues?id=39&current=true");
+          try{const c=L.j.response[0].seasons[0].coverage;say("Cakupan Premier League musim berjalan","cedera="+c.injuries+", susunan pemain="+c.fixtures.lineups+", statistik pemain="+c.fixtures.statistics_players)}catch(e){say("Cakupan Premier League","tidak terbaca "+L.e)}
+          const I=await g("/injuries?date="+today);
+          say("Cedera tanggal "+today,I.e?"DITOLAK: "+I.e:(I.j&&I.j.response?I.j.response.length+" catatan cedera":"tidak terbaca (HTTP "+I.st+")"));
+          const F=await g("/fixtures?date="+today);
+          if(F.e)say("Jadwal hari ini","DITOLAK: "+F.e);
+          else{
+            const fx=(F.j.response||[]).filter(x=>["1H","HT","2H","ET","FT","AET","PEN"].includes(x.fixture.status.short));
+            say("Jadwal hari ini",(F.j.response||[]).length+" laga, "+fx.length+" sudah mulai atau selesai");
+            const big=fx.find(x=>[39,140,135,78,61,2].includes(x.league.id))||fx[0];
+            if(big){
+              const U=await g("/fixtures/lineups?fixture="+big.fixture.id);
+              say("Susunan pemain ("+big.teams.home.name+" vs "+big.teams.away.name+")",U.e?"DITOLAK: "+U.e:((U.j.response||[]).length?"tersedia, formasi "+(U.j.response[0].formation||"?"):"kosong untuk laga ini"));
+            }else say("Susunan pemain","belum ada laga yang sudah mulai hari ini untuk dicoba; jalankan lagi saat ada laga berlangsung");
+          }
+          const last=[s,L,I,F].reverse().find(x=>x.rem!=null);
+          if(last)say("Sisa kuota hari ini",last.rem+" dari "+last.lim);
+          EOF_CEK
