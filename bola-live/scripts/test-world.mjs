@@ -39,3 +39,19 @@ w=JSON.parse(readFileSync(new URL("world.json",dir)));
 assert(w.stale&&w.matches.length===ids.length&&w.errors.length>0,"cadangan data lama");
 console.log("world ok");
 if(!process.env.KEEP)for(const n of["world.json","catalog.json"])rmSync(new URL(n,dir));
+// daftar berbasis ID: katalog tidak dipanggil, nama dari konfigurasi, jumlah laga kecil ditandai terbatas
+process.env.WORLD_LEAGUES=JSON.stringify([{id:4790,name:"Liga 1 Indonesia"},{id:4002,name:"Mini League"}]);
+delete process.env.PREV_FILE;let catCalls=0;
+globalThis.fetch=async u=>{
+  if(u.includes("/all_leagues.php")){catCalls++;return{ok:false,status:500,text:async()=>""}}
+  if(u.includes("eventsseason.php?id=4790"))return res({events:ev});
+  if(u.includes("eventsseason.php?id=4002"))return res({events:ev.slice(0,15).map(e=>({...e,idEvent:"7"+e.idEvent}))});
+  return{ok:false,status:404,text:async()=>""};
+};
+await import("./world.mjs?ids");
+w=JSON.parse(readFileSync(new URL("world.json",dir)));
+assert.equal(catCalls,0);assert.equal(w.errors.length,0);assert.deepEqual(w.unresolved,[]);
+assert.equal(w.leagues.find(l=>l.id==="4790").name,"Liga 1 Indonesia");assert.equal(w.leagues.find(l=>l.id==="4790").limited,false);
+assert.equal(w.leagues.find(l=>l.id==="4002").limited,true);assert(w.matches.length>0&&w.matches.every(m=>!m.lim),"liga lengkap tidak ditandai terbatas");
+console.log("world (ID) ok");
+if(!process.env.KEEP)for(const n of["world.json"])rmSync(new URL(n,dir),{force:true});

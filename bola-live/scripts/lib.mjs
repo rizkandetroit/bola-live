@@ -1,4 +1,7 @@
-export const LEAGUES=[["PL","Premier League"],["SA","Serie A"],["BL1","Bundesliga"],["PD","La Liga"],["FL1","Ligue 1"]];
+// Kompetisi paket gratis football-data.org (tiap liga memakai 2 permintaan; batas gratis 10 permintaan per menit).
+// Turnamen berfase grup (Piala Dunia, Euro) sengaja tidak dimasukkan: tabelnya per grup, model ini butuh satu tabel.
+// Kalau ada yang di luar paket akun Anda (HTTP 403), liga itu dilewati dan tercatat di data.json, yang lain tetap jalan.
+export const LEAGUES=[["PL","Premier League"],["SA","Serie A"],["BL1","Bundesliga"],["PD","La Liga"],["FL1","Ligue 1"],["CL","Champions League"],["DED","Eredivisie"],["PPL","Primeira Liga"],["ELC","Championship"],["BSA","Brasileirão Série A"]];
 export const r1=x=>Math.round(x*10)/10;
 export const level=e=>e>=40?"Sangat kuat":e>=20?"Kuat":e>=10?"Sedang":"Tipis";
 const MAXG=10,HL=70*864e5,M0=3,K0=3,EH=65,W_ELO=.3;

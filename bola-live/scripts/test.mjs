@@ -1,5 +1,5 @@
 import {readFileSync,rmSync,writeFileSync} from "node:fs";
-import {fit,predictM,pcts,backtest,evaluate,formOf,shrink,calibrate} from "./lib.mjs";
+import {fit,predictM,pcts,backtest,evaluate,formOf,shrink,calibrate,LEAGUES} from "./lib.mjs";
 import assert from "node:assert";
 // data tiruan: 6 tim, tim 1 terkuat, tim 6 terlemah, hasil deterministik
 const t0=Date.now(),D=864e5,S={1:3,2:2.2,3:1.6,4:1.2,5:.9,6:.5};
@@ -39,7 +39,7 @@ globalThis.fetch=async u=>{
 const dir=new URL("../site/",import.meta.url);
 await import("./update.mjs");
 let d=JSON.parse(readFileSync(new URL("data.json",dir)));
-assert.equal(d.errors.length,4);assert(d.week[1]>=d.week[0]);
+assert.equal(d.errors.length,LEAGUES.length-1);assert(d.week[1]>=d.week[0]);
 const a1=d.matches.find(x=>x.id===1),a2=d.matches.find(x=>x.id===2);
 assert(a1&&a2&&!d.matches.find(x=>x.id===3||x.id===4||x.id===5),"jendela pekan dan filter");
 assert(d.matches.find(x=>x.id===6)&&!d.extra,"jendela 7 hari");

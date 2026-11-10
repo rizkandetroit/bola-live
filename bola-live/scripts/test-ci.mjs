@@ -9,6 +9,7 @@ import {fileURLToPath} from "node:url";
 import assert from "node:assert";
 import {siteBase,cleanKey,outDir} from "./net.mjs";
 import {checkKey,checkPages,checkBranch} from "./preflight.mjs";
+import {LEAGUES} from "./lib.mjs";
 
 // ---- unit: util & preflight ----
 assert.equal(siteBase({GITHUB_REPOSITORY:"Rizkan/Bola-Live"}),"https://rizkan.github.io/Bola-Live/");
@@ -71,15 +72,15 @@ sc("2. secret kosong: gagal cepat, pesan jelas, tanpa memanggil API",async()=>{r
 sc("3. token ditolak (HTTP 400): berhenti pada permintaan pertama",async()=>{reset("badtoken");
   const r=await run({FOOTBALL_DATA_KEY:TOKEN});assert.equal(r.code,1);assert(/ditolak/.test(r.err)&&/tanpa tanda kutip/.test(r.err));
   assert.equal(cfg.hits.filter(h=>h.url.startsWith("/v4")).length,1,"tidak membuang waktu mencoba 5 liga");return `${r.ms} ms`});
-sc("4. 4 dari 5 liga di luar paket gratis (403): sisanya tetap tayang",async()=>{reset("restricted");
+sc("4. semua liga selain PL di luar paket gratis (403): sisanya tetap tayang",async()=>{reset("restricted");
   const r=await run({FOOTBALL_DATA_KEY:TOKEN});assert.equal(r.code,0,r.err);const d=J(r,"data.json");
-  assert.equal(d.errors.length,4);assert(d.errors[0].includes("HTTP 403")&&d.matches.length>=2);return d.errors[0].slice(0,60)});
+  assert.equal(d.errors.length,LEAGUES.length-1);assert(d.errors[0].includes("HTTP 403")&&d.matches.length>=2);return d.errors[0].slice(0,60)});
 sc("5. satu endpoint menggantung: timeout, liga lain tetap jalan",async()=>{reset("hang");
   const r=await run({FOOTBALL_DATA_KEY:TOKEN,FETCH_TIMEOUT_MS:"300"});assert.equal(r.code,0,r.err);const d=J(r,"data.json");
   assert.equal(d.errors.length,1);assert(/PL/.test(d.errors[0])&&/3 percobaan/.test(d.errors[0]));assert(r.ms<15000);return `${r.ms} ms, ${d.errors[0].slice(0,70)}`});
 sc("6. API mati (503): 3 percobaan/liga, lalu gagal dengan pesan jelas",async()=>{reset("down");
   const r=await run({FOOTBALL_DATA_KEY:TOKEN});assert.equal(r.code,1);assert(/semua liga/.test(r.err));
-  assert.equal(cfg.hits.filter(h=>h.url.startsWith("/v4")).length,15);return "15 permintaan = 5 liga x 3 percobaan"});
+  assert.equal(cfg.hits.filter(h=>h.url.startsWith("/v4")).length,LEAGUES.length*3);return LEAGUES.length*3+" permintaan = "+LEAGUES.length+" liga x 3 percobaan"});
 sc("7. batas waktu run habis: berhenti, tidak menggantung sampai timeout job",async()=>{reset("down");
   const r=await run({FOOTBALL_DATA_KEY:TOKEN,MAX_RUN_MS:"0"});assert.equal(r.code,1);assert(/batas waktu/.test(r.err));
   assert.equal(cfg.hits.filter(h=>h.url.startsWith("/v4")).length,0);return `${r.ms} ms`});

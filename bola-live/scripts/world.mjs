@@ -34,8 +34,11 @@ const z=()=>({gp:0,w:0,d:0,l:0,gf:0,ga:0});
 const add=(r,gf,ga)=>{r.gp++;r.gf+=gf;r.ga+=ga;if(gf>ga)r.w++;else if(gf===ga)r.d++;else r.l++};
 const out=[],leagues=[],errors=[],warn=[],unresolved=[],rows=[];
 let catalog=[];
-try{catalog=((await get("/all_leagues.php")).leagues||[]).filter(l=>l.strSport==="Soccer");await sleep(GAP)}catch(e){errors.push("katalog: "+e.message)}
+// Paket gratis hanya mengembalikan 10 liga dari katalog, jadi daftar sebaiknya berisi ID. Katalog dipanggil hanya bila ada entri berupa nama.
+const needCat=cfg.some(p=>!(typeof p==="number"||/^\d+$/.test(String(p))||(p&&typeof p==="object"&&p.id)));
+if(needCat){try{catalog=((await get("/all_leagues.php")).leagues||[]).filter(l=>l.strSport==="Soccer");await sleep(GAP)}catch(e){errors.push("katalog: "+e.message)}}
 const resolve=p=>{
+  if(p&&typeof p==="object"&&p.id!=null){const c=catalog.find(l=>String(l.idLeague)===String(p.id));return{id:String(p.id),name:p.name||(c?c.strLeague:"Liga "+p.id)}}
   if(typeof p==="number"||/^\d+$/.test(String(p))){const c=catalog.find(l=>String(l.idLeague)===String(p));return{id:String(p),name:c?c.strLeague:"Liga "+p}}
   const q=String(p).toLowerCase(),ex=catalog.find(l=>l.strLeague.toLowerCase()===q);if(ex)return{id:ex.idLeague,name:ex.strLeague};
   const m=catalog.filter(l=>l.strLeague.toLowerCase().includes(q)).sort((a,b)=>a.strLeague.length-b.strLeague.length);
@@ -51,7 +54,10 @@ for(const p of cfg){
       if(e.some(x=>{const t=ts(x);return t&&t>now-45*864e5&&t<now+120*864e5})){ev=e;season=s;break}
     }
     if(!ev){leagues.push({id:lg.id,name:lg.name,season:null,note:"tidak ada jadwal aktif"});continue}
-    if(ev.length>=200)warn.push(lg.name+": jadwal dipotong batas paket gratis (200 laga), klasemen bisa tidak lengkap");
+    // Paket gratis TheSportsDB membatasi jumlah laga per permintaan. Musim penuh liga sungguhan hampir selalu >100 laga
+    // dan jarang tepat di angka bulat, jadi jumlah kecil/bulat = diduga terpotong (klasemen dan peluang jadi kasar).
+    const limited=ev.length<20||[25,50,100,200].includes(ev.length);
+    if(limited)warn.push(lg.name+": hanya "+ev.length+" laga diterima, diduga terpotong batas paket gratis; klasemen dan peluang kasar");
     const T=new Map(),all=[],fin=[];
     const tm=(id,name)=>{let x=T.get(id);if(!x){x={id,name,...z(),pts:0,h:z(),a:z()};T.set(id,x)}return x};
     for(const e of ev){
@@ -71,10 +77,10 @@ for(const p of cfg){
     for(const x of all){
       if(x.post)continue;const d=day(x.t);if(d<wkA||d>wkB)continue;
       const hid=x.e.idHomeTeam,aid=x.e.idAwayTeam,mdl=x.t>now?mNow:fit(fin,x.t),p=predictM(mdl,hid,aid),ed=r1(Math.abs(p.h-p.a));
-      out.push({id:"t"+x.e.idEvent,league:lg.name,src:"TheSportsDB",round:num(x.e.intRound),utc:new Date(x.t).toISOString(),status:x.done?"FT":"NS",score:x.done?[x.gh,x.ga]:[null,null],
+      out.push({id:"t"+x.e.idEvent,league:lg.name,src:"TheSportsDB",lim:limited||undefined,round:num(x.e.intRound),utc:new Date(x.t).toISOString(),status:x.done?"FT":"NS",score:x.done?[x.gh,x.ga]:[null,null],
         home:{...sd(x.H,x.H.h),elo:p.el[0],f:formOf(mdl,hid,"h")},away:{...sd(x.A,x.A.a),elo:p.el[1],f:formOf(mdl,aid,"a")},p,pick:p.h>=p.a?"h":"a",edge:ed,level:level(ed)});
     }
-    leagues.push({id:lg.id,name:lg.name,season,events:ev.length,finished:fin.length});
+    leagues.push({id:lg.id,name:lg.name,season,events:ev.length,finished:fin.length,limited});
   }catch(e){errors.push(lg.name+": "+e.message)}
 }
 const cal=calibrate(rows);
