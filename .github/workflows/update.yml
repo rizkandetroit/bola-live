@@ -44,6 +44,11 @@ jobs:
           PITCHAPI_KEY: ${{ secrets.PITCHAPI_KEY }}
           PITCH_MAX_LINEUPS: 48
           PITCH_MAX_ANALYTICS: 12
+          PITCH_MAX_HISTORY_MATCHES: 24
+          PITCH_HISTORY_PER_TEAM: 4
+          PITCH_FUTURE_DAYS: 31
+          V10_SIM_ODDS: 2.00
+          V10_SIM_MIN_PROB: 0.55
       # TheSportsDB gratis terbukti hanya mengirim potongan kecil musim (tidak berguna), jadi dimatikan.
       # Untuk mengaktifkan lagi (mis. setelah berlangganan), hapus baris "if: false".
       - name: Ambil liga dunia (TheSportsDB, nonaktif)
