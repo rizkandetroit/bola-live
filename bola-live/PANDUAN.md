@@ -4,19 +4,21 @@
 Di akar repositori ada dua hal: folder `.github/workflows/` (berisi `update.yml` dan `test.yml`) dan folder `bola-live/`
 (berisi `scripts/`, `site/`, `PANDUAN.md`, `README.md`). Semua path di workflow sudah memakai awalan `bola-live/`.
 
-## Isi (mode Rp0, semua gratis)
-- Liga Eropa dan Brasil (football-data.org, paket gratis): Premier League, Serie A, Bundesliga, La Liga, Ligue 1, Champions League,
-  Eredivisie, Primeira Liga, Championship, Brasileirão. Yang di luar paket akun Anda (HTTP 403) dilewati otomatis.
-- Liga lain (TheSportsDB, data komunitas): daftar di `bola-live/scripts/world-leagues.json`, ditulis sebagai ID, contoh
-  `{"id":4790,"name":"Liga 1 Indonesia"}`. Katalog gratis TheSportsDB hanya memuat 10 liga, jadi **memakai ID jauh lebih andal daripada nama**.
-  Untuk liga baru, buka halaman liganya di thesportsdb.com; angka di akhir alamat (mis. `/league/4790`) adalah ID-nya.
-- Liga yang jumlah lakanya diduga terpotong batas paket gratis diberi tanda "terbatas" di kartu; klasemen dan peluangnya kasar.
+## Isi (semua gratis)
+- **10 liga dengan prediksi** (football-data.org): Premier League, Serie A, Bundesliga, La Liga, Ligue 1, Champions League, Eredivisie,
+  Primeira Liga, Championship, Brasileirão. Yang di luar paket akun Anda (HTTP 403) dilewati otomatis.
+- **Semua liga lainnya** (API-Football, paket gratis 100 permintaan per hari): jadwal dan skor saja, bertanda "tanpa prediksi".
+  Diambil per tanggal (satu permintaan = semua liga hari itu) dan disimpan di cache `all-cache.json`, jadi hemat kuota.
+  Paket gratis hanya mengizinkan rentang tanggal sempit (biasanya kemarin sampai besok); rentangnya dipelajari otomatis.
+  Pemakaian wajar sekitar 50 sampai 60 permintaan per hari dengan jadwal tiap jam.
+- TheSportsDB gratis dimatikan (hanya mengirim potongan kecil musim). Baris `if: false` di `update.yml` bisa dihapus untuk menyalakannya lagi.
 - Model: Poisson dari hasil laga musim ini digabung Elo (70/30), lalu ditarik ke frekuensi hasil liga (kalibrasi).
 - Tab Evaluasi: uji mundur (tanpa mengintip) dan uji langsung (prediksi dikunci sebelum kick-off).
 
 ## Secret yang dipakai
 - `FOOTBALL_DATA_KEY` (wajib): token football-data.org.
-- `TSDB_KEY` (opsional): kosongkan untuk paket gratis (otomatis memakai kunci `123`). Isi hanya jika kelak berlangganan premium TheSportsDB.
+- `API_FOOTBALL_KEY` (untuk semua liga): kunci dari dashboard.api-football.com. Jangan pernah menempel kunci ini di chat atau tangkapan layar; kalau pernah, buat ulang kuncinya.
+- `TSDB_KEY` (opsional, hanya bila TheSportsDB diaktifkan lagi).
 
 ## Bila merah
 1. Buka tab **Actions**, klik run yang gagal, lihat **langkah yang bertanda silang merah**.
