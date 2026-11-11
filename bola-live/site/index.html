@@ -133,6 +133,7 @@ h2 small{font-size:12px;color:var(--mut);font-weight:400}
   display:grid;
   grid-auto-flow:column;
   grid-auto-columns:minmax(230px,1fr);
+  align-items:start;
   gap:10px;
   overflow-x:auto;
   padding-bottom:8px;
@@ -296,6 +297,37 @@ input[type=search]{min-width:160px;flex:1;max-width:240px}
   .hdr{padding:0 12px}
   .w{padding:14px 12px 48px}
   .g{grid-template-columns:1fr}
+}
+
+/* ── HP kecil: header jadi 2 baris supaya nav tidak kepotong ── */
+@media(max-width:600px){
+  .hdr{
+    flex-wrap:wrap;
+    height:auto;
+    min-height:52px;
+    padding:10px 12px;
+    row-gap:8px
+  }
+  .logo{flex:1;font-size:15px}
+  .live-pill{order:2}
+  .nvb{order:3;width:100%}
+  .nvb .seg{width:100%}
+  .nvb .seg button{flex:1;padding:6px 4px;font-size:12px;white-space:nowrap;text-align:center}
+}
+
+/* ── layar sangat sempit (≤380px): kartu hero & grid skuad menyesuaikan ── */
+@media(max-width:380px){
+  .hero{grid-auto-columns:minmax(85vw,1fr)}
+  .kpi{grid-template-columns:1fr 1fr;gap:8px}
+  .k{padding:12px}
+  .k b{font-size:22px}
+}
+
+/* ── tablet/HP: line-up & metrik analitik jangan terlalu sempit jadi 2 kolom ── */
+@media(max-width:480px){
+  .lineupcols{grid-template-columns:1fr}
+  .pitchmetrics{grid-template-columns:1fr}
+  .pitchteams{grid-template-columns:1fr auto 1fr;font-size:13px}
 }
 </style>
 </head>
