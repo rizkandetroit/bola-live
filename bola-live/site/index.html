@@ -467,7 +467,7 @@ function card(x,rank){
     +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+esc(x.league)+'</span>':'<span>'+esc(x.league)+'</span>')
     +(x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")
     +'<span style="text-align:right;font-size:11px">'+stt(x)+'</span></div>'
-    +'<div class="tm"><div><div class="n">'+esc(x.home.name)+'</div><div class="s">#'+x.home.pos+", "+x.home.pts+" poin</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+'</div><div class="s">#'+x.away.pos+", "+x.away.pts+" poin</div></div></div>'
+    +'<div class="tm"><div><div class="n">'+esc(x.home.name)+'</div><div class="s">#'+x.home.pos+", "+x.home.pts+' poin</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+'</div><div class="s">#'+x.away.pos+", "+x.away.pts+' poin</div></div></div>'
     +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b></span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'
     +(x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"")
     +why(x)+'</div>'
