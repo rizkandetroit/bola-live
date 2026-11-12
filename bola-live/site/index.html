@@ -162,7 +162,8 @@ h2 small{font-size:12px;color:var(--mut);font-weight:400}
 .c.r2{border-color:#7c3aed;box-shadow:0 0 0 1px #7c3aed}
 .c.r3{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok)}
 
-.tp{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px;gap:4px;font-size:12px;color:var(--mut)}
+.tp{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;margin-bottom:9px;gap:4px;row-gap:3px;font-size:12px;color:var(--mut)}
+.tme{white-space:nowrap;margin-left:auto;font-size:11px;text-align:right}
 .rk{font-size:11px;font-weight:600;padding:2px 7px;border-radius:5px;white-space:nowrap}
 .rk.r1{background:var(--H);color:#fff}
 .rk.r2{background:#7c3aed;color:#fff}
@@ -170,11 +171,11 @@ h2 small{font-size:12px;color:var(--mut);font-weight:400}
 .rk.rn{background:var(--H-soft);color:var(--H)}
 .st{font-weight:600}.st.lv{color:var(--hot)}.st.ft{color:var(--ink)}
 
-.tm{display:grid;grid-template-columns:minmax(0,1fr) 28px minmax(0,1fr);gap:6px;align-items:center;flex:1}
+.tm{display:grid;grid-template-columns:minmax(0,1fr) minmax(28px,auto) minmax(0,1fr);gap:6px;align-items:center;flex:1}
 .n{font-size:13px;font-weight:600;line-height:1.3;overflow-wrap:break-word;word-break:normal}
 .tm .r{text-align:right}
 .s{font-size:11px;color:var(--mut);margin-top:2px}
-.sc{font:700 20px/1 var(--hd);min-width:28px;text-align:center;font-variant-numeric:tabular-nums}
+.sc{font:700 20px/1 var(--hd);min-width:28px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 .sc.vs{font-size:11px;color:var(--mut);font-weight:500;background:var(--bg);border:1px solid var(--ln);border-radius:5px;padding:4px 2px}
 
 .pb{display:flex;height:5px;border-radius:3px;overflow:hidden;gap:1px;margin:10px 0 6px}
@@ -484,7 +485,7 @@ function rkClass(i){return i===0?"r1":i===1?"r2":i===2?"r3":"rn"}
 function rkStyle(i){return i===0?" r1":i===1?" r2":i===2?" r3":""}
 
 function cardNp(x){
-  return'<div class="c'+(x.status==="LIVE"?" lv":"")+'"><div class="tp"><span>'+esc(x.league)+' <span class="tag l1">tanpa prediksi</span></span>'+stt(x)+'</div>'
+  return'<div class="c'+(x.status==="LIVE"?" lv":"")+'"><div class="tp"><span>'+esc(x.league)+' <span class="tag l1">tanpa prediksi</span></span><span class="tme">'+stt(x)+'</span></div>'
     +'<div class="tm"><div><div class="n">'+esc(x.home.name)+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+'</div></div></div></div>'
 }
 
@@ -498,7 +499,7 @@ function card(x,rank){
   return'<div class="c'+rc+(x.status==="LIVE"?" lv":"")+'"><div class="tp">'
     +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+esc(x.league)+'</span>':'<span>'+esc(x.league)+'</span>')
     +(x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")
-    +'<span style="text-align:right;font-size:11px">'+stt(x)+'</span></div>'
+    +'<span class="tme">'+stt(x)+'</span></div>'
     +'<div class="tm"><div><div class="n">'+esc(x.home.name)+'</div><div class="s">#'+x.home.pos+", "+x.home.pts+' poin</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+'</div><div class="s">#'+x.away.pos+", "+x.away.pts+' poin</div></div></div>'
     +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b></span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'
     +(x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"")
@@ -522,7 +523,7 @@ function mtab(e){
 }
 function ltab(by){var k=Object.keys(by);if(!k.length)return"";return'<table class="ev"><tr><th>Liga</th><th>Laga</th><th>Poisson</th><th>Elo</th><th>Gabungan</th><th>Selalu tuan rumah</th></tr>'+k.map(function(l){var e=by[l];return'<tr><td>'+esc(l)+'</td><td>'+e.n+'</td><td>'+pc(e.pp.acc)+'</td><td>'+pc(e.pe.acc)+'</td><td>'+pc(e.pb.acc)+'</td><td>'+pc(e.homeAcc)+'</td></tr>'}).join("")+'</table>'}
 function ctab(c){return'<table class="ev"><tr><th>Keyakinan model</th><th>Laga</th><th>Rata-rata</th><th>Yang tepat</th></tr>'+c.map(function(b){return'<tr><td>'+(b.lo===0?"di bawah 40%":b.lo===60?"60% ke atas":b.lo+"-"+b.hi+"%")+'</td><td>'+b.n+'</td><td>'+pc(b.avg)+'</td><td>'+pc(b.hit)+'</td></tr>'}).join("")+'</table>'}
-function verdict(e){if(!e.n)return"";var se=1.96*Math.sqrt(.25/e.n)*100,m=e.pk||e.pp,d=m.acc-e.homeAcc,t="Dari "+e.n+" laga, model utama tepat "+pc(m.acc)+" dan tebakan selalu tuan rumah "+pc(e.homeAcc)+". ";t+=d>0?"Model unggul "+d.toFixed(1).replace(".",",")+"%25. ":"Model belum mengalahkan tebakan sederhana itu. ";t+="Selisih di bawah sekitar "+se.toFixed(0)+" poin belum bisa dibedakan dari kebetulan. ";t+=m.brier<e.fr.brier?"Brier model lebih baik dari patokan.":"Brier model belum lebih baik dari patokan.";return'<p class="'+(d>se&&m.brier<e.fr.brier?"good":"warn")+'">'+t+'</p>'}
+function verdict(e){if(!e.n)return"";var se=1.96*Math.sqrt(.25/e.n)*100,m=e.pk||e.pp,d=m.acc-e.homeAcc,fr=e.fr||{brier:m.brier},t="Dari "+e.n+" laga, model utama tepat "+pc(m.acc)+" dan tebakan selalu tuan rumah "+pc(e.homeAcc)+". ";t+=d>0?"Model unggul "+d.toFixed(1).replace(".",",")+"%. ":"Model belum mengalahkan tebakan sederhana itu. ";t+="Selisih di bawah sekitar "+se.toFixed(0)+" poin belum bisa dibedakan dari kebetulan. ";t+=m.brier<fr.brier?"Brier model lebih baik dari patokan.":"Brier model belum lebih baik dari patokan.";return'<p class="'+(d>se&&m.brier<fr.brier?"good":"warn")+'">'+t+'</p>'}
 function binsec(b){if(!b.ou&&!b.bt)return"";var r=[["Over 2,5 gol",b.ou],["Kedua tim mencetak gol",b.bt]].filter(function(x){return x[1]});return'<h2>Over/under 2,5 dan kedua tim mencetak gol</h2><table class="ev"><tr><th>Pasar</th><th>Laga</th><th>Terjadi</th><th>Akurasi</th><th>Brier model</th><th>Brier patokan</th></tr>'+r.map(function(x){return'<tr><td>'+x[0]+'</td><td>'+x[1].n+'</td><td>'+pc(x[1].rate)+'</td><td>'+pc(x[1].acc)+'</td><td>'+f3(x[1].brier)+'</td><td>'+f3(x[1].base)+'</td></tr>'}).join("")+'</table>'}
 function xgSub(c){var q=c&&c.xgSubset;if(!q||!q.n)return'<p class="cap">Komponen xG belum aktif di sampel uji ini.</p>';var r=function(l,m){return'<tr><td>'+l+'</td><td>'+m.n+'</td><td>'+pc(m.acc)+'</td><td>'+f3(m.brier)+'</td><td>'+f3(m.ll)+'</td></tr>'};return'<h2>Hanya laga saat xG aktif ('+q.n+' laga)</h2><div class="ov"><table class="ev"><tr><th>Versi</th><th>Laga</th><th>Akurasi</th><th>Brier ↓</th><th>Log Loss ↓</th></tr>'+r("V9 (gol + Elo saja)",q.v9)+r("V10-ringkas (gol + xG + Elo)",q.lite)+r("V10 penuh",q.v10)+'</table></div>'}
 function v10Comparison(c){if(!c||!c.versions)return"";var v=c.versions,rows=[v.v8,v.v9,v.v10,v.lite].filter(Boolean);return'<h2>Perbandingan V8, V9, V10 penuh, dan V10-ringkas</h2><div class="ov"><table class="ev"><tr><th>Versi</th><th>Laga</th><th>Akurasi</th><th>Brier ↓</th><th>Log Loss ↓</th><th>ROI simulasi</th></tr>'+rows.map(function(x){return'<tr><td>'+esc(x.label||"Model")+'</td><td>'+x.n+'</td><td>'+pc(x.acc)+'</td><td>'+f3(x.brier)+'</td><td>'+f3(x.ll)+'</td><td>'+(x.roi==null?"—":pc(x.roi))+'</td></tr>'}).join("")+'</table></div>'+xgSub(c)}
