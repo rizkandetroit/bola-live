@@ -111,7 +111,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 @media(prefers-reduced-motion:reduce){.pulse,.dot{animation:none}}
 
 /* ── MAIN WRAPPER ── */
-.w{max-width:1200px;margin:0 auto;padding:20px 20px 60px}
+.w{width:100%;margin:0;padding:20px 32px 60px;box-sizing:border-box}
 
 /* ── KPI ── */
 .kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:24px}
@@ -212,7 +212,7 @@ input[type=search]{min-width:160px;flex:1;max-width:240px}
 .day:after{content:"";flex:1;height:1px;background:var(--ln)}
 
 /* LIST VIEW */
-.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));align-items:start;gap:10px}
 
 /* TABLE VIEW */
 .tb{background:var(--pn);border:1px solid var(--ln);border-radius:var(--r);overflow:hidden}
@@ -259,7 +259,7 @@ input[type=search]{min-width:160px;flex:1;max-width:240px}
 .em{padding:24px;text-align:center;color:var(--mut)}
 
 /* PITCH */
-.pitchgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.pitchgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:start;gap:12px}
 .pitchcard{background:var(--pn);border:1px solid var(--ln);border-radius:var(--r);padding:14px}
 .pitchhead{display:flex;justify-content:space-between;gap:8px;color:var(--mut);font-size:12px}
 .pitchteams{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin:12px 0}
