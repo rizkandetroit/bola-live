@@ -39,7 +39,8 @@ export function predictM(model,hid,aid){
   return{...tr([h/s,d/s,a/s]),xg:[r2(lh),r2(la)],ms:[best[0],best[1],r1(best[2]/s*100)],sc5:sc.sort((x,y)=>y[2]-x[2]).slice(0,5).map(x=>[x[0],x[1],r1(x[2]/s*100)]),ou:r1(ov/s*100),bt:r1(bt/s*100),fr:model.fr.map(x=>r1(x*100)),pe:tr(eloP(eExp(H.elo,A.elo))),el:[Math.round(H.elo),Math.round(A.elo)],gp:[H.gp,A.gp]};
 }
 export function pcts(p){
-  const pp=[p.h,p.d,p.a],pe=[p.pe.h,p.pe.d,p.pe.a],pb=pp.map((v,i)=>r1((1-W_ELO)*v+W_ELO*pe[i]));
+  const pp=[p.h,p.d,p.a],pe=[p.pe.h,p.pe.d,p.pe.a];
+  const bh=r1((1-W_ELO)*p.h+W_ELO*p.pe.h),ba=r1((1-W_ELO)*p.a+W_ELO*p.pe.a),pb=[bh,r1(100-bh-ba),ba];
   return{pp,pe,pb,fr:p.fr};
 }
 export function formOf(model,id,venue){
