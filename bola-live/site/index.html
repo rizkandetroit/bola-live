@@ -444,10 +444,20 @@ function compHtml(x){
   return'<ul class="cmp">'+li.join("")+'</ul>'+nt.map(function(sn){return'<p class="sm">'+esc(sn)+'</p>'}).join("")
 }
 
+function tierTag(x){
+  if(x.np)return"";
+  var t=x.tier;
+  if(t===2)return' <span class="tag l2" title="Model liga sendiri: Poisson-gol 70% + Elo 30% dari riwayat tersimpan">Statistik dasar</span>';
+  if(t===3)return' <span class="tag l1" title="Perkiraan kasar dari Elo lintas liga">Elo saja</span>';
+  if(t===4)return' <span class="tag l1" title="Belum ada riwayat: tebakan keuntungan tuan rumah">Tebakan dasar</span>';
+  if(!x.est&&!x.src)return' <span class="tag l4" title="Model lengkap dari data liga utama">Model penuh</span>';
+  return"";
+}
 function why(x){
+  if(x.tier>=3)return'<details class="why" data-id="'+x.id+'"'+(OPEN[x.id]?" open":"")+'><summary>Tentang prediksi ini</summary><p class="sm">'+esc(x.note||"")+'</p><p class="cv">Perkiraan kasar ini tidak dihitung dalam hitungan keunggulan kuat dan belum diuji akurasinya.</p></details>';
   var H=x.home,A=x.away,P=x.p,rows=[],has=H.gf!=null&&A.gf!=null,fh=H.f,fa=A.f;
   function add(l,hv,av,c){rows.push({l:l,h:String(hv),a:String(av),c:c})}
-  add("Posisi klasemen","#"+H.pos,"#"+A.pos,cmp(H.pos,A.pos,false));
+  if(H.pos&&A.pos)add("Posisi klasemen","#"+H.pos,"#"+A.pos,cmp(H.pos,A.pos,false));
   if(has){
     add("Poin per laga",n2(pg(H.pts,H.gp)),n2(pg(A.pts,A.gp)),cmp(pg(H.pts,H.gp),pg(A.pts,A.gp),true));
     add("Gol dicetak per laga",n2(pg(H.gf,H.gp)),n2(pg(A.gf,A.gp)),cmp(pg(H.gf,H.gp),pg(A.gf,A.gp),true));
@@ -498,9 +508,9 @@ function card(x,rank){
   var ri=rank!=null?rank-1:99,rc=rkStyle(ri);
   return'<div class="c'+rc+(x.status==="LIVE"?" lv":"")+'"><div class="tp">'
     +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+esc(x.league)+'</span>':'<span>'+esc(x.league)+'</span>')
-    +(x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")
+    +(x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
     +'<span class="tme">'+stt(x)+'</span></div>'
-    +'<div class="tm"><div><div class="n">'+esc(x.home.name)+'</div><div class="s">#'+x.home.pos+", "+x.home.pts+' poin</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+'</div><div class="s">#'+x.away.pos+", "+x.away.pts+' poin</div></div></div>'
+    +'<div class="tm"><div><div class="n">'+esc(x.home.name)+'</div><div class="s">'+(x.home.pos?"#"+x.home.pos+", "+x.home.pts+" poin":"&nbsp;")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+'</div><div class="s">'+(x.away.pos?"#"+x.away.pos+", "+x.away.pts+" poin":"&nbsp;")+'</div></div></div>'
     +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b></span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'
     +(x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"")
     +why(x)+'</div>'
@@ -508,7 +518,7 @@ function card(x,rank){
 
 function row(x){
   if(x.np)return rowNp(x);
-  return'<div class="tr'+(x.status==="LIVE"?" lv":"")+'"><div class="dtc">'+stt(x,1)+'</div><div><div class="n">'+esc(x.home.name)+(x.status==="NS"?'<span class="vs2"> vs </span>':'<span class="sc">'+(x.score[0]==null?"-":x.score[0])+"-"+(x.score[1]==null?"-":x.score[1])+'</span>')+esc(x.away.name)+'</div><div class="s">'+esc(x.league)+'</div></div><div>'+pb(x)+'</div><div style="text-align:right"><div class="n" style="font-size:14px">'+esc(pk(x).name)+'</div><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+why(x)+'</div>'
+  return'<div class="tr'+(x.status==="LIVE"?" lv":"")+'"><div class="dtc">'+stt(x,1)+'</div><div><div class="n">'+esc(x.home.name)+(x.status==="NS"?'<span class="vs2"> vs </span>':'<span class="sc">'+(x.score[0]==null?"-":x.score[0])+"-"+(x.score[1]==null?"-":x.score[1])+'</span>')+esc(x.away.name)+'</div><div class="s">'+esc(x.league)+tierTag(x)+'</div></div><div>'+pb(x)+'</div><div style="text-align:right"><div class="n" style="font-size:14px">'+esc(pk(x).name)+'</div><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+why(x)+'</div>'
 }
 
 function chips(el,arr,key,lab){$(el).innerHTML=arr.map(function(a){return'<button class="chip'+(S[key]===a[0]?" on":"")+(el==="#lg"?" ":"")+'" data-k="'+key+'" data-val="'+esc(a[0])+'">'+esc(a[1])+'</button>'}).join("")}
