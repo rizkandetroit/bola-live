@@ -37,6 +37,11 @@ jobs:
         continue-on-error: true
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      - name: Ambil SEMUA liga (SportAPI, jadwal, skor, riwayat, prediksi)
+        run: node bola-live/scripts/sportapi.mjs
+        continue-on-error: true
+        env:
+          SPORTAPI_KEY: ${{ secrets.SPORTAPI_KEY }}
       - name: Ambil line-up dan analitik (PitchAPI)
         run: node bola-live/scripts/pitch.mjs
         continue-on-error: true
