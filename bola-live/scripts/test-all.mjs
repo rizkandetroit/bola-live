@@ -32,7 +32,7 @@ let a=await run("r1");
 assert.equal(keyHeader,"kunci-uji","kunci dikirim di header tanpa tanda kutip");
 const names=a.matches.map(m=>m.home.name).sort();
 assert.deepEqual(names,["Aaa","Arema","Celtic","Genk","Persib"].sort(),"hanya laga yang pantas tampil: "+names);
-assert(a.matches.every(m=>m.np===true));
+assert(a.matches.every(m=>!m.np&&m.est===true&&m.tier===4&&Math.abs(m.p.h+m.p.d+m.p.a-100)<.2),"tanpa riwayat: semua tingkat 4 (tebakan dasar)");
 assert.equal(a.matches.find(m=>m.home.name==="Genk").status,"LIVE");
 assert.equal(a.matches.find(m=>m.home.name==="Persib").status,"FT");
 assert.deepEqual(a.matches.find(m=>m.home.name==="Persib").score,[2,1]);

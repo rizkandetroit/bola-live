@@ -167,7 +167,36 @@ function modelOf(li){
   }
   MC.set(li,o);return o;
 }
-const out=[],lg=new Set();let nPred=0;
+// ---------- Tingkat 3 dan 4: cadangan agar SEMUA laga punya angka ----------
+// Tingkat 2 (di atas) = model liga sendiri (Poisson-gol 70% + Elo 30%) dari riwayat liga yang tersimpan.
+// Tingkat 3 = Elo lintas liga saja (dipakai bila liga belum punya riwayat cukup, laga piala, atau tim baru yang rivalnya sudah dikenal).
+//             Hasilnya dicampur ke peluang dasar menurut banyaknya laga yang dikenal, supaya angkanya tidak ekstrem.
+// Tingkat 4 = tebakan dasar keuntungan tuan rumah (kedua tim tidak dikenal sama sekali).
+// Tingkat 3 dan 4 diberi est:true dan tier, sehingga TIDAK ikut hitungan "keunggulan kuat" di halaman dan harus diperlakukan sebagai perkiraan kasar.
+const BASE=[45,28,27];
+let GM=null;
+function globalModel(){
+  if(GM)return GM;
+  const ms=[];
+  for(const L of Object.values(H.leagues))for(const x of L.m)ms.push({t:x[1],h:x[2],a:x[3],gh:x[4],ga:x[5]});
+  ms.sort((a,b)=>a.t-b.t);
+  GM=fit(ms,now);return GM;
+}
+const side=(name,gp,elo)=>({name,pos:0,pts:0,gp,gf:null,ga:null,w:0,d:0,l:0,sp:null,elo,f:null});
+function fallback(r,base){
+  const G=globalModel(),gh=r.hi?((G.T.get(r.hi)||{}).gp||0):0,ga=r.ai?((G.T.get(r.ai)||{}).gp||0):0;
+  if(!r.hi||!r.ai||(gh===0&&ga===0)){
+    return {...base,home:side(r.h,0,null),away:side(r.a,0,null),p:{h:BASE[0],d:BASE[1],a:BASE[2],pe:{h:BASE[0],d:BASE[1],a:BASE[2]},el:[null,null],gp:[0,0],fr:[45,26,29],engine:"dasar"},
+      pick:"h",edge:0,level:"Tipis",est:true,tier:4,
+      note:"Belum ada riwayat laga untuk kedua tim, jadi ini hanya tebakan dasar keuntungan tuan rumah ("+BASE[0]+"% tuan rumah, "+BASE[1]+"% seri, "+BASE[2]+"% tamu), bukan analisis."};
+  }
+  const p0=predictM(G,r.hi,r.ai),w=Math.min(1,(gh+ga)/20);
+  const h=r1(w*p0.pe.h+(1-w)*BASE[0]),a=r1(w*p0.pe.a+(1-w)*BASE[2]),d=r1(100-h-a),e=r1(Math.abs(h-a)),lv=level(e);
+  return {...base,home:side(r.h,gh,p0.el[0]),away:side(r.a,ga,p0.el[1]),p:{h,d,a,pe:p0.pe,el:p0.el,gp:[gh,ga],fr:p0.fr,engine:"elo"},
+    pick:h>=a?"h":"a",edge:e,level:lv==="Sangat kuat"||lv==="Kuat"?"Sedang":lv,est:true,tier:3,
+    note:"Perkiraan kasar dari peringkat Elo lintas liga (Elo "+p0.el[0]+" lawan "+p0.el[1]+", dari "+gh+" dan "+ga+" laga tersimpan), dicampur peluang dasar karena datanya masih sedikit. Tidak memakai klasemen, xG, atau Poisson."};
+}
+const out=[],lg=new Set();let nPred=0;const tiers={2:0,3:0,4:0};
 for(const r of byId.values()){
   if(COVERED.has(Number(r.li)))continue;
   const dd=wday(r.t);if(dd<wkA||dd>wkB)continue;
@@ -185,16 +214,16 @@ for(const r of byId.values()){
       p.raw={h:p.h,d:p.d,a:p.a};p.h=k[0];p.d=k[1];p.a=k[2];
       const e=r1(Math.abs(k[0]-k[2])),th=M.T.get(r.hi)||{},ta=M.T.get(r.ai)||{};
       const side=(nm,t,id,v,el)=>({name:nm,pos:t.pos||0,pts:t.pts||0,gp:t.gp||0,gf:t.gf||0,ga:t.ga||0,w:t.w||0,d:t.d||0,l:t.l||0,sp:null,elo:el,f:formOf(model,id,v)});
-      out.push({...base,home:side(r.h,th,r.hi,"h",p.el[0]),away:side(r.a,ta,r.ai,"a",p.el[1]),p,pick:k[0]>=k[2]?"h":"a",edge:e,level:level(e),est:true});
-      nPred++;continue;
+      out.push({...base,home:side(r.h,th,r.hi,"h",p.el[0]),away:side(r.a,ta,r.ai,"a",p.el[1]),p,pick:k[0]>=k[2]?"h":"a",edge:e,level:level(e),est:true,tier:2});
+      nPred++;tiers[2]++;continue;
     }
   }
-  out.push({...base,np:true});
+  const fb=fallback(r,base);tiers[fb.tier]++;out.push(fb);
 }
 out.sort((a,b)=>a.utc.localeCompare(b.utc));
 const dir=outDir(import.meta.url);mkdirSync(dir,{recursive:true});
-writeFileSync(dir+"all.json",JSON.stringify({updated:new Date(now).toISOString(),week:[wkA,wkB],nLeagues:lg.size,nPred,boot:bootInfo,calls,remaining,range:{min:range.min,max:range.max},errors,matches:out}));
+writeFileSync(dir+"all.json",JSON.stringify({updated:new Date(now).toISOString(),week:[wkA,wkB],nLeagues:lg.size,nPred,tiers,boot:bootInfo,calls,remaining,range:{min:range.min,max:range.max},errors,matches:out}));
 writeFileSync(dir+"all-cache.json",JSON.stringify({range,days}));
 writeFileSync(dir+"all-history.json",JSON.stringify({v:1,bootBlocked:H.bootBlocked,leagues:H.leagues},(k,v)=>k[0]==="_"?undefined:v));
 if(errors.length)ghWarn("semua-liga: "+errors.join(" ; "));
-console.log("OK semua-liga:",out.length,"laga;",lg.size,"liga;",nPred,"berprediksi;",calls,"permintaan; sisa kuota",remaining==null?"?":remaining,"; musim penuh",bootInfo.done+"/"+bootInfo.total+(bootInfo.blocked?" (diblokir paket)":""),"; rentang tanggal",range.min,"sampai",range.max);
+console.log("OK semua-liga:",out.length,"laga;",lg.size,"liga;",nPred,"berprediksi (tingkat 2); tingkat 3:",tiers[3],"; tingkat 4:",tiers[4],";",calls,"permintaan; sisa kuota",remaining==null?"?":remaining,"; musim penuh",bootInfo.done+"/"+bootInfo.total+(bootInfo.blocked?" (diblokir paket)":""),"; rentang tanggal",range.min,"sampai",range.max);

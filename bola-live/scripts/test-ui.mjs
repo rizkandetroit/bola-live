@@ -6,7 +6,7 @@ const js=html.match(/<script>([\s\S]*?)<\/script>/g).pop().replace(/<\/?script>/
 const pre=js.slice(0,js.indexOf('nav("j");load();'));
 globalThis.document={querySelector:()=>({addEventListener:()=>{},innerHTML:"",value:""}),addEventListener:()=>{},documentElement:{dataset:{}},querySelectorAll:()=>[]};
 globalThis.localStorage={getItem:()=>null,setItem:()=>{}};globalThis.window=globalThis;
-const {why,compHtml,v10Comparison}=new Function(pre+";return {why,compHtml,v10Comparison}")();
+const {why,compHtml,v10Comparison,tierTag,card,row}=new Function(pre+";return {why,compHtml,v10Comparison,tierTag,card,row}")();
 const side=(n,o={})=>({name:n,pos:3,pts:20,gp:8,gf:20,ga:6,w:6,d:2,l:0,sp:null,elo:1600,f:{l5:"MMSMM",t:{w:7,d:2,l:1,gf:25,ga:8,cs:4,n:10},v:{w:3,d:1,l:1,gf:9,ga:4,n:5}},...o});
 const base=(o={})=>({id:"x1",league:"Bundesliga",utc:new Date().toISOString(),status:"NS",score:[null,null],home:side("FC Bayern München"),away:side("1. FC Köln",{ga:12,gp:8}),pick:"h",edge:72,level:"Sangat kuat",
  p:{h:81,d:10,a:9,xg:[2.4,.8],ms:[3,0,11],sc5:[[3,0,11,0]],ou:70,bt:40,pe:{h:65,d:18,a:18},raw:{h:88,d:8,a:4},gp:[8,8],el:[1600,1400],fr:[45,26,29],...o}});
@@ -36,6 +36,16 @@ x=base({raw:undefined,pe:undefined});h=why(x);assert(!h.includes("cmp")&&h.inclu
 // E. tampilan utama V10 penuh: catatan
 x=base({engine:"V10",h:70,lite:lite()});h=why(x);assert(h.includes("tampilan utama memakai V10 penuh")&&h.includes("Hasil gabungan</b>: 81/10/9"));
 console.log("OK D/E. data lama aman; mode V10 penuh diberi catatan");
+// G. tingkat 3 (Elo saja) dan tingkat 4 (tebakan dasar): label, penjelasan, tanpa "#0, 0 poin" dan tanpa tabel kosong
+const zs=(n,el)=>({name:n,pos:0,pts:0,gp:0,gf:null,ga:null,w:0,d:0,l:0,sp:null,elo:el,f:null});
+let t3={id:"t3",league:"Piala X",utc:new Date().toISOString(),status:"NS",score:[null,null],home:zs("Aaa",1540),away:zs("Bbb",1480),pick:"h",edge:12,level:"Sedang",est:true,tier:3,
+ note:"Perkiraan kasar dari peringkat Elo lintas liga.",p:{h:46,d:28,a:26,pe:{h:50,d:27,a:23},el:[1540,1480],gp:[9,7],fr:[45,26,29],engine:"elo"}};
+let t4={...t3,id:"t4",tier:4,edge:0,level:"Tipis",home:zs("Ccc",null),away:zs("Ddd",null),note:"tebakan dasar",p:{h:45,d:28,a:27,pe:{h:45,d:28,a:27},el:[null,null],gp:[0,0],fr:[45,26,29],engine:"dasar"}};
+assert(tierTag(t3).includes("Elo saja")&&tierTag(t4).includes("Tebakan dasar")&&tierTag({tier:2,est:true}).includes("Statistik dasar")&&tierTag(base()).includes("Model penuh"));
+for(const t of [t3,t4]){const c=card(t),r=row(t),w=why(t);
+ assert(c.includes("Aaa")||c.includes("Ccc"));assert(!c.includes("#0")&&!r.includes("#0"),"tanpa #0 poin");
+ assert(w.includes("Tentang prediksi ini")&&!w.includes("<table"),"penjelasan singkat tanpa tabel kosong");assert(c.includes("tag l1"))}
+console.log("OK G. tingkat 3 dan 4: label, penjelasan singkat, tanpa data klasemen palsu");
 // F. kartu Evaluasi
 const m=(n,a,b,l)=>({n,acc:a,brier:b,ll:l,roi:null,bets:0,profit:null});
 let ev=v10Comparison({n:9,simulation:{odds:2,minProbability:55},versions:{v8:{...m(9,50,.4,1),label:"V8"},v9:{...m(9,55,.35,.9),label:"V9"},v10:{...m(9,56,.34,.88,),label:"V10 penuh"},lite:{...m(9,57,.33,.87),label:"V10-ringkas (gol 60 + xG 25 + Elo 15)"}},xgSubset:{n:9,minGames:3,v9:m(9,55,.35,.9),lite:m(9,57,.33,.87),v10:m(9,56,.34,.88)}});
