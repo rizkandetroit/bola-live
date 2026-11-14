@@ -50,7 +50,7 @@ const day=t=>new Date(t+WITA).toISOString().slice(0,10);
 const [wkA,wkB]=process.env.WINDOW==="week"?[day(now-2*864e5),day(now+7*864e5)]:monthWindow(now,WITA);
 const nm=t=>(t.name||t.shortName||"?").replace(/\s+(FC|AFC|CF|SC)$/,"");
 const rec=r=>r?{gp:r.playedGames,w:r.won,d:r.draw,l:r.lost,gf:r.goalsFor,ga:r.goalsAgainst}:null;
-const side=(t,r,sp)=>({name:nm(t),pos:r.position,pts:r.points,gp:r.playedGames,gf:r.goalsFor,ga:r.goalsAgainst,w:r.won,d:r.draw,l:r.lost,sp:rec(sp)});
+const side=(t,r,sp)=>({name:nm(t),crest:t.crest||null,pos:r.position,pts:r.points,gp:r.playedGames,gf:r.goalsFor,ga:r.goalsAgainst,w:r.won,d:r.draw,l:r.lost,sp:rec(sp)});
 const FIN=s=>s==="FINISHED"||s==="AWARDED",BAD=["POSTPONED","CANCELLED","SUSPENDED"];
 const hist=new Map((await loadHistory()).map(x=>[x.id,x]));
 const out=[],later=[],errors=[],btRows=[];
@@ -77,7 +77,7 @@ for(const [code,name] of LEAGUES){
       if(BAD.includes(m.status)||(!inW&&!fut))continue;
       const mdl=t>now?mNow:fit(fin,t),p=predictM(mdl,hid,aid),e=r1(Math.abs(p.h-p.a));
       const live=["IN_PLAY","PAUSED","EXTRA_TIME","PENALTY_SHOOTOUT"].includes(m.status);
-      (inW?out:later).push({id:m.id,league:name,utc:m.utcDate,status:live?"LIVE":FIN(m.status)?"FT":"NS",score:[sc?.home??null,sc?.away??null],
+      (inW?out:later).push({id:m.id,league:name,lgc:st.competition?.emblem||null,utc:m.utcDate,status:live?"LIVE":FIN(m.status)?"FT":"NS",score:[sc?.home??null,sc?.away??null],
         home:{...side(m.homeTeam,h,hm.get(hid)),elo:p.el[0],f:formOf(mdl,hid,"h")},away:{...side(m.awayTeam,a,am.get(aid)),elo:p.el[1],f:formOf(mdl,aid,"a")},
         p,pick:p.h>=p.a?"h":"a",edge:e,level:level(e)});
     }
