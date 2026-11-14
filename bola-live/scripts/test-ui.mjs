@@ -6,7 +6,7 @@ const js=html.match(/<script>([\s\S]*?)<\/script>/g).pop().replace(/<\/?script>/
 const pre=js.slice(0,js.indexOf('nav("j");load();'));
 globalThis.document={querySelector:()=>({addEventListener:()=>{},innerHTML:"",value:""}),addEventListener:()=>{},documentElement:{dataset:{}},querySelectorAll:()=>[]};
 globalThis.localStorage={getItem:()=>null,setItem:()=>{}};globalThis.window=globalThis;
-const {why,compHtml,v10Comparison,tierTag,card,row}=new Function(pre+";return {why,compHtml,v10Comparison,tierTag,card,row}")();
+const {why,compHtml,v10Comparison,tierTag,card,row,conflict}=new Function(pre+";return {why,compHtml,v10Comparison,tierTag,card,row,conflict}")();
 const side=(n,o={})=>({name:n,pos:3,pts:20,gp:8,gf:20,ga:6,w:6,d:2,l:0,sp:null,elo:1600,f:{l5:"MMSMM",t:{w:7,d:2,l:1,gf:25,ga:8,cs:4,n:10},v:{w:3,d:1,l:1,gf:9,ga:4,n:5}},...o});
 const base=(o={})=>({id:"x1",league:"Bundesliga",utc:new Date().toISOString(),status:"NS",score:[null,null],home:side("FC Bayern München"),away:side("1. FC Köln",{ga:12,gp:8}),pick:"h",edge:72,level:"Sangat kuat",
  p:{h:81,d:10,a:9,xg:[2.4,.8],ms:[3,0,11],sc5:[[3,0,11,0]],ou:70,bt:40,pe:{h:65,d:18,a:18},raw:{h:88,d:8,a:4},gp:[8,8],el:[1600,1400],fr:[45,26,29],...o}});
@@ -46,6 +46,18 @@ for(const t of [t3,t4]){const c=card(t),r=row(t),w=why(t);
  assert(c.includes("Aaa")||c.includes("Ccc"));assert(!c.includes("#0")&&!r.includes("#0"),"tanpa #0 poin");
  assert(w.includes("Tentang prediksi ini")&&!w.includes("<table"),"penjelasan singkat tanpa tabel kosong");assert(c.includes("tag l1"))}
 console.log("OK G. tingkat 3 dan 4: label, penjelasan singkat, tanpa data klasemen palsu");
+// H. kasus nyata Villarreal 0-6 PSG (data.json 13 Nov): laga selesai tidak menampilkan klasemen sesudah laga, dan pilihan yang berlawanan dengan indikator ditandai
+const vil={id:"575382",league:"Champions League",utc:"2026-11-03T20:00:00Z",status:"FT",score:[0,6],
+ home:{name:"Villarreal",pos:28,pts:3,gp:4,gf:8,ga:14,w:1,d:0,l:3,sp:null,elo:1496,f:{l5:"KMK",t:{w:1,d:0,l:2,gf:8,ga:8,cs:0,n:3},v:{w:1,d:0,l:0,gf:3,ga:1,cs:0,n:1}}},
+ away:{name:"Paris Saint-Germain",pos:1,pts:12,gp:4,gf:20,ga:5,w:4,d:0,l:0,sp:null,elo:1546,f:{l5:"MMM",t:{w:3,d:0,l:0,gf:14,ga:5,cs:0,n:3},v:{w:1,d:0,l:0,gf:4,ga:2,cs:0,n:1}}},
+ p:{h:44.1,d:19,a:36.9,xg:[2.82,2.72],ms:[2,2,5.8],sc5:[[2,2,5.8]],ou:91.4,bt:87.8,fr:[58,11.7,30.3],pe:{h:38.6,d:27.1,a:34.3},el:[1496,1546],gp:[3,3],raw:{h:42.9,d:17.3,a:39.8}},pick:"h",edge:7.2,level:"Tipis"};
+const wv=why(vil),cv=card(vil);
+assert(!wv.includes("Posisi klasemen")&&!wv.includes("Poin per laga")&&!wv.includes("Gol dicetak per laga"),"laga selesai: tanpa baris klasemen sesudah laga");
+assert(wv.includes("Form 5 laga")&&wv.includes("Elo (perkiraan)"),"indikator sebelum laga tetap tampil");
+assert(wv.includes("berlawanan dengan sebagian besar indikator")&&wv.includes("tidak ditampilkan untuk laga selesai"));
+assert(cv.includes("indikator berlawanan")&&cv.includes("kini #28")&&cv.includes("kini #1,"),"kartu: tag berlawanan dan label klasemen kini");
+const ns=base();assert(!card(ns).includes("indikator berlawanan")&&!card(ns).includes("kini #")&&why(ns).includes("Posisi klasemen"),"laga belum main: tidak berubah");
+console.log("OK H. Villarreal 0-6 PSG: klasemen sesudah laga disembunyikan, pilihan berlawanan ditandai");
 // F. kartu Evaluasi
 const m=(n,a,b,l)=>({n,acc:a,brier:b,ll:l,roi:null,bets:0,profit:null});
 let ev=v10Comparison({n:9,simulation:{odds:2,minProbability:55},versions:{v8:{...m(9,50,.4,1),label:"V8"},v9:{...m(9,55,.35,.9),label:"V9"},v10:{...m(9,56,.34,.88,),label:"V10 penuh"},lite:{...m(9,57,.33,.87),label:"V10-ringkas (gol 60 + xG 25 + Elo 15)"}},xgSubset:{n:9,minGames:3,v9:m(9,55,.35,.9),lite:m(9,57,.33,.87),v10:m(9,56,.34,.88)}});
