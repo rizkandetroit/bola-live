@@ -453,11 +453,10 @@ function tierTag(x){
   if(!x.est&&!x.src)return' <span class="tag l4" title="Model lengkap dari data liga utama">Model penuh</span>';
   return"";
 }
-function why(x){
-  if(x.tier>=3)return'<details class="why" data-id="'+x.id+'"'+(OPEN[x.id]?" open":"")+'><summary>Tentang prediksi ini</summary><p class="sm">'+esc(x.note||"")+'</p><p class="cv">Perkiraan kasar ini tidak dihitung dalam hitungan keunggulan kuat dan belum diuji akurasinya.</p></details>';
-  var H=x.home,A=x.away,P=x.p,rows=[],has=H.gf!=null&&A.gf!=null,fh=H.f,fa=A.f;
+function indRows(x){
+  var H=x.home,A=x.away,P=x.p,rows=[],ft=x.status==="FT",has=H.gf!=null&&A.gf!=null&&!ft,fh=H.f,fa=A.f;
   function add(l,hv,av,c){rows.push({l:l,h:String(hv),a:String(av),c:c})}
-  if(H.pos&&A.pos)add("Posisi klasemen","#"+H.pos,"#"+A.pos,cmp(H.pos,A.pos,false));
+  if(!ft&&H.pos&&A.pos)add("Posisi klasemen","#"+H.pos,"#"+A.pos,cmp(H.pos,A.pos,false));
   if(has){
     add("Poin per laga",n2(pg(H.pts,H.gp)),n2(pg(A.pts,A.gp)),cmp(pg(H.pts,H.gp),pg(A.pts,A.gp),true));
     add("Gol dicetak per laga",n2(pg(H.gf,H.gp)),n2(pg(A.gf,A.gp)),cmp(pg(H.gf,H.gp),pg(A.gf,A.gp),true));
@@ -475,17 +474,29 @@ function why(x){
   }
   if(H.elo&&A.elo)add("Elo (perkiraan)",H.elo,A.elo,cmp(H.elo,A.elo,true));
   if(P.xg)add("Perkiraan gol model",n2(P.xg[0]),n2(P.xg[1]),cmp(P.xg[0],P.xg[1],true));
+  return rows
+}
+function conflict(x){
+  if(x.np||x.tier>=3)return false;
+  var r=indRows(x);if(r.length<5)return false;
+  var me=x.pick==="h"?1:-1,pro=r.filter(function(q){return q.c===me}).length,con=r.filter(function(q){return q.c===-me}).length;
+  return pro/r.length<.3&&con/r.length>=.5
+}
+function why(x){
+  if(x.tier>=3)return'<details class="why" data-id="'+x.id+'"'+(OPEN[x.id]?" open":"")+'><summary>Tentang prediksi ini</summary><p class="sm">'+esc(x.note||"")+'</p><p class="cv">Perkiraan kasar ini tidak dihitung dalam hitungan keunggulan kuat dan belum diuji akurasinya.</p></details>';
+  var H=x.home,A=x.away,P=x.p,rows=indRows(x),has=H.gf!=null&&A.gf!=null,ft=x.status==="FT";
   var me=x.pick==="h"?1:-1,pro=rows.filter(function(r){return r.c===me}),con=rows.filter(function(r){return r.c===-me});
   var t="Condong ke "+pk(x).name+(x.pick==="h"?" (kandang)":" (tandang)")+": unggul di "+pro.length+" dari "+rows.length+" indikator";
   if(pro.length)t+=", terutama "+pro.slice(0,3).map(function(r){return r.l.toLowerCase()}).join(", ");
   t+=".";
+  if(conflict(x))t="Pilihan model ini berlawanan dengan sebagian besar indikator, jadi anggap sebagai tebakan tipis. "+t;
   if(con.length)t+=" Lawan lebih baik di "+con.slice(0,2).map(function(r){return r.l.toLowerCase()}).join(" dan ")+".";
   if(P.sc5&&P.ou!=null)t+=" Skor paling mungkin: "+P.sc5.map(function(s){return s[0]+"-"+s[1]+" ("+s[2].toFixed(0)+"%)"}).join(", ")+". Peluang over 2,5 gol "+P.ou.toFixed(0)+"%, kedua tim mencetak gol "+P.bt.toFixed(0)+"%.";
   else if(P.ms)t+=" Skor paling mungkin "+P.ms[0]+"-"+P.ms[1]+" (peluang "+P.ms[2].toFixed(0)+"%).";
   if(P.d>=26)t+=" Peluang seri cukup besar ("+P.d.toFixed(0)+"%).";
   if(P.v10){var v=P.v10;t+=(P.engine==="V10-ringkas"?" Pembanding V10 penuh: ":" Prediksi V10: ")+v.ms[0]+"-"+v.ms[1]+", over 2,5 "+v.ou.toFixed(0)+"%, BTTS "+v.bt.toFixed(0)+"%.";if(v.reasons)t+=" "+v.reasons.slice(0,2).join(" ");}
   var mg=P.gp?Math.min(P.gp[0],P.gp[1]):Math.min(H.gp,A.gp);
-  var cv=(mg<8?"Musim baru berjalan "+mg+" laga, jadi angkanya masih kasar. ":"")+(has?"":"Rincian lengkap muncul setelah data diperbarui berikutnya. ");
+  var cv=(mg<8?"Musim baru berjalan "+mg+" laga, jadi angkanya masih kasar. ":"")+(has?"":"Rincian lengkap muncul setelah data diperbarui berikutnya. ")+(ft?"Klasemen dan statistik musim tidak ditampilkan untuk laga selesai karena sudah memuat hasil laga ini. ":"");
   var tb='<table class="ev"><tr><th>Indikator</th><th>'+esc(H.name)+'</th><th>'+esc(A.name)+'</th></tr>'+rows.map(function(r){return'<tr><td>'+r.l+'</td><td'+(r.c===1?' class="b"':"")+'>'+esc(r.h)+'</td><td'+(r.c===-1?' class="b"':"")+'>'+esc(r.a)+'</td></tr>'}).join("")+'</table>';
   return'<details class="why" data-id="'+x.id+'"'+(OPEN[x.id]?" open":"")+'><summary>Kenapa '+esc(pk(x).name)+'?</summary><p class="sm">'+esc(t)+'</p>'+compHtml(x)+tb+'<p class="cv">'+cv+'Hijau menandai nilai yang lebih baik. M = menang, S = seri, K = kalah. '+(x.est?"Dihitung dari hasil laga liga ini yang berhasil dikumpulkan (API-Football).":"Dihitung dari hasil laga musim ini (football-data.org).")+'</p></details>'
 }
@@ -510,8 +521,8 @@ function card(x,rank){
     +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+esc(x.league)+'</span>':'<span>'+esc(x.league)+'</span>')
     +(x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
     +'<span class="tme">'+stt(x)+'</span></div>'
-    +'<div class="tm"><div><div class="n">'+esc(x.home.name)+'</div><div class="s">'+(x.home.pos?"#"+x.home.pos+", "+x.home.pts+" poin":"&nbsp;")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+'</div><div class="s">'+(x.away.pos?"#"+x.away.pos+", "+x.away.pts+" poin":"&nbsp;")+'</div></div></div>'
-    +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b></span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'
+    +'<div class="tm"><div><div class="n">'+esc(x.home.name)+'</div><div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"&nbsp;")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+'</div><div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"&nbsp;")+'</div></div></div>'
+    +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'
     +(x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"")
     +why(x)+'</div>'
 }
