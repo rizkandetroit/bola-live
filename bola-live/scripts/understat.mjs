@@ -13,7 +13,9 @@ export const seasonOf=(d=new Date())=>d.getUTCMonth()>=6?d.getUTCFullYear():d.ge
 const HEADERS={'User-Agent':'Mozilla/5.0 (compatible; bola-live)','Accept':'application/json, text/html;q=0.8'};
 
 // Halaman liga menaruh data sebagai JSON.parse('...') dengan karakter ber-escape \xNN.
+export const isMaintenance=t=>/we will come back soon/i.test(String(t||''));
 export function parseHtml(html){
+  if(isMaintenance(html))throw new Error('Understat sedang menampilkan halaman pemeliharaan ("We will come back soon"), bukan data');
   const m=/datesData\s*=\s*JSON\.parse\('([\s\S]*?)'\)/.exec(String(html||''));
   if(!m)throw new Error('datesData tidak ditemukan di halaman');
   const txt=m[1].replace(/\\x([0-9A-Fa-f]{2})/g,(_,h)=>String.fromCharCode(parseInt(h,16)));
@@ -27,7 +29,7 @@ export async function fetchLeague(code,season,doFetch=tfetch){
   const errs=[];
   try{
     const r=await doFetch(`https://understat.com/getLeagueData/${code}/${season}`,{headers:{...HEADERS,'X-Requested-With':'XMLHttpRequest'}});
-    if(!r.ok)throw new Error('HTTP '+r.status);return parseLeagueJson(await r.text());
+    if(!r.ok)throw new Error('HTTP '+r.status);const t=await r.text();if(isMaintenance(t))throw new Error('halaman pemeliharaan');return parseLeagueJson(t);
   }catch(e){errs.push('json: '+e.message)}
   try{
     const r=await doFetch(`https://understat.com/league/${code}/${season}`,{headers:HEADERS});

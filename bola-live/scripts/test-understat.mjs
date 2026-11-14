@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {writeFileSync,readFileSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {parseHtml,parseLeagueJson,fetchLeague,buildTeamXg,seasonOf} from './understat.mjs';
+import {isMaintenance,parseHtml,parseLeagueJson,fetchLeague,buildTeamXg,seasonOf} from './understat.mjs';
 import {teamKey,extMap,lookupTeam,applyExternalXgToSiteFile,applyV10ToSiteFile,buildTeamProfiles} from './intelligence.mjs';
 // Tes xG Understat dengan data contoh (tanpa jaringan): parser, nama tim, model ringkas, idempotensi, cadangan saat gagal.
 const D=864e5,now=Date.now(),iso=t=>new Date(t).toISOString().slice(0,19).replace('T',' ');
@@ -17,6 +17,8 @@ const esc=s=>s.replace(/[{}"':,\[\]]/g,c=>'\\x'+c.charCodeAt(0).toString(16).toU
 assert.deepEqual(parseHtml(`<script>var datesData = JSON.parse('${esc(JSON.stringify(dates.slice(0,2)))}')</script>`).length,2);
 assert.equal(parseHtml(`var datesData=JSON.parse('${esc(JSON.stringify([{h:{title:"Sant\'Etienne"}}]))}')`)[0].h.title,"Sant'Etienne");
 assert.throws(()=>parseHtml('<html></html>'));
+assert.equal(isMaintenance('<title>Understat.com</title> We will come back soon'),true);
+assert.throws(()=>parseHtml('<html>Understat.com We will come back soon</html>'),/pemeliharaan/);
 assert.equal(parseLeagueJson(JSON.stringify({dates})).length,dates.length);
 assert.throws(()=>parseLeagueJson('{"x":1}'));
 console.log('OK 1. parser halaman dan JSON');
@@ -88,6 +90,8 @@ try{
   assert.equal((await fetchLeague('EPL',2026,f1)).length,dates.length);assert.equal(calls.length,2);
   const f2=async()=>new Response('x',{status:403});
   await assert.rejects(fetchLeague('EPL',2026,f2),/json: HTTP 403.*html: HTTP 403/);
+  const f3=async()=>new Response('<html>Understat.com We will come back soon</html>',{status:200});
+  await assert.rejects(fetchLeague('EPL',2026,f3),/pemeliharaan.*pemeliharaan/);
   console.log('OK 8. pengambilan dengan cadangan HTML dan galat jelas');
 }finally{rmSync(tmp,{recursive:true,force:true})}
 console.log('understat ok');
