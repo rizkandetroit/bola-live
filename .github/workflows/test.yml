@@ -19,6 +19,7 @@ jobs:
       - run: node bola-live/scripts/test-sportapi.mjs
       - run: node bola-live/scripts/test-pred.mjs
       - run: node bola-live/scripts/test-lite.mjs
+      - run: node bola-live/scripts/test-understat.mjs
       - run: node bola-live/scripts/test-ui.mjs
       - run: node bola-live/scripts/test-ci.mjs
       - run: node bola-live/scripts/test-pitch.mjs

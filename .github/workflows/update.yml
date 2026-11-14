@@ -42,6 +42,11 @@ jobs:
         continue-on-error: true
         env:
           SPORTAPI_KEY: ${{ secrets.SPORTAPI_KEY }}
+      - name: Ambil xG tim (Understat, gratis tanpa kunci)
+        run: node bola-live/scripts/understat.mjs
+        continue-on-error: true
+        env:
+          V10_MIN_XG_GAMES: 3
       - name: Ambil line-up dan analitik (PitchAPI)
         run: node bola-live/scripts/pitch.mjs
         continue-on-error: true
