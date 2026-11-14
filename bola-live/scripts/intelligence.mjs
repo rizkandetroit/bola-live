@@ -347,14 +347,62 @@ export function applyV10ToSiteFile(filePath,fixtures,details,profiles,lambda=.07
   for(const m of data.matches){if(!m.p||m.status!=='NS')continue;const f=matchFixtureForSite(m,fixtures);if(!f)continue;
     const ctx=buildMatchContext(f,detailOf(details,f.id),profiles),p=m.p;
     const old={h:p.h,d:p.d,a:p.a,ou:p.ou,bt:p.bt,ms:p.ms};
-    const v10=predictV10({raw:p.raw||p,pe:p.pe,xg:p.xg,fr:p.fr,lam:lambda},ctx,{lambda:lambda*.5});
+    const xg0=p.xg0!==undefined?p.xg0:p.xg;if(p.xg0===undefined)p.xg0=p.xg;
+    const v10=predictV10({raw:p.raw||p,pe:p.pe,xg:xg0,fr:p.fr,lam:lambda},ctx,{lambda:lambda*.5});
     // Model ringkas dihitung dari data awal (sebelum p.xg ditimpa) dan disimpan di samping V10 penuh agar bisa dibandingkan.
-    const lite=predictLite({raw:p.raw||p,pe:p.pe,xg:p.xg,fr:p.fr},ctx,{lambda,minXgGames});
+    // Bila PitchAPI belum punya xG cukup untuk sebuah tim, xG sumber luar (Understat) mengisi kekosongan itu, hanya untuk model ringkas.
+    const ext=opts.extXg?withExtXg(ctx,extMap(opts.extXg),m,minXgGames):null;
+    const lite=predictLite({raw:p.raw||p,pe:p.pe,xg:xg0,fr:p.fr},ext?ext.ctx:ctx,{lambda,minXgGames});
+    if(lite&&ext?.used)lite.reason+=' Sumber xG: Understat.';
     p.v9=p.v9||old;p.v10=v10;p.engine='V10';p.h=v10.h;p.d=v10.d;p.a=v10.a;p.xg=v10.lambda;p.ou=v10.ou;p.bt=v10.bt;p.ms=v10.ms;p.sc5=v10.sc5;
     if(lite){p.lite=lite;if(headline==='lite'){p.engine='V10-ringkas';p.h=lite.h;p.d=lite.d;p.a=lite.a;p.xg=lite.lambda;p.ou=lite.ou;p.bt=lite.bt;p.ms=lite.ms;p.sc5=lite.sc5}}
     m.pick=p.h>=p.a?'h':'a';m.edge=r1(Math.abs(p.h-p.a));m.level=level(m.edge);updated++;
   }
   awaitlessWrite(filePath,JSON.stringify(data));return{updated};
+}
+// ---------- xG dari sumber luar (Understat) ----------
+// Nama tim tiap sumber berbeda ("Inter" vs "FC Internazionale Milano"); dicocokkan lewat kunci ternormalisasi, alias, lalu irisan kata yang harus unik.
+const TEAM_STOP=new Set(['de','del','la','le','los','as','the','calcio','balompie','sad']);
+const TEAM_ALIAS={'inter':'internazionale milano','internazionale':'internazionale milano','rasenballsport leipzig':'leipzig','borussia m gladbach':'borussia monchengladbach','gladbach':'borussia monchengladbach','cologne':'koln','lyon':'lyonnais','rennes':'rennais','brest':'brestois'};
+export function teamKey(s){let k=norm(s);k=TEAM_ALIAS[k]||k;return k.split(' ').filter(x=>x&&!/^\d+$/.test(x)&&!TEAM_STOP.has(x)).join(' ')}
+export function extMap(ext){const m=new Map();for(const e of Object.values(ext?.teams||{})){const k=teamKey(e?.name);if(k&&!m.has(k))m.set(k,e)}return m}
+export function lookupTeam(map,name){
+  const k=teamKey(name);if(!k)return null;if(map.has(k))return map.get(k);
+  const a=new Set(k.split(' ')),hits=[];
+  for(const [key,v] of map){const b=new Set(key.split(' '));const [sm,lg]=a.size<=b.size?[a,b]:[b,a];if([...sm].join('').length>=4&&[...sm].every(x=>lg.has(x)))hits.push(v)}
+  return hits.length===1?hits[0]:null;
+}
+const extProfile=e=>({n:e.n,xgN:e.xgN,xgFor:e.xgFor,xgAgainst:e.xgAgainst});
+// Mengisi profil xG sebuah tim hanya bila data bawaan kurang dari minXg laga; mengembalikan konteks baru (asli tidak diubah).
+function withExtXg(ctx,map,m,minXg=3){
+  let used=false;const teams={};
+  for(const side of ['home','away']){
+    const cur=ctx.teams[side],prof=cur.profile,need=(prof?.xgN||0)<minXg,e=need?lookupTeam(map,m?.[side]?.name):null;
+    if(e&&e.xgN>=minXg){teams[side]={...cur,profile:{...(prof||{}),...extProfile(e),n:prof?.n??e.n}};used=true}else teams[side]=cur;
+  }
+  return{ctx:{...ctx,teams},used};
+}
+// Dipakai saat PitchAPI tidak ada: hitung model ringkas langsung dari xG sumber luar. Data xG tidak cukup => laga dibiarkan apa adanya.
+export function applyExternalXgToSiteFile(filePath,ext,lambda=.075,opts={}){
+  const minXgGames=opts.minXgGames;
+  let data;try{data=JSON.parse(awaitlessRead(filePath))}catch{return{updated:0,unmatched:[]}}
+  if(!Array.isArray(data.matches))return{updated:0,unmatched:[]};
+  const map=extMap(ext),unmatched=new Set();let updated=0;
+  for(const m of data.matches){
+    if(!m.p||m.status!=='NS')continue;
+    const hp=lookupTeam(map,m.home?.name),ap=lookupTeam(map,m.away?.name);
+    if(!hp||!ap){if(!hp&&m.home?.name)unmatched.add(m.home.name);if(!ap&&m.away?.name)unmatched.add(m.away.name);continue}
+    const p=m.p,xg0=p.xg0!==undefined?p.xg0:p.xg,raw=p.raw||{h:p.h,d:p.d,a:p.a};
+    const ctx={teams:{home:{profile:extProfile(hp)},away:{profile:extProfile(ap)}}};
+    const lite=predictLite({raw,pe:p.pe,xg:xg0,fr:p.fr},ctx,{lambda,minXgGames});
+    if(!lite||!lite.xgOn)continue;
+    lite.reason+=' Sumber xG: Understat.';
+    const old={h:p.h,d:p.d,a:p.a,ou:p.ou,bt:p.bt,ms:p.ms};
+    if(!p.raw)p.raw=raw;if(p.xg0===undefined)p.xg0=p.xg;p.v9=p.v9||old;
+    p.lite=lite;p.engine='V10-ringkas';p.h=lite.h;p.d=lite.d;p.a=lite.a;p.xg=lite.lambda;p.ou=lite.ou;p.bt=lite.bt;p.ms=lite.ms;p.sc5=lite.sc5;
+    m.pick=p.h>=p.a?'h':'a';m.edge=r1(Math.abs(p.h-p.a));m.level=level(m.edge);updated++;
+  }
+  awaitlessWrite(filePath,JSON.stringify(data));return{updated,unmatched:[...unmatched]};
 }
 // These wrappers keep this module's public API synchronous while using the runtime's fs module.
 import {readFileSync as awaitlessRead,writeFileSync as awaitlessWrite} from 'node:fs';

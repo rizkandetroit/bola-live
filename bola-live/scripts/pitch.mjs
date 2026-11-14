@@ -92,10 +92,11 @@ const dir=outDir(import.meta.url);mkdirSync(dir,{recursive:true});
 // Apply V10 to the existing schedule data wherever a PitchAPI fixture can be matched safely by teams + kickoff.
 let calibration=.15;
 try{const d=JSON.parse(readFileSync(join(dir,'data.json'),'utf8'));calibration=Number(d.cal?.lam??.15)}catch{}
+let extXg=null;try{extXg=JSON.parse(readFileSync(join(dir,'understat.json'),'utf8'))}catch{}
 const patched={};
 for(const name of ['data.json','all.json','world.json']){
  const path=join(dir,name);if(!existsSync(path))continue;
- patched[name]=applyV10ToSiteFile(path,allSchedule,details,profiles,calibration,{headline:HEADLINE,minXgGames:MIN_XG});
+ patched[name]=applyV10ToSiteFile(path,allSchedule,details,profiles,calibration,{headline:HEADLINE,minXgGames:MIN_XG,extXg});
 }
 
 const bt=backtestV10(historyFixtures,details,{minGames:3,odds:Number(process.env.V10_SIM_ODDS||2),minProb:Number(process.env.V10_SIM_MIN_PROB||.55),minXgGames:MIN_XG});
