@@ -344,6 +344,7 @@ input[type=search]{min-width:160px;flex:1;max-width:240px}
   <div class="nvb">
     <div class="seg" id="nv" aria-label="Halaman">
       <button data-n="j">Jadwal</button>
+      <button data-n="s">Skor Live</button>
       <button data-n="e">Evaluasi</button>
       <button data-n="p">Skuad &amp; Analitik</button>
     </div>
@@ -369,6 +370,30 @@ input[type=search]{min-width:160px;flex:1;max-width:240px}
       </div>
     </div>
     <div id="list"></div>
+  </div>
+
+  <!-- SKOR LIVE TAB -->
+  <div id="v-s" hidden>
+    <div id="sl-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <h2 style="margin:0">Skor Live <small id="sl-updated" style="font-size:12px;color:var(--mut);font-weight:400"></small></h2>
+        <p style="margin:4px 0 0;font-size:12px;color:var(--mut)">Sumber: StatsHub SBOBET · diperbarui tiap 60 detik</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select id="sl-lig" style="padding:5px 10px;border:1px solid var(--ln);border-radius:8px;background:var(--pn);font-size:13px;cursor:pointer">
+          <option value="">Semua Liga</option>
+        </select>
+        <select id="sl-status" style="padding:5px 10px;border:1px solid var(--ln);border-radius:8px;background:var(--pn);font-size:13px;cursor:pointer">
+          <option value="">Semua Status</option>
+          <option value="live">Live</option>
+          <option value="ft">Selesai</option>
+          <option value="ns">Akan Main</option>
+        </select>
+        <button id="sl-refresh" style="padding:5px 14px;background:var(--H);color:#fff;border:0;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500">↻ Refresh</button>
+      </div>
+    </div>
+    <div id="sl-kpi" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:20px"></div>
+    <div id="sl-list"><div class="em">Memuat skor live...</div></div>
   </div>
 
   <!-- EVALUASI TAB -->
@@ -560,7 +585,7 @@ function renderEval(){
 }
 function loadEval(){fetch("eval.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){EV=j;renderEval()}).catch(function(){renderEval()})}
 
-function nav(v){VIEW=v;$("#v-j").hidden=v!=="j";$("#v-e").hidden=v!=="e";$("#v-p").hidden=v!=="p";[].forEach.call(document.querySelectorAll("#nv button"),function(b){b.className=b.dataset.n===v?"on":""});if(v==="e")loadEval();if(v==="p")loadPitch()}
+function nav(v){VIEW=v;$("#v-j").hidden=v!=="j";$("#v-s").hidden=v!=="s";$("#v-e").hidden=v!=="e";$("#v-p").hidden=v!=="p";[].forEach.call(document.querySelectorAll("#nv button"),function(b){b.className=b.dataset.n===v?"on":""});if(v==="e")loadEval();if(v==="p")loadPitch();if(v==="s")loadSkorLive()}
 
 function fmtMetric(v){return v==null||v===""?"—":typeof v==="number"?v.toFixed(2):String(v)}
 function lineupSide(side,intel,label){if(!side)return'<div><b>'+esc(label)+'</b><div class="players">Data line-up belum tersedia.</div></div>';var starters=side.starters||[],subs=side.subs||[],score=intel&&intel.score!=null?intel.score:null,abs=intel&&intel.absences||[];return'<div><b>'+esc(label)+'</b><div class="formation">'+esc(side.formation||"Formasi —")+' <span class="tag">'+(side.confirmed?'Terkonfirmasi':'Prediksi')+'</span></div>'+(score!=null?'<div class="pitchscore">Kekuatan efektif XI: <b>'+score.toFixed(1)+'/100</b></div><div class="strengthbar"><i style="width:'+Math.max(0,Math.min(100,score))+'%"></i></div>':'')+'<div class="players">'+starters.map(function(p){return'<div><b>'+(p.shirt_number?esc(p.shirt_number)+'. ':'')+esc(p.name||'Pemain')+'</b>'+(p.is_captain?' ©':'')+'</div>'}).join('')+'</div><h3>Cadangan ('+subs.length+')</h3><div class="players">'+subs.map(function(p){return esc(p.shirt_number?p.shirt_number+'. ':'')+esc(p.name||'Pemain')}).join(' · ')+'</div>'+(abs.length?'<h3>Pemain reguler tidak masuk XI</h3><div class="players">'+abs.map(function(p){return esc(p.name)+' — '+esc(p.status)}).join('<br>')+'</div>':'')+'</div>'}
@@ -637,7 +662,245 @@ function load(){Promise.all([fj("data.json"),fj("world.json").catch(function(){r
   if(al&&al.matches){j.matches=j.matches.concat(al.matches);j.allInfo=al;j.errors=(j.errors||[]).concat((al.errors||[]).map(function(e){return"semua liga "+e}))}
   D=j;DEMO=false;draw()
 }).catch(function(){if(!D){D=demo();DEMO=true;draw()}})}
-nav("j");load();setInterval(load,60000);setInterval(function(){if(VIEW==="p"){PITCH=null;loadPitch()}},300000);
+nav("j");load();setInterval(load,60000);setInterval(function(){if(VIEW==="p"){PITCH=null;loadPitch()}},300000);setInterval(function(){if(VIEW==="s")loadSkorLive()},60000);
+/* ============================================================
+   SKOR LIVE — StatsHub SBOBET
+   ============================================================ */
+var SL_DATA=null,SL_TIMER=null;
+var SL_PROXY='https://api.allorigins.win/get?url=';
+var SL_URL='https://sh-cdn001.akamaized.net/sbobet/id/sport/1';
+
+function loadSkorLive(){
+  var el=$("#sl-list");
+  el.innerHTML='<div class="em">⏳ Mengambil data skor live...</div>';
+  var url=SL_PROXY+encodeURIComponent(SL_URL);
+  fetch(url).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json()})
+  .then(function(j){
+    if(!j||!j.contents)throw new Error('Respons kosong');
+    parseSkorLive(j.contents);
+  }).catch(function(err){
+    // Fallback: coba proxy kedua
+    var url2='https://corsproxy.io/?'+encodeURIComponent(SL_URL);
+    fetch(url2).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text()})
+    .then(function(html){parseSkorLive(html)})
+    .catch(function(){
+      el.innerHTML='<div class="em">⚠️ Tidak dapat memuat data live. <br><small>CORS diblokir atau koneksi gagal — coba Refresh.</small></div>';
+    });
+  });
+}
+
+function parseSkorLive(html){
+  var parser=new DOMParser();
+  var doc=parser.parseFromString(html,'text/html');
+  var matches=[];
+  var leagueSet={};
+
+  // Parse dari link pertandingan
+  var links=doc.querySelectorAll('a[href*="/match/"]');
+  if(!links||links.length===0){
+    // Coba parse dari teks
+    parseFromText(html);
+    return;
+  }
+
+  links.forEach(function(a){
+    var txt=a.textContent||'';
+    // Cari skor: angka - angka
+    var scoreM=txt.match(/(\d+)\s*[‌\s]*[-–]\s*[‌\s]*(\d+)/);
+    // Cari nama tim dari struktur
+    var href=a.getAttribute('href')||'';
+    var matchId=href.match(/\/match\/(\d+)/);
+    if(!matchId)return;
+
+    // Ambil parent untuk konteks liga
+    var parent=a.closest('[class]')||a.parentElement;
+    var leagueEl=parent?parent.closest('div')||parent:null;
+
+    // Cari header liga terdekat (h3)
+    var leagueHeader='';
+    var node=a;
+    while(node&&node.parentElement){
+      node=node.parentElement;
+      var h3=node.querySelector?node.querySelector('h3'):null;
+      if(h3){leagueHeader=h3.textContent.trim();break}
+      if(node.tagName==='H3'){leagueHeader=node.textContent.trim();break}
+    }
+
+    var fullTxt=txt.replace(/\s+/g,' ').replace(/[‌]/g,'').trim();
+    // Status dari teks
+    var status='NS';
+    if(/Berakhir|Ended|FT/i.test(fullTxt))status='FT';
+    else if(/Live|LV/i.test(fullTxt))status='LIVE';
+    else if(/Sematkan|shadow|highlight/i.test(fullTxt))status='NS';
+
+    // Ekstrak nama tim dan skor dari teks
+    var teams=extractTeamsScore(fullTxt);
+    if(!teams)return;
+
+    var league=leagueHeader||'—';
+    leagueSet[league]=true;
+
+    matches.push({
+      id:matchId[1],
+      league:league,
+      home:teams.home,
+      away:teams.away,
+      scoreH:teams.sh,
+      scoreA:teams.sa,
+      status:status,
+      time:teams.time||''
+    });
+  });
+
+  if(matches.length===0){
+    // Fallback parse sederhana dari raw text
+    parseFromText(html);
+    return;
+  }
+
+  SL_DATA={matches:matches,leagues:Object.keys(leagueSet),ts:new Date()};
+  renderSkorLive();
+}
+
+function extractTeamsScore(txt){
+  // Bersihkan noise
+  txt=txt.replace(/Sematkan pertandingan|Berakhir|Ended|shadow|highlight|FT|HT|OT|Pen\./gi,'').replace(/Buka quick stats/gi,'').replace(/\s+/g,' ').trim();
+  // Cari pola: NamaTim [skor] NamaTim
+  // Pola skor: satu atau dua digit, bisa null/dash
+  var scoreM=txt.match(/(\d)\s*[‌ ]*[-–]\s*[‌ ]*(\d)/);
+  var sh=null,sa=null;
+  if(scoreM){sh=parseInt(scoreM[1]);sa=parseInt(scoreM[2])}
+
+  // Ambil bagian sebelum skor sbg home, sesudah sbg away
+  var parts;
+  if(scoreM){
+    var idx=txt.indexOf(scoreM[0]);
+    var before=txt.substring(0,idx).trim();
+    var after=txt.substring(idx+scoreM[0].length).trim();
+    // Bersihkan angka sisa (HT score, minute, dsb)
+    before=before.replace(/\d+\s*$|^\s*\d+/g,'').trim();
+    after=after.replace(/^\s*\d+|\d+\s*$/g,'').trim();
+    // Ambil token terakhir before = nama home, token pertama after = nama away
+    var hParts=before.split(/\s{2,}|(?<=\w{2})\s(?=[A-Z])/);
+    var home=hParts[hParts.length-1]||before;
+    var aParts=after.split(/\s{2,}/);
+    var away=aParts[0]||after;
+    if(home.length<2||away.length<2)return null;
+    return{home:home.trim(),away:away.trim(),sh:sh,sa:sa};
+  } else {
+    // Tidak ada skor, coba ambil 2 token besar sebagai nama tim
+    var words=txt.split(/\s+/).filter(function(w){return w.length>2});
+    if(words.length>=2){
+      var mid=Math.floor(words.length/2);
+      return{home:words.slice(0,mid).join(' '),away:words.slice(mid).join(' '),sh:null,sa:null};
+    }
+    return null;
+  }
+}
+
+function parseFromText(html){
+  // Fallback: cari pola "[Tim] [skor] - [skor] [Tim]" dari raw HTML teks
+  var txt=html.replace(/<[^>]+>/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&#8204;/g,'').replace(/\s+/g,' ');
+  // Cari pertandingan via regex kasar
+  var re=/([A-Za-z][A-Za-z\s\.]+?)\s+(\d)\s+-\s+(\d)\s+([A-Za-z][A-Za-z\s\.]+?)(?=\s{3,}|Premier|Serie|La Liga|Bundesliga|Ligue|Liga|$)/g;
+  var matches=[];var m;var i=0;
+  while((m=re.exec(txt))!==null&&i<100){
+    if(m[1].length>2&&m[4].length>2){
+      matches.push({id:'fb'+i,league:'—',home:m[1].trim(),away:m[4].trim(),scoreH:parseInt(m[2]),scoreA:parseInt(m[3]),status:'FT',time:''});
+    }
+    i++;
+  }
+  SL_DATA={matches:matches,leagues:[],ts:new Date()};
+  renderSkorLive();
+}
+
+function renderSkorLive(){
+  if(!SL_DATA)return;
+  var ms=SL_DATA.matches;
+  var ligF=$("#sl-lig").value;
+  var stF=$("#sl-status").value;
+
+  // Update timestamp
+  var upd=$("#sl-updated");
+  if(upd&&SL_DATA.ts)upd.textContent='· '+SL_DATA.ts.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+
+  // Isi dropdown liga
+  var ligSel=$("#sl-lig");
+  var curLig=ligSel.value;
+  ligSel.innerHTML='<option value="">Semua Liga</option>';
+  SL_DATA.leagues.forEach(function(l){
+    var o=document.createElement('option');
+    o.value=l;o.textContent=l;
+    if(l===curLig)o.selected=true;
+    ligSel.appendChild(o);
+  });
+  if(curLig)ligSel.value=curLig;
+
+  // Filter
+  var filtered=ms.filter(function(x){
+    if(ligF&&x.league!==ligF)return false;
+    if(stF==='live'&&x.status!=='LIVE')return false;
+    if(stF==='ft'&&x.status!=='FT')return false;
+    if(stF==='ns'&&x.status!=='NS')return false;
+    return true;
+  });
+
+  // KPI
+  var nLive=ms.filter(function(x){return x.status==='LIVE'}).length;
+  var nFT=ms.filter(function(x){return x.status==='FT'}).length;
+  var nNS=ms.filter(function(x){return x.status==='NS'}).length;
+  var nLig=SL_DATA.leagues.length;
+  $("#sl-kpi").innerHTML=
+    '<div class="k lv"><b>'+nLive+'</b><span>Sedang Live</span></div>'+
+    '<div class="k"><b>'+nFT+'</b><span>Selesai</span></div>'+
+    '<div class="k"><b>'+nNS+'</b><span>Akan Main</span></div>'+
+    '<div class="k"><b>'+nLig+'</b><span>Liga</span></div>';
+
+  if(!filtered.length){
+    $("#sl-list").innerHTML='<div class="em">Tidak ada pertandingan.</div>';
+    return;
+  }
+
+  // Group by liga
+  var byLeague={};
+  filtered.forEach(function(x){
+    if(!byLeague[x.league])byLeague[x.league]=[];
+    byLeague[x.league].push(x);
+  });
+
+  var html='';
+  Object.keys(byLeague).forEach(function(lig){
+    html+='<div style="margin-bottom:20px"><div style="font-size:12px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;padding:6px 0;border-bottom:1px solid var(--ln);margin-bottom:8px">'+esc(lig)+'</div>';
+    byLeague[lig].forEach(function(x){
+      var isLive=x.status==='LIVE';
+      var isFT=x.status==='FT';
+      var stBadge=isLive?'<span style="background:var(--A-soft);color:var(--hot);border:1px solid #fecaca;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px"><span style="width:5px;height:5px;border-radius:50%;background:var(--hot);display:inline-block;animation:pl 1.5s infinite"></span>Live</span>':
+                 isFT?'<span style="background:#f1f5f9;color:var(--mut);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:500">Selesai</span>':
+                      '<span style="background:var(--gold-soft);color:var(--gold);border-radius:12px;padding:2px 8px;font-size:11px;font-weight:500">Akan Main</span>';
+      var sc=(x.scoreH!==null&&x.scoreA!==null)?'<span style="font:700 18px/1 var(--hd);font-variant-numeric:tabular-nums;color:'+(isLive?'var(--hot)':'var(--ink)')+'">'+x.scoreH+' – '+x.scoreA+'</span>':'<span style="color:var(--mut);font-size:14px">vs</span>';
+      html+='<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--pn);border:1px solid var(--ln);border-radius:var(--r);margin-bottom:6px'+(isLive?';border-left:3px solid var(--hot)':'')+'">'+
+        '<div style="flex:1;text-align:right;font-size:14px;font-weight:500">'+esc(x.home)+'</div>'+
+        '<div style="text-align:center;min-width:80px">'+sc+'<div style="margin-top:4px">'+stBadge+'</div></div>'+
+        '<div style="flex:1;text-align:left;font-size:14px;font-weight:500">'+esc(x.away)+'</div>'+
+      '</div>';
+    });
+    html+='</div>';
+  });
+  $("#sl-list").innerHTML=html;
+}
+
+// Event: filter & refresh
+document.addEventListener('change',function(e){
+  if(e.target.id==='sl-lig'||e.target.id==='sl-status')renderSkorLive();
+});
+document.addEventListener('click',function(e){
+  if(e.target.id==='sl-refresh'||e.target.closest('#sl-refresh')){
+    SL_DATA=null;
+    $("#sl-list").innerHTML='<div class="em">⏳ Mengambil ulang...</div>';
+    loadSkorLive();
+  }
+});
+
 </script>
 </body>
 </html>
