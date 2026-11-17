@@ -1,18 +1,11 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {sleep,tfetch,cleanKey,siteBase,outDir,overDeadline,ghWarn} from "./net.mjs";
 import {fit,predictM,formOf,finalP,level,r1} from "./lib.mjs";
-// SEMUA liga sepak bola dari API-Football (paket gratis: 100 permintaan per hari, 10 per menit).
-// Cara hemat: diambil per TANGGAL (satu permintaan = semua liga pada hari itu), bukan per liga.
-// Hasilnya hanya jadwal dan skor (tanpa prediksi). 10 liga football-data.org tidak diulang (sudah punya prediksi).
-// Cache per tanggal disimpan di situs sendiri (all-cache.json) supaya permintaan tidak terbuang.
 const KEY=cleanKey(process.env.API_FOOTBALL_KEY);
 if(!KEY){console.log("API_FOOTBALL_KEY kosong: langkah semua-liga dilewati.");process.exit(0)}
 const API=(process.env.APIF_API||"https://v3.football.api-sports.io").replace(/\/+$/,"");
 const GAP=Number(process.env.GAP_MS??7000),RETRY=Number(process.env.RETRY_MS??30000);
 const MAXC=Number(process.env.MAX_CALLS??6),RESERVE=Number(process.env.RESERVE??8);
-// ID liga API-Football untuk 10 liga yang sudah dicakup football-data.org (PL, SA, BL1, PD, FL1, CL, DED, PPL, ELC, BSA)
-// Prediksi untuk liga lain: model yang sama dengan 10 liga utama, tetapi dari hasil laga yang berhasil dikumpulkan
-// (hasil harian + satu musim penuh per liga bila paket mengizinkan). Ditandai "data terbatas" dan belum diuji akurasinya.
 const BOOT_MAX=Number(process.env.BOOT_MAX??10),MINL=Number(process.env.MIN_LEAGUE_MATCHES??20),MINT=Number(process.env.MIN_TEAM_MATCHES??3);
 const UTC_HOUR=process.env.UTC_HOUR!=null?Number(process.env.UTC_HOUR):new Date().getUTCHours();
 const COVERED=new Set((process.env.COVERED_IDS?JSON.parse(process.env.COVERED_IDS):[39,135,78,140,61,2,88,94,40,71]).map(Number));
@@ -32,16 +25,14 @@ async function loadJ(envVar,file){
 const prev=await loadJ("PREV_FILE","all-cache.json"),hist0=await loadJ("PREV_HIST","all-history.json");
 const days=(prev&&prev.days)||{};
 let range=prev&&prev.range&&now-prev.range.t<DAY?{...prev.range}:{...R0,t:now};
-// tanggal UTC yang menyentuh jendela WITA, diurutkan dari yang terdekat dengan hari ini: 0, -1, +1, -2, +2, ...
 const lo=addD(wkA,-1),hi=wkB,dates=[];
 for(let d=lo;d<=hi;d=addD(d,1))dates.push(d);
 dates.sort((a,b)=>Math.abs(off(a))-Math.abs(off(b))||off(a)-off(b));
-// seberapa tua cache boleh sebelum diambil ulang
 const stale=(d,c)=>{const o=off(d);if(!c)return true;const age=now-c.t;
-  if(o===0||o===-1)return age>20*60e3;   // hari ini dan kemarin: tiap run (kecuali baru saja)
-  if(o===1)return age>6*36e5;             // besok: tiap 6 jam
-  if(o>1)return age>12*36e5;              // lebih jauh: tiap 12 jam
-  return false};                          // hari lampau yang sudah dicache: sudah final
+  if(o===0||o===-1)return age>20*60e3;   
+  if(o===1)return age>6*36e5;             
+  if(o>1)return age>12*36e5;              
+  return false};                          
 const recs=resp=>{const m=[];
   for(const x of resp||[]){
     const f=x.fixture,l=x.league,t=x.teams,g=x.goals||{};
@@ -70,7 +61,7 @@ async function call(q){
 }
 for(const d of dates){
   const o=off(d);
-  if(o<range.min||o>range.max)continue;           // di luar rentang yang diizinkan paket (dipelajari otomatis)
+  if(o<range.min||o>range.max)continue;           
   if(!stale(d,days[d]))continue;
   if(calls>=MAXC){errors.push("batas permintaan per run ("+MAXC+") tercapai; sisanya memakai cache");break}
   if(quota||fatal)break;
@@ -91,15 +82,12 @@ for(const d of dates){
   }
   if(remaining!=null&&remaining<RESERVE){errors.push("sisa kuota harian tinggal "+remaining+"; berhenti memanggil");break}
 }
-// buang cache di luar jendela
 for(const d of Object.keys(days))if(d<lo||d>hi)delete days[d];
 const LIVE=["1H","HT","2H","ET","BT","P","LIVE","INT"],FT=["FT","AET","PEN"],NS=["NS","TBD"];
 const stOf=r=>LIVE.includes(r.s)?"LIVE":FT.includes(r.s)?"FT":NS.includes(r.s)?"NS":null;
 const label=r=>r.lc&&r.lc!=="World"?`${r.ln} (${r.lc})`:r.ln;
 const byId=new Map();
 for(const [d,c] of Object.entries(days).sort((a,b)=>a[1].t-b[1].t))for(const r of c.m)byId.set(r.id,r);
-
-// ---------- riwayat hasil per liga (dikumpulkan dari tiap run + satu musim penuh bila diizinkan) ----------
 const H=hist0&&hist0.leagues?{leagues:hist0.leagues,bootBlocked:hist0.bootBlocked||null}:{leagues:{},bootBlocked:null};
 const ELIG=n=>!/friendl|cup|copa|qualif|olymp|nations|international|trophy|super ?cup|play-?off|world/i.test(n||"");
 const ids=L=>L._s||(L._s=new Set(L.m.map(x=>x[0])));
@@ -109,7 +97,7 @@ function absorb(list){
     let L=H.leagues[r.li];
     const newer=L&&r.se!=null&&L.se!=null&&Number(r.se)>Number(L.se);
     if(!L||newer)L=H.leagues[r.li]={n:label(r),se:r.se??null,tm:{},m:[],boot:null};
-    if(r.se!=null&&L.se!=null&&Number(r.se)<Number(L.se))continue;   // musim lama
+    if(r.se!=null&&L.se!=null&&Number(r.se)<Number(L.se))continue;   
     if(L.se==null&&r.se!=null)L.se=r.se;
     L.n=label(r);L.tm[r.hi]=r.h;L.tm[r.ai]=r.a;
     if(FT.includes(r.s)&&r.gh!=null&&r.ga!=null&&!ids(L).has(r.id)){L.m.push([r.id,r.t,r.hi,r.ai,r.gh,r.ga]);ids(L).add(r.id)}
@@ -117,8 +105,6 @@ function absorb(list){
   for(const L of Object.values(H.leagues))if(L.m.length>700){L.m.sort((a,b)=>a[1]-b[1]);L.m=L.m.slice(-700);L._s=null}
 }
 absorb([...byId.values()]);
-
-// ---------- satu musim penuh per liga memakai SISA kuota harian (bila paket gratis mengizinkan) ----------
 const bootInfo={done:0,total:0,blocked:false};
 async function bootstrap(){
   const wcount=new Map();
@@ -127,7 +113,6 @@ async function bootstrap(){
   bootInfo.total=el.length;bootInfo.done=el.filter(([li,L])=>L.boot).length;
   const blocked=H.bootBlocked&&now-H.bootBlocked<7*DAY;bootInfo.blocked=!!blocked;
   if(blocked||BOOT_MAX<=0||remaining==null||quota||fatal)return;
-  // cadangkan kuota untuk sisa run hari ini (sekitar 2 permintaan per jam) sebelum memakai sisanya untuk musim penuh
   const spare=()=>remaining-(2*(24-UTC_HOUR)+6);
   const targets=el.filter(([li,L])=>wcount.get(li)&&(!L.boot||now-L.boot>14*DAY)).sort((a,b)=>(wcount.get(b[0])-wcount.get(a[0])));
   let n=Math.min(BOOT_MAX,spare());
@@ -150,8 +135,6 @@ async function bootstrap(){
   }
 }
 await bootstrap();
-
-// ---------- model per liga ----------
 const MC=new Map();
 function modelOf(li){
   if(MC.has(li))return MC.get(li);
@@ -167,12 +150,6 @@ function modelOf(li){
   }
   MC.set(li,o);return o;
 }
-// ---------- Tingkat 3 dan 4: cadangan agar SEMUA laga punya angka ----------
-// Tingkat 2 (di atas) = model liga sendiri (Poisson-gol 70% + Elo 30%) dari riwayat liga yang tersimpan.
-// Tingkat 3 = Elo lintas liga saja (dipakai bila liga belum punya riwayat cukup, laga piala, atau tim baru yang rivalnya sudah dikenal).
-//             Hasilnya dicampur ke peluang dasar menurut banyaknya laga yang dikenal, supaya angkanya tidak ekstrem.
-// Tingkat 4 = tebakan dasar keuntungan tuan rumah (kedua tim tidak dikenal sama sekali).
-// Tingkat 3 dan 4 diberi est:true dan tier, sehingga TIDAK ikut hitungan "keunggulan kuat" di halaman dan harus diperlakukan sebagai perkiraan kasar.
 const BASE=[45,28,27];
 let GM=null;
 function globalModel(){
@@ -201,11 +178,11 @@ for(const r of byId.values()){
   if(COVERED.has(Number(r.li)))continue;
   const dd=wday(r.t);if(dd<wkA||dd>wkB)continue;
   const st=stOf(r);
-  if(!st)continue;                                  // ditunda, dibatalkan, dll.
-  if(st==="NS"&&r.t<now-3*36e5)continue;           // belum mulai tapi sudah lewat jauh: data basi
+  if(!st)continue;                                  
+  if(st==="NS"&&r.t<now-3*36e5)continue;           
   if(st==="LIVE"&&r.t<now-4*36e5)continue;
   const name=label(r);lg.add(name);
-  const base={id:"f"+r.id,league:name,utc:new Date(r.t).toISOString(),status:st,score:st==="NS"?[null,null]:[r.gh,r.ga],home:{name:r.h},away:{name:r.a}};
+  const base={id:"f"+r.id, hi:r.hi, ai:r.ai, league:name, utc:new Date(r.t).toISOString(), status:st, score:st==="NS"?[null,null]:[r.gh,r.ga], home:{name:r.h}, away:{name:r.a}};
   const M=r.hi&&r.ai&&ELIG(r.ln)?modelOf(r.li):null;
   if(M){
     const model=r.t>now?M.mNow:fit(M.ms,r.t),gH=(model.T.get(r.hi)||{}).gp||0,gA=(model.T.get(r.ai)||{}).gp||0;
