@@ -1,6 +1,7 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {sleep,tfetch,cleanKey,siteBase,outDir,overDeadline,ghWarn} from "./net.mjs";
 import {fit,predictM,formOf,finalP,level,r1} from "./lib.mjs";
+import {bsdAllows} from "./leagues-filter.mjs";
 const KEY=cleanKey(process.env.API_FOOTBALL_KEY);
 if(!KEY){console.log("API_FOOTBALL_KEY kosong: langkah semua-liga dilewati.");process.exit(0)}
 const API=(process.env.APIF_API||"https://v3.football.api-sports.io").replace(/\/+$/,"");
@@ -173,7 +174,7 @@ function fallback(r,base){
     pick:h>=a?"h":"a",edge:e,level:lv==="Sangat kuat"||lv==="Kuat"?"Sedang":lv,est:true,tier:3,
     note:"Perkiraan kasar dari peringkat Elo lintas liga (Elo "+p0.el[0]+" lawan "+p0.el[1]+", dari "+gh+" dan "+ga+" laga tersimpan), dicampur peluang dasar karena datanya masih sedikit. Tidak memakai klasemen, xG, atau Poisson."};
 }
-const out=[],lg=new Set();let nPred=0;const tiers={2:0,3:0,4:0};
+const out=[],lg=new Set(),dropped=new Set();let nPred=0;const tiers={2:0,3:0,4:0};
 for(const r of byId.values()){
   if(COVERED.has(Number(r.li)))continue;
   const dd=wday(r.t);if(dd<wkA||dd>wkB)continue;
@@ -181,7 +182,7 @@ for(const r of byId.values()){
   if(!st)continue;                                  
   if(st==="NS"&&r.t<now-3*36e5)continue;           
   if(st==="LIVE"&&r.t<now-4*36e5)continue;
-  const name=label(r);lg.add(name);
+  const name=label(r);if(!bsdAllows(name)){dropped.add(name);continue}lg.add(name);
   const base={id:"f"+r.id, hi:r.hi, ai:r.ai, league:name, utc:new Date(r.t).toISOString(), status:st, score:st==="NS"?[null,null]:[r.gh,r.ga], home:{name:r.h}, away:{name:r.a}};
   const M=r.hi&&r.ai&&ELIG(r.ln)?modelOf(r.li):null;
   if(M){
@@ -204,3 +205,4 @@ writeFileSync(dir+"all-cache.json",JSON.stringify({range,days}));
 writeFileSync(dir+"all-history.json",JSON.stringify({v:1,bootBlocked:H.bootBlocked,leagues:H.leagues},(k,v)=>k[0]==="_"?undefined:v));
 if(errors.length)ghWarn("semua-liga: "+errors.join(" ; "));
 console.log("OK semua-liga:",out.length,"laga;",lg.size,"liga;",nPred,"berprediksi (tingkat 2); tingkat 3:",tiers[3],"; tingkat 4:",tiers[4],";",calls,"permintaan; sisa kuota",remaining==null?"?":remaining,"; musim penuh",bootInfo.done+"/"+bootInfo.total+(bootInfo.blocked?" (diblokir paket)":""),"; rentang tanggal",range.min,"sampai",range.max);
+if(dropped.size)console.log("semua-liga: dibuang karena tidak cocok nama liga BSD ("+dropped.size+"):",[...dropped].join(" | "));

@@ -1,6 +1,7 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {sleep,tfetch,cleanKey,siteBase,outDir,overDeadline,ghWarn} from "./net.mjs";
 import {fit,predictM,formOf,finalP,level,r1} from "./lib.mjs";
+import {bsdAllows} from "./leagues-filter.mjs";
 // SEMUA liga dari SportAPI (sportapi.ai, paket Free: 2.000 permintaan per hari, 14.000 per bulan).
 // Satu permintaan fixtures/date/{tanggal} = semua liga pada tanggal itu, jadi seminggu jadwal hanya sekitar 10 permintaan.
 // Langkah ini berjalan SETELAH all.mjs dan menggabungkan hasilnya ke all.json (format sama, halaman tidak perlu diubah):
@@ -162,13 +163,14 @@ function fallback(r,base){
     pick:h>=a?"h":"a",edge:e,level:lv==="Sangat kuat"||lv==="Kuat"?"Sedang":lv,est:true,tier:3,
     note:"Perkiraan kasar dari peringkat Elo lintas liga (Elo "+p0.el[0]+" lawan "+p0.el[1]+", dari "+gh+" dan "+ga+" laga tersimpan), dicampur peluang dasar karena datanya masih sedikit. Tidak memakai klasemen, xG, atau Poisson."};
 }
-const mine=[],tiers={2:0,3:0,4:0};
+const mine=[],tiers={2:0,3:0,4:0},dropped=new Set();
 for(const r of byId.values()){
   const dd=wday(r.t);if(dd<wkA||dd>wkB)continue;
   const st=stOf(r);if(!st)continue;
   if(st==="NS"&&r.t<now-3*36e5)continue;
   if(st==="LIVE"&&r.t<now-4*36e5)continue;
-  const base={id:"s"+r.id, hi:r.hi, ai:r.ai, league:label(r),utc:new Date(r.t).toISOString(),status:st,score:st==="NS"?[null,null]:[r.gh,r.ga],home:{name:r.h},away:{name:r.a}};
+  const lname=label(r);if(!bsdAllows(lname)){dropped.add(lname);continue}
+  const base={id:"s"+r.id, hi:r.hi, ai:r.ai, league:lname,utc:new Date(r.t).toISOString(),status:st,score:st==="NS"?[null,null]:[r.gh,r.ga],home:{name:r.h},away:{name:r.a}};
   const M=ELIG(r.ln)?modelOf(r.li):null;
   if(M){
     const model=r.t>now?M.mNow:fit(M.ms,r.t),gH=(model.T.get(r.hi)||{}).gp||0,gA=(model.T.get(r.ai)||{}).gp||0;
@@ -213,3 +215,4 @@ writeFileSync(dir+"sa-cache.json",JSON.stringify({range,days,usage}));
 writeFileSync(dir+"sa-history.json",JSON.stringify({v:1,leagues:H.leagues},(k,v)=>k[0]==="_"?undefined:v));
 if(errors.length)ghWarn("sportapi: "+errors.join(" ; "));
 console.log("OK sportapi:",mine.length,"laga SportAPI;",added,"ditambah;",replaced,"menggantikan;",dup,"sudah ada;",calls,"permintaan (hari ini",usage.n+", bulan ini",usage.mn+"); riwayat",all.sa.history,"laga di",all.sa.leagues,"liga; tingkat 2/3/4:",T2[2]+"/"+T2[3]+"/"+T2[4]+"; rentang",range.min,"sampai",range.max);
+if(dropped.size)console.log("sportapi: dibuang karena tidak cocok nama liga BSD ("+dropped.size+"):",[...dropped].join(" | "));
