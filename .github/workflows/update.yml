@@ -60,6 +60,12 @@ jobs:
           H2H_MAX_CALLS: 10
           
       # Step baru: Fallback H2H dari FotMob jika API-Football gagal/kosong
+      - name: Ambil data BSD (pelengkap liga + prediksi siap pakai)
+        run: node bola-live/scripts/bsd.mjs
+        continue-on-error: true
+        env:
+          BSD_API_KEY: ${{ secrets.BSD_API_KEY }}
+
       - name: Ambil H2H dari FotMob (Fallback)
         run: node bola-live/scripts/fotmob-h2h.mjs
         continue-on-error: true
