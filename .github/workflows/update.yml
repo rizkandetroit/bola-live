@@ -36,12 +36,6 @@ jobs:
         continue-on-error: true
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
-      - name: Ambil Head-to-Head (API-Football)
-        run: node bola-live/scripts/h2h.mjs
-        continue-on-error: true
-        env:
-          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
-          H2H_MAX_CALLS: 10
       - name: Ambil SEMUA liga (SportAPI, jadwal, skor, riwayat, prediksi)
         run: node bola-live/scripts/sportapi.mjs
         continue-on-error: true
@@ -49,6 +43,12 @@ jobs:
           SPORTAPI_KEY: ${{ secrets.SPORTAPI_KEY }}
           BACKFILL_DAYS: 120
           BACKFILL_PER_RUN: 30
+      - name: Ambil Head-to-Head (API-Football)
+        run: node bola-live/scripts/h2h.mjs
+        continue-on-error: true
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          H2H_MAX_CALLS: 10
       - name: Ambil xG tim (Understat, gratis tanpa kunci)
         run: node bola-live/scripts/understat.mjs
         continue-on-error: true
