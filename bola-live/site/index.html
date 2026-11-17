@@ -508,6 +508,20 @@ function conflict(x){
   var me=x.pick==="h"?1:-1,pro=r.filter(function(q){return q.c===me}).length,con=r.filter(function(q){return q.c===-me}).length;
   return pro/r.length<.3&&con/r.length>=.5
 }
+
+function h2hPanel(x){
+  if(!x.h2h || !x.h2h.n) return "";
+  var h = x.h2h;
+  var rows = h.last.map(function(m){
+    return '<tr><td>'+m.t+'</td><td>'+esc(m.l||'')+'</td><td style="text-align:center;font-weight:bold">'+m.s[0]+' - '+m.s[1]+'</td></tr>';
+  }).join('');
+  return '<details class="why" data-id="h2h-'+x.id+'" style="margin-top:4px;border-top:none">'
+    +'<summary>Rekor Head-to-Head ('+h.n+' laga)</summary>'
+    +'<p class="sm" style="margin:7px 0"><b>'+esc(x.home.name)+'</b> menang '+h.hW+', seri '+h.d+', <b>'+esc(x.away.name)+'</b> menang '+h.aW+'.<br>Total gol: '+h.gf+' - '+h.ga+'</p>'
+    +'<table class="ev"><tr><th>Tanggal</th><th>Kompetisi</th><th>Skor</th></tr>'+rows+'</table>'
+    +'</details>';
+}
+
 function why(x){
   if(x.tier>=3)return'<details class="why" data-id="'+x.id+'"'+(OPEN[x.id]?" open":"")+'><summary>Tentang prediksi ini</summary><p class="sm">'+esc(x.note||"")+'</p><p class="cv">Perkiraan kasar ini tidak dihitung dalam hitungan keunggulan kuat dan belum diuji akurasinya.</p></details>';
   var H=x.home,A=x.away,P=x.p,rows=indRows(x),has=H.gf!=null&&A.gf!=null,ft=x.status==="FT";
@@ -551,12 +565,12 @@ function card(x,rank){
     +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+'</div><div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"&nbsp;")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+cr(x.away.crest)+'</div><div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"&nbsp;")+'</div></div></div>'
     +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'
     +(x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"")
-    +why(x)+'</div>'
+    +why(x)+h2hPanel(x)+'</div>'
 }
 
 function row(x){
   if(x.np)return rowNp(x);
-  return'<div class="tr'+(x.status==="LIVE"?" lv":"")+'"><div class="dtc">'+stt(x,1)+'</div><div><div class="n">'+esc(x.home.name)+(x.status==="NS"?'<span class="vs2"> vs </span>':'<span class="sc">'+(x.score[0]==null?"-":x.score[0])+"-"+(x.score[1]==null?"-":x.score[1])+'</span>')+esc(x.away.name)+'</div><div class="s">'+esc(x.league)+tierTag(x)+'</div></div><div>'+pb(x)+'</div><div style="text-align:right"><div class="n" style="font-size:14px">'+esc(pk(x).name)+'</div><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+why(x)+'</div>'
+  return'<div class="tr'+(x.status==="LIVE"?" lv":"")+'"><div class="dtc">'+stt(x,1)+'</div><div><div class="n">'+esc(x.home.name)+(x.status==="NS"?'<span class="vs2"> vs </span>':'<span class="sc">'+(x.score[0]==null?"-":x.score[0])+"-"+(x.score[1]==null?"-":x.score[1])+'</span>')+esc(x.away.name)+'</div><div class="s">'+esc(x.league)+tierTag(x)+'</div></div><div>'+pb(x)+'</div><div style="text-align:right"><div class="n" style="font-size:14px">'+esc(pk(x).name)+'</div><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+why(x)+h2hPanel(x)+'</div>'
 }
 
 function chips(el,arr,key,lab){$(el).innerHTML=arr.map(function(a){return'<button class="chip'+(S[key]===a[0]?" on":"")+(el==="#lg"?" ":"")+'" data-k="'+key+'" data-val="'+esc(a[0])+'">'+esc(a[1])+'</button>'}).join("")}
@@ -730,7 +744,7 @@ function parseSkorLive(html){
     // Status dari teks
     var status='NS';
     if(/Berakhir|Ended|FT/i.test(fullTxt))status='FT';
-    else if(/Live|LV/i.test(fullTxt))status='LIVE';
+    else if(/Live|LV/i.test(fullTxt))status='LIVE';
     else if(/Sematkan|shadow|highlight/i.test(fullTxt))status='NS';
 
     // Ekstrak nama tim dan skor dari teks
