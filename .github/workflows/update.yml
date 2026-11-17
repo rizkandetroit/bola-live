@@ -10,7 +10,6 @@ permissions:
   pages: write
   id-token: write
   actions: read
-# false = run yang sedang deploy tidak dibatalkan di tengah jalan (pembatalan saat deploy bisa membuat Pages macet)
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -37,11 +36,19 @@ jobs:
         continue-on-error: true
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      - name: Ambil Head-to-Head (API-Football)
+        run: node bola-live/scripts/h2h.mjs
+        continue-on-error: true
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          H2H_MAX_CALLS: 10
       - name: Ambil SEMUA liga (SportAPI, jadwal, skor, riwayat, prediksi)
         run: node bola-live/scripts/sportapi.mjs
         continue-on-error: true
         env:
           SPORTAPI_KEY: ${{ secrets.SPORTAPI_KEY }}
+          BACKFILL_DAYS: 120
+          BACKFILL_PER_RUN: 30
       - name: Ambil xG tim (Understat, gratis tanpa kunci)
         run: node bola-live/scripts/understat.mjs
         continue-on-error: true
@@ -61,8 +68,6 @@ jobs:
           V10_SIM_MIN_PROB: 0.55
           V10_HEADLINE: lite
           V10_MIN_XG_GAMES: 3
-      # TheSportsDB gratis terbukti hanya mengirim potongan kecil musim (tidak berguna), jadi dimatikan.
-      # Untuk mengaktifkan lagi (mis. setelah berlangganan), hapus baris "if: false".
       - name: Ambil liga dunia (TheSportsDB, nonaktif)
         if: false
         run: node bola-live/scripts/world.mjs
