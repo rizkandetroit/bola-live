@@ -168,7 +168,7 @@ for(const r of byId.values()){
   const st=stOf(r);if(!st)continue;
   if(st==="NS"&&r.t<now-3*36e5)continue;
   if(st==="LIVE"&&r.t<now-4*36e5)continue;
-  const base={id:"s"+r.id,league:label(r),utc:new Date(r.t).toISOString(),status:st,score:st==="NS"?[null,null]:[r.gh,r.ga],home:{name:r.h},away:{name:r.a}};
+  const base={id:"s"+r.id, hi:r.hi, ai:r.ai, league:label(r),utc:new Date(r.t).toISOString(),status:st,score:st==="NS"?[null,null]:[r.gh,r.ga],home:{name:r.h},away:{name:r.a}};
   const M=ELIG(r.ln)?modelOf(r.li):null;
   if(M){
     const model=r.t>now?M.mNow:fit(M.ms,r.t),gH=(model.T.get(r.hi)||{}).gp||0,gA=(model.T.get(r.ai)||{}).gp||0;
