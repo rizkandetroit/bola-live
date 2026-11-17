@@ -626,7 +626,7 @@ function catHtml(q){
 function draw(){
   [].forEach.call(document.querySelectorAll("#vw button"),function(b){b.className=b.dataset.v===S.v?"on":""});
   var M=D.matches,
-    open=M.filter(function(x){return x.status!=="FT"&&!x.np&&!x.est}),
+    open=M.filter(function(x){return x.status!=="FT"&&!x.np&&(!x.tier||x.tier<3)}),
     live=M.filter(function(x){return x.status==="LIVE"}).length;
   var livePill=$("#livepill");
   if(live>0){livePill.hidden=false;$("#livecount").textContent=live}else livePill.hidden=true;
@@ -676,7 +676,7 @@ function load(){Promise.all([fj("data.json"),fj("world.json").catch(function(){r
   if(al&&al.matches){j.matches=j.matches.concat(al.matches);j.allInfo=al;j.errors=(j.errors||[]).concat((al.errors||[]).map(function(e){return"semua liga "+e}))}
   D=j;DEMO=false;draw()
 }).catch(function(){if(!D){D=demo();DEMO=true;draw()}})}
-nav("j");load();setInterval(load,60000);setInterval(function(){if(VIEW==="p"){PITCH=null;loadPitch()}},300000);setInterval(function(){if(VIEW==="s")loadSkorLive()},60000);
+nav("j");load(); setInterval(function(){if(!document.hidden)load()},60000); setInterval(function(){if(!document.hidden&&VIEW==="p"){PITCH=null;loadPitch()}},300000); setInterval(function(){if(!document.hidden&&VIEW==="s")loadSkorLive()},60000);
 /* ============================================================
    SKOR LIVE — StatsHub SBOBET
    ============================================================ */
