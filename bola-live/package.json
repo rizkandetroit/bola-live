@@ -1,0 +1,8 @@
+{
+  "name": "bola-live",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@max-xoo/fotmob": "^1.0.0"
+  }
+}
