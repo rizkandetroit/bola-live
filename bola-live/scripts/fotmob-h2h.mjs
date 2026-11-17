@@ -14,10 +14,13 @@ if (!existsSync(allPath)) {
 const allData = JSON.parse(readFileSync(allPath, "utf8"));
 const cache = existsSync(cachePath) ? JSON.parse(readFileSync(cachePath, "utf8")) : {};
 
-// Filter pertandingan yang belum punya data H2H (dari API-Football)
-const matchesToProcess = allData.matches.filter(m => 
-    m.status === "NS" && !m.h2h && m.home?.name && m.away?.name
-).slice(0, 5); // Batasi 5 pertandingan per run agar aman
+// Filter pertandingan: Hanya ambil laga NS, belum punya H2H, dan BUKAN tim U17/U21/Wanita/Reserve
+const matchesToProcess = allData.matches.filter(m => {
+    if (m.status !== "NS" || m.h2h || !m.home?.name || !m.away?.name) return false;
+    // Abaikan tim muda, wanita, dan tim cadangan (mengandung U17, U21, W, II, B)
+    const isYouthOrReserve = /U\d{2}|W$|Women|II$|Reserve/i.test(m.home.name) || /U\d{2}|W$|Women|II$|Reserve/i.test(m.away.name);
+    return !isYouthOrReserve;
+}).slice(0, 5); // Maksimal 5 laga per run
 
 const fotmob = new Fotmob();
 let updated = 0;
@@ -25,7 +28,6 @@ let updated = 0;
 for (const m of matchesToProcess) {
     const cacheKey = `${m.home.name}-${m.away.name}`;
     
-    // Gunakan cache jika sudah pernah diambil dalam 7 hari terakhir
     if (cache[cacheKey] && Date.now() - cache[cacheKey].t < 7 * 864e5) {
         m.h2h = cache[cacheKey].data;
         updated++;
@@ -33,11 +35,19 @@ for (const m of matchesToProcess) {
     }
 
     try {
-        // 1. Cari ID pertandingan di FotMob menggunakan raw API (lebih stabil daripada method bawaan library)
+        // 1. Cari ID pertandingan di FotMob
         const searchUrl = `https://www.fotmob.com/api/searchapi/suggest?term=${encodeURIComponent(m.home.name + " " + m.away.name)}`;
-        const searchRes = await fetch(searchUrl).then(r => r.json());
+        const res = await fetch(searchUrl, {
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" } // Mencegah diblokir
+        });
         
-        // Ambil hasil pertama yang tipenya adalah pertandingan (match)
+        // PENGAMAN: Jika server tidak membalas dengan baik (misal 429 / 403 / 500)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        
+        const textData = await res.text();
+        if (!textData) throw new Error("Respons kosong");
+        
+        const searchRes = JSON.parse(textData);
         const matchHit = searchRes?.match?.[0];
         
         if (!matchHit) {
@@ -45,7 +55,7 @@ for (const m of matchesToProcess) {
             continue;
         }
 
-        // 2. Ambil detail pertandingan untuk H2H dari library
+        // 2. Ambil detail pertandingan (H2H)
         const details = await fotmob.getMatchDetails(matchHit.id);
         const h2hData = details.headToHead || details.h2h;
 
@@ -67,14 +77,12 @@ for (const m of matchesToProcess) {
             cache[cacheKey] = { t: Date.now(), data: normH2H };
             updated++;
             console.log(`[FotMob] H2H ditemukan: ${m.home.name} vs ${m.away.name}`);
-        } else {
-            console.log(`[FotMob] Data H2H kosong untuk: ${m.home.name} vs ${m.away.name}`);
         }
     } catch (e) {
         ghWarn(`[FotMob] Gagal untuk ${m.home.name}: ${e.message}`);
     }
     
-    await sleep(2000); // Jeda 2 detik agar tidak diblokir FotMob
+    await sleep(2000); 
 }
 
 writeFileSync(allPath, JSON.stringify(allData));
