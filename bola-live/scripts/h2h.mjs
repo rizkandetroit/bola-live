@@ -66,6 +66,7 @@ for(const [pairKey,p] of uniquePairs) {
     h2hCache.pairs[pairKey]={t:now,n:last.length,hW,d,aW,gf,ga,last:last.slice(0,5)};
   }catch(e){
     errors.push(pairKey+": "+e.message);
+    if(e.message.includes("429")) break;
   }
 }
 
