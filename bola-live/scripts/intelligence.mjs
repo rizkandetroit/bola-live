@@ -2,6 +2,7 @@
 // All historical features are built only from matches strictly earlier than asOf.
 // Missing data stays null: it is never silently replaced with zero.
 import {fit,predictM,pcts,shrink,r1,level} from './lib.mjs';
+import {readFileSync as awaitlessRead,writeFileSync as awaitlessWrite} from 'node:fs';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const num=v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v))?null:Number(v);
@@ -342,7 +343,7 @@ export function matchFixtureForSite(match,fixtures){
 }
 export function applyV10ToSiteFile(filePath,fixtures,details,profiles,lambda=.075,opts={}){
   const headline=opts.headline==='v10'?'v10':'lite',minXgGames=opts.minXgGames;
-  let data;try{data=JSON.parse((awaitlessRead(filePath)))}catch{return{updated:0}}
+  let data;try{data=JSON.parse(awaitlessRead(filePath, 'utf8'))}catch{return{updated:0}}
   if(!Array.isArray(data.matches))return{updated:0};let updated=0;
   for(const m of data.matches){if(!m.p||m.status!=='NS')continue;const f=matchFixtureForSite(m,fixtures);if(!f)continue;
     const ctx=buildMatchContext(f,detailOf(details,f.id),profiles),p=m.p;
@@ -385,7 +386,7 @@ function withExtXg(ctx,map,m,minXg=3){
 // Dipakai saat PitchAPI tidak ada: hitung model ringkas langsung dari xG sumber luar. Data xG tidak cukup => laga dibiarkan apa adanya.
 export function applyExternalXgToSiteFile(filePath,ext,lambda=.075,opts={}){
   const minXgGames=opts.minXgGames;
-  let data;try{data=JSON.parse(awaitlessRead(filePath))}catch{return{updated:0,unmatched:[]}}
+  let data;try{data=JSON.parse(awaitlessRead(filePath, 'utf8'))}catch{return{updated:0,unmatched:[]}}
   if(!Array.isArray(data.matches))return{updated:0,unmatched:[]};
   const map=extMap(ext),unmatched=new Set();let updated=0;
   for(const m of data.matches){
@@ -404,5 +405,3 @@ export function applyExternalXgToSiteFile(filePath,ext,lambda=.075,opts={}){
   }
   awaitlessWrite(filePath,JSON.stringify(data));return{updated,unmatched:[...unmatched]};
 }
-// These wrappers keep this module's public API synchronous while using the runtime's fs module.
-import {readFileSync as awaitlessRead,writeFileSync as awaitlessWrite} from 'node:fs';
