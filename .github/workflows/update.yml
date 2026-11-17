@@ -22,20 +22,28 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+          
+      # Instal library Node.js (FotMob) dari package.json
+      - name: Install dependencies
+        run: cd bola-live && npm install
+        
       - name: Pemeriksaan awal (token dan GitHub Pages)
         run: node bola-live/scripts/preflight.mjs
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Ambil data liga Eropa (football-data.org)
         run: node bola-live/scripts/update.mjs
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
+          
       - name: Ambil SEMUA liga (API-Football, jadwal dan skor)
         run: node bola-live/scripts/all.mjs
         continue-on-error: true
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          
       - name: Ambil SEMUA liga (SportAPI, jadwal, skor, riwayat, prediksi)
         run: node bola-live/scripts/sportapi.mjs
         continue-on-error: true
@@ -43,17 +51,25 @@ jobs:
           SPORTAPI_KEY: ${{ secrets.SPORTAPI_KEY }}
           BACKFILL_DAYS: 120
           BACKFILL_PER_RUN: 30
+          
       - name: Ambil Head-to-Head (API-Football)
         run: node bola-live/scripts/h2h.mjs
         continue-on-error: true
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
           H2H_MAX_CALLS: 10
+          
+      # Step baru: Fallback H2H dari FotMob jika API-Football gagal/kosong
+      - name: Ambil H2H dari FotMob (Fallback)
+        run: node bola-live/scripts/fotmob-h2h.mjs
+        continue-on-error: true
+          
       - name: Ambil xG tim (Understat, gratis tanpa kunci)
         run: node bola-live/scripts/understat.mjs
         continue-on-error: true
         env:
           V10_MIN_XG_GAMES: 3
+          
       - name: Ambil line-up dan analitik (PitchAPI)
         run: node bola-live/scripts/pitch.mjs
         continue-on-error: true
@@ -68,16 +84,19 @@ jobs:
           V10_SIM_MIN_PROB: 0.55
           V10_HEADLINE: lite
           V10_MIN_XG_GAMES: 3
+          
       - name: Ambil liga dunia (TheSportsDB, nonaktif)
         if: false
         run: node bola-live/scripts/world.mjs
         continue-on-error: true
         env:
           TSDB_KEY: ${{ secrets.TSDB_KEY }}
+          
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
           path: bola-live/site
+          
   deploy:
     needs: build
     runs-on: ubuntu-latest
