@@ -3,7 +3,7 @@ import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn} from "./net.mjs";
 import {level,r1} from "./lib.mjs";
 import {bsdAllows,bsdWhitelistReady} from "./leagues-filter.mjs";
 
-// Sumber BSD (sports.bzzoiro.com, REST v2: /leagues /teams /fixtures /players /predictions).
+// Sumber BSD (sports.bzzoiro.com, REST v2: /leagues /teams /events /players /predictions).
 // Tujuan langkah ini BUKAN mengganti all.mjs/sportapi.mjs, tapi MELENGKAPI:
 //  - menambal liga/pertandingan yang belum terjangkau sumber lain (format digabung ke all.json, sama seperti sportapi.mjs);
 //  - memakai prediksi siap pakai dari BSD (match_result/expected_goals/btts/over_under) kalau laga itu belum
@@ -57,18 +57,18 @@ async function getAllPages(path,maxPages=10){
 const errors=[],warn=[];
 let calls=0,fatal=false;
 
-// ---------- 1) ambil fixtures untuk rentang minggu ini dari BSD ----------
+// ---------- 1) ambil pertandingan (matches) untuk rentang minggu ini dari BSD ----------
 const fixtures=[];
 try{
   for(let d=wkA;d<=wkB&&calls<MAXC;d=addD(d,1)){
     if(overDeadline())break;
     if(calls>0)await sleep(GAP);
-    const j=await get(`/fixtures/?date=${d}&limit=200`);calls++;
+    const j=await get(`/events/?date=${d}&limit=200`);calls++;
     fixtures.push(...(j.results||[]));
   }
 }catch(e){
   if(e.fatal){fatal=true;errors.push(e.message+". Periksa BSD_API_KEY.")}
-  else errors.push("fixtures: "+e.message);
+  else errors.push("matches: "+e.message);
 }
 
 // ---------- 2) prediksi siap pakai BSD untuk laga-laga itu ----------
