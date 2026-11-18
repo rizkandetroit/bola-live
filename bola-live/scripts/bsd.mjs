@@ -1,4 +1,4 @@
-import {mkdirSync,writeFileSync} from "node:fs";
+import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn} from "./net.mjs";
 import {level,r1} from "./lib.mjs";
 import {bsdAllows,bsdWhitelistReady} from "./leagues-filter.mjs";
@@ -82,6 +82,7 @@ if(!fatal&&fixtures.length&&calls<MAXC){
 
 // ---------- 3) ubah ke rekaman seragam, saring dengan whitelist ----------
 const STMAP={notstarted:"NS",inprogress:"LIVE",finished:"FT",postponed:"NS",cancelled:null,abandoned:null};
+const BASEP=[45,28,27]; // sama seperti all.mjs/sportapi.mjs: dasar keuntungan tuan rumah kalau tak ada data lain
 const recs=[];
 for(const f of fixtures){
   const name=f.league_name||(f.league&&f.league.name)||null;
@@ -92,26 +93,54 @@ for(const f of fixtures){
   recs.push({
     id:"b"+f.id,league:name||("Liga "+f.league_id),utc:new Date(t).toISOString(),status:st,
     score:st==="NS"?[null,null]:[f.home_score,f.away_score],
-    home:{name:f.home_team,id:f.home_team_id},away:{name:f.away_team,id:f.away_team_id},
+    home:{name:f.home_team},away:{name:f.away_team},
+    t,_h:f.home_team,_a:f.away_team,
     _pred:predByEvent.get(f.id)||null
   });
 }
 
-// ---------- 4) pakai prediksi BSD langsung kalau tersedia (tingkat "bsd") ----------
+// ---------- 4) pakai prediksi BSD langsung kalau tersedia (tingkat 2, "bsd"); kalau tidak, tebakan dasar (tingkat 4) ----------
 const out=recs.map(r=>{
-  if(!r._pred)return {...r,needFallback:true};
-  const m=r._pred.markets||{};
+  const m=(r._pred&&r._pred.markets)||{};
   const mr=m.match_result||{};
   const h=mr.prob_home,d=mr.prob_draw,a=mr.prob_away;
-  if(h==null||d==null||a==null)return {...r,needFallback:true};
-  const pick=mr.predicted==="H"?"h":mr.predicted==="A"?"a":(h>=a?"h":"a");
-  const edge=r1(Math.abs(h-a));
-  return {...r,p:{h,d,a,xg:m.expected_goals||null,btts:(m.btts||{}).prob_yes??null,engine:"bsd"},
-    pick,edge,level:level(edge),est:true,tier:2,src:"BSD",
-    note:"Prediksi langsung dari BSD (pasar match_result)."};
+  if(h!=null&&d!=null&&a!=null){
+    const pick=mr.predicted==="H"?"h":mr.predicted==="A"?"a":(h>=a?"h":"a");
+    const edge=r1(Math.abs(h-a));
+    return {...r,p:{h,d,a,xg:m.expected_goals||null,btts:(m.btts||{}).prob_yes??null,engine:"bsd"},
+      pick,edge,level:level(edge),est:true,tier:2,src:"BSD",
+      note:"Prediksi langsung dari BSD (pasar match_result)."};
+  }
+  return {...r,p:{h:BASEP[0],d:BASEP[1],a:BASEP[2],engine:"dasar"},
+    pick:"h",edge:0,level:"Tipis",est:true,tier:4,src:"BSD",
+    note:"BSD belum punya prediksi pasar untuk laga ini, jadi ini hanya tebakan dasar keuntungan tuan rumah ("+BASEP[0]+"% tuan rumah, "+BASEP[1]+"% seri, "+BASEP[2]+"% tamu), bukan analisis."};
 }).map(({_pred,...r})=>r);
 
+// ---------- 5) gabung ke all.json tanpa laga ganda (pola sama seperti sportapi.mjs) ----------
+const norm=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\b(fc|cf|afc|sc|ac|club|the)\b/g," ").replace(/[^a-z0-9]/g,"");
+const same=(a,b)=>{a=norm(a);b=norm(b);return!!a&&!!b&&(a===b||(Math.min(a.length,b.length)>=4&&(a.includes(b)||b.includes(a))))};
+const isDup=(m,x)=>Math.abs(Date.parse(x.utc)-m.t)<3*36e5&&same(x.home&&x.home.name,m._h)&&same(x.away&&x.away.name,m._a);
 const dir=outDir(import.meta.url);mkdirSync(dir,{recursive:true});
-writeFileSync(dir+"bsd.json",JSON.stringify({updated:new Date(now).toISOString(),week:[wkA,wkB],calls,fatal,errors,warn,matches:out}));
+const rd=f=>{try{return JSON.parse(readFileSync(dir+f,"utf8"))}catch(e){return null}};
+let all=rd("all.json");
+if(!all||!Array.isArray(all.matches))all={updated:new Date(now).toISOString(),week:[wkA,wkB],errors:[],matches:[]};
+all.matches=all.matches.filter(x=>!String(x.id).startsWith("b"));   // jalan ulang tidak menggandakan
+const fd=rd("data.json"),fdm=(fd&&fd.matches)||[];
+let added=0,replaced=0,dup=0;
+for(const m of out){
+  if(fdm.some(x=>isDup(m,x))){dup++;continue}
+  const i=all.matches.findIndex(x=>isDup(m,x));
+  const rec={...m};delete rec.t;delete rec._h;delete rec._a;
+  if(i<0){all.matches.push(rec);added++;continue}
+  const ex=all.matches[i],rank=x=>x.np?9:(x.tier||1);
+  if(rank(rec)<rank(ex)){all.matches[i]=rec;replaced++}else dup++;
+}
+all.matches.sort((a,b)=>a.utc.localeCompare(b.utc));
+const T2={2:0,3:0,4:0};for(const x of all.matches)if(x.tier>=2&&x.tier<=4)T2[x.tier]++;
+all.tiers=T2;all.nPred=T2[2];all.nLeagues=new Set(all.matches.map(x=>x.league)).size;
+all.errors=(all.errors||[]).concat(errors.map(e=>"BSD: "+e));
+all.bsd={updated:new Date(now).toISOString(),calls,added,replaced,dup,fatal};
+writeFileSync(dir+"all.json",JSON.stringify(all));
+writeFileSync(dir+"bsd.json",JSON.stringify({updated:new Date(now).toISOString(),week:[wkA,wkB],calls,fatal,errors,warn,matches:out.map(({t,_h,_a,...r})=>r)}));
 if(errors.length)ghWarn("bsd: "+errors.join(" ; "));
-console.log("OK bsd:",out.length,"laga (",out.filter(x=>!x.needFallback).length,"berprediksi BSD langsung);",calls,"permintaan;",errors.length,"error");
+console.log("OK bsd:",out.length,"laga BSD (",out.filter(x=>x.tier===2).length,"berprediksi BSD langsung);",added,"ditambah ke all.json;",replaced,"menggantikan;",dup,"sudah ada;",calls,"permintaan;",errors.length,"error");
