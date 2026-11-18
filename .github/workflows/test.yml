@@ -14,10 +14,7 @@ jobs:
         with:
           node-version: 24
       - run: node bola-live/scripts/test.mjs
-      - run: node bola-live/scripts/test-world.mjs
-      - run: node bola-live/scripts/test-all.mjs
-      - run: node bola-live/scripts/test-sportapi.mjs
-      - run: node bola-live/scripts/test-pred.mjs
+      - run: node bola-live/scripts/test-bsd.mjs
       - run: node bola-live/scripts/test-lite.mjs
       - run: node bola-live/scripts/test-understat.mjs
       - run: node bola-live/scripts/test-ui.mjs

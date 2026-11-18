@@ -1,4 +1,4 @@
-// Tes integrasi: menjalankan update.mjs / world.mjs SUNGGUHAN lewat HTTP ke server tiruan,
+// Tes integrasi: menjalankan update.mjs SUNGGUHAN lewat HTTP ke server tiruan,
 // dengan skenario kegagalan yang umum terjadi di GitHub Actions.
 import http from "node:http";
 import {spawn} from "node:child_process";
@@ -94,9 +94,6 @@ sc("9. riwayat lama dipertahankan dan dinilai",async()=>{reset();
   const old=[{id:999,lg:"PL",u:new Date(now-9*D).toISOString(),h:"A",a:"B",pp:[50,25,25],pe:[50,25,25],pb:[50,25,25],r:[2,0]}];
   cfg.site=(q,s,send)=>send(200,old);const r=await run({FOOTBALL_DATA_KEY:TOKEN});assert.equal(r.code,0,r.err);
   const h=J(r,"history.json");assert(h.some(x=>x.id===999&&x.r[0]===2),"hasil lama tidak hilang");assert(J(r,"eval.json").live.n>=1);return `${h.length} entri riwayat`});
-sc("10. world.mjs: katalog menggantung -> tetap selesai (exit 0) dan mencatat galat",async()=>{reset();cfg.tsdb=()=>{};
-  const r=await run({FETCH_TIMEOUT_MS:"300",WORLD_LEAGUES:JSON.stringify(["eredivisie"])},"world.mjs");assert.equal(r.code,0,r.err);
-  const w=J(r,"world.json");assert(w.errors.some(e=>/katalog/.test(e)));assert.deepEqual(w.unresolved,["eredivisie"]);return w.errors[0].slice(0,70)});
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}
 srv.close();console.log(bad?`\n${bad} GAGAL`:"\ntest-ci ok");process.exit(bad?1:0);

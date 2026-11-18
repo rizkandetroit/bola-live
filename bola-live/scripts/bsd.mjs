@@ -1,146 +1,128 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
+import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn} from "./net.mjs";
 import {level,r1} from "./lib.mjs";
-import {bsdAllows,bsdWhitelistReady} from "./leagues-filter.mjs";
 
-// Sumber BSD (sports.bzzoiro.com, REST v2: /leagues /teams /events /players /predictions).
-// Tujuan langkah ini BUKAN mengganti all.mjs/sportapi.mjs, tapi MELENGKAPI:
-//  - menambal liga/pertandingan yang belum terjangkau sumber lain (format digabung ke all.json, sama seperti sportapi.mjs);
-//  - memakai prediksi siap pakai dari BSD (match_result/expected_goals/btts/over_under) kalau laga itu belum
-//    punya prediksi tingkat 2 (model liga sendiri) dari sumber lain — dipakai sebagai tingkat 2b ("bsd"), bukan menimpa.
-//  - MEMBATASI liga yang tampil hanya ke daftar liga yang BENAR-BENAR ada di BSD (lihat bsd-leagues.json).
-// Tidak pernah menggagalkan deploy (pasang continue-on-error: true di workflow, sama seperti sportapi.mjs).
+// SUMBER UTAMA SEMUA LIGA: BSD (sports.bzzoiro.com, Football API paket gratis, 7.500 permintaan/hari).
+// Satu langkah ini menggantikan API-Football (jadwal), SportAPI (jadwal + riwayat), H2H API-Football, H2H FotMob
+// dan TheSportsDB. Hasilnya ditulis ke site/all.json dengan format yang sama seperti sebelumnya, jadi dasbor tidak berubah bentuk.
+//  - jadwal + skor + status live + H2H datang dari /events/ (H2H sudah tertanam di tiap laga, tanpa permintaan tambahan);
+//  - peluang menang, xG, over 2,5, BTTS datang dari /predictions/ (model BSD);
+//  - nama liga dari /leagues/ (laga dari /events/ hanya membawa league_id);
+//  - logo liga dan klub: https://sports.bzzoiro.com/img/league|team/{id}/ (tanpa token, boleh di-hotlink).
+// Laga yang sudah dimodelkan sendiri oleh update.mjs (football-data.org, data.json) tidak digandakan.
+// Tidak pernah menggagalkan deploy (di workflow: continue-on-error).
 
-// Token didapat dari dashboard BSD (sports.bzzoiro.com/dashboard) -> "Your API token".
-// Simpan sebagai GitHub secret bernama BSD_API_KEY. Paket yang dipakai: Football API (FREE).
-const KEY=cleanKey(process.env.BSD_API_KEY);
-if(!KEY){console.log("BSD_API_KEY kosong: langkah BSD dilewati.");process.exit(0)}
-const BASE=(process.env.BSD_API||"https://sports.bzzoiro.com/api/v2").replace(/\/+$/,"");
-const GAP=Number(process.env.GAP_MS??1200),RETRY=Number(process.env.RETRY_MS??20000);
-const MAXC=Number(process.env.MAX_CALLS??40);
-const WITA=8*3600e3,DAY=864e5,now=Date.now();
-const wday=t=>new Date(t+WITA).toISOString().slice(0,10),uday=t=>new Date(t).toISOString().slice(0,10);
-const addD=(s,n)=>new Date(Date.parse(s+"T00:00:00Z")+n*DAY).toISOString().slice(0,10);
-const wkA=wday(now-2*DAY),wkB=wday(now+7*DAY);
+const IMG="https://sports.bzzoiro.com/img";
+// Dokumen BSD menulis upcoming/live/finished, tetapi data nyata memakai notstarted/inprogress/1st_half/halftime/2nd_half.
+const LIVE=new Set(["live","inprogress","1st_half","2nd_half","halftime","extra_time","penalties","break"]);
+export const stOf=raw=>{const r=String(raw||"").toLowerCase();return LIVE.has(r)?"LIVE":(r==="notstarted"||r==="upcoming")?"NS":r==="finished"?"FT":null};
+export const pickOf=v=>({h:"h",home:"h",a:"a",away:"a"})[String(v||"").toLowerCase()]||null;
 
-// Daftar liga yang diizinkan tampil (whitelist) datang dari ./leagues-filter.mjs, dibagi dengan
-// all.mjs/sportapi.mjs/world.mjs supaya satu sumber kebenaran, bukan dicek sendiri-sendiri.
-if(!bsdWhitelistReady)console.log("bsd: whitelist liga belum lengkap (bsd-leagues.json) — filter liga DIMATIKAN sampai lengkap.");
-
-async function get(path){
-  for(let i=0;i<3;i++){
-    if(overDeadline())throw new Error(path+" dilewati: batas waktu run habis");
-    let r;
-    const headers=KEY?{Authorization:"Token "+KEY}:{};
-    try{r=await tfetch(BASE+path,{headers})}catch(e){await sleep(RETRY);continue}
-    if(r.status===429){await sleep(RETRY);continue}
-    if(r.status===401||r.status===403){const e=new Error("BSD menolak kunci (HTTP "+r.status+")");e.fatal=true;throw e}
-    if(!r.ok)throw new Error("BSD HTTP "+r.status+" ("+path+")");
-    return r.json();
-  }
-  throw new Error(path+" gagal setelah 3 percobaan");
-}
-async function getAllPages(path,maxPages=10){
-  let out=[],next=BASE+path,calls=0;
-  while(next&&calls<maxPages){
-    if(calls>0)await sleep(GAP);
-    const url=next.startsWith("http")?next.replace(BASE,""):next;
-    let j;
-    try{j=await get(url)}catch(e){if(e.fatal)throw e;break}
-    out=out.concat(j.results||[]);
-    next=j.next?j.next.replace(BASE,""):null;
-    calls++;
-  }
-  return out;
+// H2H tertanam di tiap laga: dipetakan ke bentuk yang dibaca dasbor ({n,hW,d,aW,gf,ga,last}). Orientasi mengikuti laga yang diminta.
+export function h2hOf(h){
+  if(!h||!h.total_matches)return null;
+  const last=(h.recent_matches||[]).slice(0,5)
+    .map(m=>({t:String(m.date||"").slice(0,10),l:(m.home||"?")+" vs "+(m.away||"?"),s:[m.home_score,m.away_score]}))
+    .filter(x=>x.s[0]!=null&&x.s[1]!=null);
+  return{n:h.total_matches,hW:h.home_wins,d:h.draws,aW:h.away_wins,gf:h.home_goals,ga:h.away_goals,last};
 }
 
-const errors=[],warn=[];
-let calls=0,fatal=false;
-
-// ---------- 1) ambil pertandingan (matches) untuk rentang minggu ini dari BSD ----------
-const fixtures=[];
-try{
-  for(let d=wkA;d<=wkB&&calls<MAXC;d=addD(d,1)){
-    if(overDeadline())break;
-    if(calls>0)await sleep(GAP);
-    const j=await get(`/events/?date=${d}&limit=200`);calls++;
-    fixtures.push(...(j.results||[]));
-  }
-}catch(e){
-  if(e.fatal){fatal=true;errors.push(e.message+". Periksa BSD_API_KEY.")}
-  else errors.push("matches: "+e.message);
+const num=v=>v==null||v===""||!Number.isFinite(Number(v))?null:Number(v);
+export function toRecord(e,pred,leagues){
+  const st=stOf(e.status);if(!st)return null;            // dibatalkan / ditunda / tak terselesaikan: tidak ditampilkan
+  const t=Date.parse(e.event_date);if(Number.isNaN(t))return null;
+  const lg=(leagues&&leagues.get(e.league_id))||{};
+  const name=e.league_name||lg.name||("Liga "+e.league_id);
+  const base={
+    id:"b"+e.id,league:name,lgc:IMG+"/league/"+e.league_id+"/",utc:new Date(t).toISOString(),status:st,
+    score:st==="NS"?[null,null]:[num(e.home_score),num(e.away_score)],
+    home:{name:e.home_team,crest:IMG+"/team/"+e.home_team_id+"/"},
+    away:{name:e.away_team,crest:IMG+"/team/"+e.away_team_id+"/"},
+    src:"BSD"
+  };
+  if(st==="LIVE"){if(e.period==="halftime"||e.status==="halftime")base.ht=true;else if(num(e.current_minute)!=null)base.min=num(e.current_minute)}
+  const h2h=h2hOf(e.head_to_head);if(h2h)base.h2h=h2h;
+  const m=(pred&&pred.markets)||{},mr=m.match_result||{},h=num(mr.prob_home),d=num(mr.prob_draw),a=num(mr.prob_away);
+  if(h==null||d==null||a==null)return{...base,np:true};   // tanpa prediksi BSD: tampil sebagai jadwal saja
+  const xg=m.expected_goals||{},ou=num((m.over_under||{}).prob_over_25),bt=num((m.btts||{}).prob_yes);
+  const pick=pickOf(mr.predicted)||(h>=a?"h":"a"),edge=r1(Math.abs(h-a)),ms=(m.score||{}).most_likely;
+  const bits=["Prediksi model BSD (peluang menang, xG, over/under, BTTS)."];
+  if(ms)bits.push("Skor paling mungkin "+ms+".");
+  if(pred.model&&pred.model.confidence!=null)bits.push("Keyakinan model "+Math.round(pred.model.confidence*100)+"%.");
+  return{...base,
+    p:{h,d,a,xg:num(xg.home)!=null&&num(xg.away)!=null?[num(xg.home),num(xg.away)]:null,ou,bt,engine:"bsd"},
+    pick,edge,level:level(edge),est:true,tier:2,note:bits.join(" ")};
 }
 
-// ---------- 2) prediksi siap pakai BSD untuk laga-laga itu ----------
-const predByEvent=new Map();
-if(!fatal&&fixtures.length&&calls<MAXC){
-  try{
-    const j=await get(`/predictions/?limit=200`);calls++;
-    for(const p of j.results||[])if(p.event&&p.event.id!=null)predByEvent.set(p.event.id,p);
-  }catch(e){warn.push("predictions: "+e.message)}
-}
-
-// ---------- 3) ubah ke rekaman seragam, saring dengan whitelist ----------
-const STMAP={notstarted:"NS",inprogress:"LIVE",finished:"FT",postponed:"NS",cancelled:null,abandoned:null};
-const BASEP=[45,28,27]; // sama seperti all.mjs/sportapi.mjs: dasar keuntungan tuan rumah kalau tak ada data lain
-const recs=[];
-for(const f of fixtures){
-  const name=f.league_name||(f.league&&f.league.name)||null;
-  if(name&&!bsdAllows(name)){continue} // liga tidak ada di BSD -> buang dari output BSD
-  const st=STMAP[f.status]??(f.status==="halftime"?"LIVE":null);
-  if(!st)continue;
-  const t=Date.parse(f.event_date);if(Number.isNaN(t))continue;
-  recs.push({
-    id:"b"+f.id,league:name||("Liga "+f.league_id),utc:new Date(t).toISOString(),status:st,
-    score:st==="NS"?[null,null]:[f.home_score,f.away_score],
-    home:{name:f.home_team},away:{name:f.away_team},
-    t,_h:f.home_team,_a:f.away_team,
-    _pred:predByEvent.get(f.id)||null
-  });
-}
-
-// ---------- 4) pakai prediksi BSD langsung kalau tersedia (tingkat 2, "bsd"); kalau tidak, tebakan dasar (tingkat 4) ----------
-const out=recs.map(r=>{
-  const m=(r._pred&&r._pred.markets)||{};
-  const mr=m.match_result||{};
-  const h=mr.prob_home,d=mr.prob_draw,a=mr.prob_away;
-  if(h!=null&&d!=null&&a!=null){
-    const pick=mr.predicted==="H"?"h":mr.predicted==="A"?"a":(h>=a?"h":"a");
-    const edge=r1(Math.abs(h-a));
-    return {...r,p:{h,d,a,xg:m.expected_goals||null,btts:(m.btts||{}).prob_yes??null,engine:"bsd"},
-      pick,edge,level:level(edge),est:true,tier:2,src:"BSD",
-      note:"Prediksi langsung dari BSD (pasar match_result)."};
-  }
-  return {...r,p:{h:BASEP[0],d:BASEP[1],a:BASEP[2],engine:"dasar"},
-    pick:"h",edge:0,level:"Tipis",est:true,tier:4,src:"BSD",
-    note:"BSD belum punya prediksi pasar untuk laga ini, jadi ini hanya tebakan dasar keuntungan tuan rumah ("+BASEP[0]+"% tuan rumah, "+BASEP[1]+"% seri, "+BASEP[2]+"% tamu), bukan analisis."};
-}).map(({_pred,...r})=>r);
-
-// ---------- 5) gabung ke all.json tanpa laga ganda (pola sama seperti sportapi.mjs) ----------
 const norm=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\b(fc|cf|afc|sc|ac|club|the)\b/g," ").replace(/[^a-z0-9]/g,"");
 const same=(a,b)=>{a=norm(a);b=norm(b);return!!a&&!!b&&(a===b||(Math.min(a.length,b.length)>=4&&(a.includes(b)||b.includes(a))))};
-const isDup=(m,x)=>Math.abs(Date.parse(x.utc)-m.t)<3*36e5&&same(x.home&&x.home.name,m._h)&&same(x.away&&x.away.name,m._a);
-const dir=outDir(import.meta.url);mkdirSync(dir,{recursive:true});
-const rd=f=>{try{return JSON.parse(readFileSync(dir+f,"utf8"))}catch(e){return null}};
-let all=rd("all.json");
-if(!all||!Array.isArray(all.matches))all={updated:new Date(now).toISOString(),week:[wkA,wkB],errors:[],matches:[]};
-all.matches=all.matches.filter(x=>!String(x.id).startsWith("b"));   // jalan ulang tidak menggandakan
-const fd=rd("data.json"),fdm=(fd&&fd.matches)||[];
-let added=0,replaced=0,dup=0;
-for(const m of out){
-  if(fdm.some(x=>isDup(m,x))){dup++;continue}
-  const i=all.matches.findIndex(x=>isDup(m,x));
-  const rec={...m};delete rec.t;delete rec._h;delete rec._a;
-  if(i<0){all.matches.push(rec);added++;continue}
-  const ex=all.matches[i],rank=x=>x.np?9:(x.tier||1);
-  if(rank(rec)<rank(ex)){all.matches[i]=rec;replaced++}else dup++;
+export const isDup=(r,x)=>Math.abs(Date.parse(x.utc)-Date.parse(r.utc))<3*36e5&&same(x.home&&x.home.name,r.home.name)&&same(x.away&&x.away.name,r.away.name);
+
+export function buildAll({events,preds,leagues,own=[]}){
+  const L=new Map((leagues||[]).map(l=>[l.id,l])),P=new Map();
+  for(const p of preds||[])if(p.event&&p.event.id!=null)P.set(p.event.id,p);
+  const out=[];let dup=0,skipped=0;
+  for(const e of events||[]){
+    const r=toRecord(e,P.get(e.id),L);
+    if(!r){skipped++;continue}
+    if(own.some(x=>isDup(r,x))){dup++;continue}
+    out.push(r);
+  }
+  out.sort((a,b)=>a.utc.localeCompare(b.utc));
+  return{matches:out,dup,skipped};
 }
-all.matches.sort((a,b)=>a.utc.localeCompare(b.utc));
-const T2={2:0,3:0,4:0};for(const x of all.matches)if(x.tier>=2&&x.tier<=4)T2[x.tier]++;
-all.tiers=T2;all.nPred=T2[2];all.nLeagues=new Set(all.matches.map(x=>x.league)).size;
-all.errors=(all.errors||[]).concat(errors.map(e=>"BSD: "+e));
-all.bsd={updated:new Date(now).toISOString(),calls,added,replaced,dup,fatal};
-writeFileSync(dir+"all.json",JSON.stringify(all));
-writeFileSync(dir+"bsd.json",JSON.stringify({updated:new Date(now).toISOString(),week:[wkA,wkB],calls,fatal,errors,warn,matches:out.map(({t,_h,_a,...r})=>r)}));
-if(errors.length)ghWarn("bsd: "+errors.join(" ; "));
-console.log("OK bsd:",out.length,"laga BSD (",out.filter(x=>x.tier===2).length,"berprediksi BSD langsung);",added,"ditambah ke all.json;",replaced,"menggantikan;",dup,"sudah ada;",calls,"permintaan;",errors.length,"error");
+
+async function main(){
+  const KEY=cleanKey(process.env.BSD_API_KEY);
+  if(!KEY){console.log("BSD_API_KEY kosong: langkah BSD dilewati.");return}
+  const BASE=(process.env.BSD_API||"https://sports.bzzoiro.com/api/v2").replace(/\/+$/,"");
+  const GAP=Number(process.env.GAP_MS??500),RETRY=Number(process.env.RETRY_MS??20000);
+  const WITA=8*3600e3,DAY=864e5,now=Date.now(),wday=t=>new Date(t+WITA).toISOString().slice(0,10);
+  const from=wday(now-2*DAY),to=wday(now+7*DAY);
+  const errors=[];let calls=0,fatal=false;
+
+  async function get(url){
+    for(let i=0;i<3;i++){
+      if(overDeadline())throw new Error(url+" dilewati: batas waktu run habis");
+      let r;
+      try{r=await tfetch(url,{headers:{Authorization:"Token "+KEY,Accept:"application/json"}})}catch(e){await sleep(RETRY);continue}
+      calls++;
+      if(r.status===429){   // "taster_exhausted" = kuota harian habis: menunggu tidak ada gunanya; "rate_limited" = tunggu 1 detik
+        let code="";try{code=(await r.json()).code||""}catch(e){}
+        if(code==="taster_exhausted"){const e=new Error("kuota harian BSD habis (reset 00:00 UTC / 07:00 WITA)");e.fatal=true;throw e}
+        await sleep(Math.max(1000,Number(r.headers.get("retry-after")||1)*1000));continue;
+      }
+      if(r.status===401||r.status===403||r.status===402){const e=new Error("BSD menolak permintaan (HTTP "+r.status+"). Periksa BSD_API_KEY.");e.fatal=true;throw e}
+      if(r.status>=500){await sleep(RETRY);continue}
+      if(!r.ok)throw new Error("HTTP "+r.status+" ("+url.replace(BASE,"")+")");
+      return r.json();
+    }
+    throw new Error(url.replace(BASE,"")+" gagal setelah 3 percobaan");
+  }
+  async function pages(path,maxPages=6){
+    let url=BASE+path,out=[];
+    for(let i=0;i<maxPages&&url;i++){
+      if(i>0)await sleep(GAP);
+      const j=await get(url);out=out.concat(j.results||[]);url=j.next||null;
+    }
+    return out;
+  }
+  const safe=async(name,fn)=>{if(fatal)return[];try{return await fn()}catch(e){errors.push(name+": "+e.message);if(e.fatal)fatal=true;return[]}};
+
+  const events=await safe("events",()=>pages(`/events/?date_from=${from}&date_to=${to}&limit=200`));
+  const preds=await safe("predictions",()=>pages(`/predictions/?date_from=${from}&date_to=${to}&limit=200`));
+  const leagues=await safe("leagues",()=>pages("/leagues/?limit=200",3));
+
+  const dir=outDir(import.meta.url);mkdirSync(dir,{recursive:true});
+  let own=[];try{own=JSON.parse(readFileSync(dir+"data.json","utf8")).matches||[]}catch(e){}
+  const {matches,dup,skipped}=buildAll({events,preds,leagues,own});
+
+  const T={2:matches.filter(x=>x.tier===2).length,3:0,4:0};
+  const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.map(e=>"BSD: "+e),matches,
+    tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,fatal}};
+  writeFileSync(dir+"all.json",JSON.stringify(all));
+  if(errors.length)ghWarn("bsd: "+errors.join(" ; "));
+  console.log("OK bsd:",matches.length,"laga,",T[2],"berprediksi,",all.nLeagues,"liga;",dup,"sudah dimodelkan sendiri;",calls,"permintaan;",errors.length,"error");
+}
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)await main();

@@ -16,9 +16,11 @@ Buka repository GitHub → **Settings → Secrets and variables → Actions → 
 
 | Secret | Kegunaan | Status |
 |---|---|---|
-| `FOOTBALL_DATA_KEY` | Jadwal, klasemen, dan hasil 10 kompetisi utama | Wajib |
-| `PITCHAPI_KEY` | Line-up, formasi, xG, shot map, PPDA, field tilt, xT, VAEP, pemain, dan backtest V10 | Wajib untuk fitur V10 penuh |
-| `API_FOOTBALL_KEY` | Tambahan jadwal/skor kompetisi lain sesuai cakupan akun | Opsional |
+| `FOOTBALL_DATA_KEY` | Jadwal, klasemen, dan hasil 10 kompetisi utama untuk model Poisson + Elo sendiri | Wajib |
+| `BSD_API_KEY` | Semua liga dari BSD: jadwal, skor, live, H2H, prediksi, logo (token dari sports.bzzoiro.com/dashboard, hanya tokennya) | Wajib untuk liga di luar 10 kompetisi utama |
+| `PITCHAPI_KEY` | Line-up, formasi, xG, shot map, PPDA, field tilt, xT, VAEP, pemain, dan backtest V10 | Opsional (fitur V10 penuh) |
+
+Secret lama `API_FOOTBALL_KEY`, `SPORTAPI_KEY`, dan `TSDB_KEY` tidak dipakai lagi dan boleh dihapus dari Settings.
 
 API key harus disimpan sebagai GitHub Secret. Jangan memasukkannya ke `index.html`, file JSON publik, atau chat. PitchAPI menggunakan header server-side `X-API-KEY`; key tidak dikirim ke browser.
 

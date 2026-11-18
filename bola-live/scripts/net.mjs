@@ -1,4 +1,4 @@
-// Utilitas jaringan bersama (update.mjs, world.mjs, preflight.mjs).
+// Utilitas jaringan bersama (update.mjs, bsd.mjs, preflight.mjs).
 import {fileURLToPath} from "node:url";
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 // Semua permintaan punya batas waktu: server yang menggantung tidak boleh menahan job sampai timeout 12 menit.

@@ -1,4 +1,4 @@
-# Bola Live V10 (Audit & Fix)
+# Bola Live V11 (BSD sebagai sumber utama)
 
 Paket ini telah melalui audit kode dan perbaikan regresi. Lihat `../AUDIT_V10.md` untuk temuan, perubahan, hasil tes, dan batas audit.
 
@@ -17,3 +17,7 @@ Dasbor analisis sepak bola berbasis GitHub Actions + GitHub Pages. V10 mempertah
 Lihat `PANDUAN.md` untuk menyiapkan repository, secret API, GitHub Pages, dan pengaturan cakupan data.
 
 Catatan: arsip V8 asli tidak ada di paket V9 yang diterima. Karena itu kolom V8 pada backtest adalah **baseline Poisson-only proxy**, bukan replay kode V8 asli. Simulasi ROI memakai odds asumsi, bukan odds bookmaker historis.
+
+
+## Perubahan V11 (rombak sumber data)
+BSD (sports.bzzoiro.com, paket Football gratis, 7.500 permintaan/hari) kini menjadi sumber utama semua liga. Lihat `MIGRASI_V11.md` untuk daftar yang dihapus, dipertahankan, dan diubah.

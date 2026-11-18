@@ -435,7 +435,7 @@ function pb(x){
 }
 function stt(x,b){
   var d=new Date(x.utc),a=df.format(d),h=tf.format(d)+" WITA",
-    s=x.status==="LIVE"?'<span class="st lv">Live</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':"";
+    s=x.status==="LIVE"?'<span class="st lv">Live'+(x.ht?" · turun minum":x.min!=null?" "+x.min+"\'":"")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':"";
   return b?(s?s+"<br>":"")+a+"<br>"+h:(s?s+", ":"")+a+" pukul "+h
 }
 function mid(x){
@@ -471,7 +471,7 @@ function compHtml(x){
 }
 
 function tierTag(x){
-  if(x.np)return"";
+  if(x.np||x.src==="BSD")return"";
   var t=x.tier;
   if(t===2)return' <span class="tag l2" title="Model liga sendiri: Poisson-gol 70% + Elo 30% dari riwayat tersimpan">Statistik dasar</span>';
   if(t===3)return' <span class="tag l1" title="Perkiraan kasar dari Elo lintas liga">Elo saja</span>';
@@ -503,7 +503,7 @@ function indRows(x){
   return rows
 }
 function conflict(x){
-  if(x.np||x.tier>=3)return false;
+  if(x.np||x.tier>=3||x.src==="BSD")return false;
   var r=indRows(x);if(r.length<5)return false;
   var me=x.pick==="h"?1:-1,pro=r.filter(function(q){return q.c===me}).length,con=r.filter(function(q){return q.c===-me}).length;
   return pro/r.length<.3&&con/r.length>=.5
@@ -518,11 +518,12 @@ function h2hPanel(x){
   return '<details class="why" data-id="h2h-'+x.id+'" style="margin-top:4px;border-top:none">'
     +'<summary>Rekor Head-to-Head ('+h.n+' laga)</summary>'
     +'<p class="sm" style="margin:7px 0"><b>'+esc(x.home.name)+'</b> menang '+h.hW+', seri '+h.d+', <b>'+esc(x.away.name)+'</b> menang '+h.aW+'.<br>Total gol: '+h.gf+' - '+h.ga+'</p>'
-    +'<table class="ev"><tr><th>Tanggal</th><th>Kompetisi</th><th>Skor</th></tr>'+rows+'</table>'
+    +'<table class="ev"><tr><th>Tanggal</th><th>Pertandingan</th><th>Skor</th></tr>'+rows+'</table>'
     +'</details>';
 }
 
 function why(x){
+  if(x.src==="BSD")return'<details class="why" data-id="'+x.id+'"'+(OPEN[x.id]?" open":"")+'><summary>Tentang prediksi ini</summary><p class="sm">'+esc(x.note||"")+'</p><p class="cv">Prediksi ini dihitung oleh BSD, bukan model dasbor ini. Akurasinya belum diukur di tab Evaluasi.</p></details>';
   if(x.tier>=3)return'<details class="why" data-id="'+x.id+'"'+(OPEN[x.id]?" open":"")+'><summary>Tentang prediksi ini</summary><p class="sm">'+esc(x.note||"")+'</p><p class="cv">Perkiraan kasar ini tidak dihitung dalam hitungan keunggulan kuat dan belum diuji akurasinya.</p></details>';
   var H=x.home,A=x.away,P=x.p,rows=indRows(x),has=H.gf!=null&&A.gf!=null,ft=x.status==="FT";
   var me=x.pick==="h"?1:-1,pro=rows.filter(function(r){return r.c===me}),con=rows.filter(function(r){return r.c===-me});
@@ -560,7 +561,7 @@ function card(x,rank){
   var ri=rank!=null?rank-1:99,rc=rkStyle(ri);
   return'<div class="c'+rc+(x.status==="LIVE"?" lv":"")+'"><div class="tp">'
     +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+cr(x.lgc,"lgc")+esc(x.league)+'</span>':'<span>'+cr(x.lgc,"lgc")+esc(x.league)+'</span>')
-    +(x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
+    +(x.src==="BSD"?' <span class="tag l2" title="Peluang dari model BSD (machine learning), bukan model Poisson+Elo milik dasbor ini">BSD</span>':x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
     +'<span class="tme">'+stt(x)+'</span></div>'
     +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+'</div><div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"&nbsp;")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+cr(x.away.crest)+'</div><div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"&nbsp;")+'</div></div></div>'
     +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'
@@ -637,7 +638,7 @@ function draw(){
     +'<div class="k"><b>'+strong+'</b><span>Keunggulan kuat (20 ke atas)</span></div>'
     +'<div class="k"><b>'+avg.toFixed(1)+'</b><span>Rata-rata keunggulan</span></div>';
   /* 14 kartu teratas */
-  var top=open.filter(function(x){return!x.src}).sort(function(a,b){return b.edge-a.edge}).slice(0,14);
+  var top=open.filter(function(x){return!x.src||x.src==="BSD"}).sort(function(a,b){return b.edge-a.edge}).slice(0,14);
   $("#hero").innerHTML=top.map(function(x,i){return card(x,i+1)}).join("")||'<div class="em">Belum ada pertandingan yang akan tayang.</div>';
   var lgs=["Semua"].concat(Array.from(new Set(M.map(function(x){return x.league}))).sort(function(a,b){return a.localeCompare(b)}));
   if(lgs.indexOf(S.lg)<0)S.lg="Semua";
@@ -670,7 +671,7 @@ function demo(){
   return{updated:new Date().toISOString(),errors:[],matches:[m(1,"Premier League",-1,"LIVE",[1,0],["Liverpool",1,28],["Brighton",11,15],[62,22,16],"h"),m(2,"Serie A",1,"NS",[null,null],["Inter",1,29],["Como",19,5],[71,16,13],"h"),m(3,"La Liga",2,"NS",[null,null],["Real Madrid",2,30],["Getafe",16,9],[75,15,10],"h"),m(4,"Bundesliga",3,"NS",[null,null],["Bayern",1,21],["Holstein Kiel",18,5],[77,13,10],"h"),m(5,"Ligue 1",5,"NS",[null,null],["PSG",1,28],["Toulouse",14,11],[74,14,12],"h"),m(6,"Eredivisie",6,"NS",[null,null],["FC Twente",4,24],["Willem II",18,3],[79,11,10],"h"),m(7,"Championship",7,"NS",[null,null],["Southampton",7,24],["Derby County",23,10],[76,13,11],"h"),m(8,"Serie A",8,"NS",[null,null],["AS Roma",3,27],["AC Monza",18,7],[78,11,11],"h")]}
 }
 function fj(u){return fetch(u+"?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()})}
-function load(){Promise.all([fj("data.json"),fj("world.json").catch(function(){return null}),fj("all.json").catch(function(){return null})]).then(function(a){
+function load(){Promise.all([fj("data.json"),Promise.resolve(null),fj("all.json").catch(function(){return null})]).then(function(a){
   var j=a[0],w=a[1],al=a[2];
   if(w&&w.matches){j.matches=j.matches.concat(w.matches);j.worldInfo=w;j.errors=(j.errors||[]).concat((w.errors||[]).map(function(e){return"dunia "+e}))}
   if(al&&al.matches){j.matches=j.matches.concat(al.matches);j.allInfo=al;j.errors=(j.errors||[]).concat((al.errors||[]).map(function(e){return"semua liga "+e}))}
