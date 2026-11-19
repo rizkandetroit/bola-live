@@ -1,7 +1,7 @@
 name: Update dan deploy
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "*/5 * * * *"   # GitHub menjalankan paling cepat tiap 5 menit (sering terlambat beberapa menit)
   workflow_dispatch:
   push:
     branches: [main, master]
@@ -13,6 +13,7 @@ permissions:
 concurrency:
   group: pages
   cancel-in-progress: false
+# Satu run berjalan sekaligus; run terjadwal berikutnya menunggu.
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,13 +26,23 @@ jobs:
 
       - name: Pemeriksaan awal (token dan GitHub Pages)
         run: node bola-live/scripts/preflight.mjs
+        continue-on-error: true
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Tiap 5 menit = mode ringan (BSD live). Tiap ~1 jam / manual = mode berat (semua sumber).
+      - name: Tentukan mode dan bawa data run berat sebelumnya
+        id: mode
+        run: node bola-live/scripts/carry.mjs
+        env:
+          FORCE_HEAVY: ${{ vars.FORCE_HEAVY }}
+
       # Model sendiri (Poisson + Elo + backtest) untuk 10 kompetisi utama -> data.json, eval.json
       - name: Ambil data liga utama (football-data.org)
+        if: steps.mode.outputs.heavy == '1'
         run: node bola-live/scripts/update.mjs
+        continue-on-error: true
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
 
@@ -41,14 +52,21 @@ jobs:
         continue-on-error: true
         env:
           BSD_API_KEY: ${{ secrets.BSD_API_KEY }}
+          BSD_DEEP: "1"
+          BSD_MODE: ${{ steps.mode.outputs.heavy == '1' && 'heavy' || 'light' }}
+          BSD_MAX_DETAIL: 250
+          BSD_CONCURRENCY: 6
+          GAP_MS: 150
 
       - name: Ambil xG tim (Understat, gratis tanpa kunci)
+        if: steps.mode.outputs.heavy == '1'
         run: node bola-live/scripts/understat.mjs
         continue-on-error: true
         env:
           V10_MIN_XG_GAMES: 3
 
       - name: Ambil line-up dan analitik (PitchAPI)
+        if: steps.mode.outputs.heavy == '1'
         run: node bola-live/scripts/pitch.mjs
         continue-on-error: true
         env:
