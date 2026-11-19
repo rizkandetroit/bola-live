@@ -6,7 +6,38 @@ const js=html.match(/<script>([\s\S]*?)<\/script>/g).pop().replace(/<\/?script>/
 const pre=js.slice(0,js.indexOf('nav("j");load();'));
 globalThis.document={querySelector:()=>({addEventListener:()=>{},innerHTML:"",value:""}),addEventListener:()=>{},documentElement:{dataset:{}},querySelectorAll:()=>[]};
 globalThis.localStorage={getItem:()=>null,setItem:()=>{}};globalThis.window=globalThis;
-const {why,compHtml,v10Comparison,tierTag,card,row,conflict,fresh}=new Function(pre+";return {why,compHtml,v10Comparison,tierTag,card,row,conflict,fresh}")();
+const {why,compHtml,v10Comparison,tierTag,card,row,conflict,fresh,liveRows,klTable,setD}=new Function(pre+";return {why,compHtml,v10Comparison,tierTag,card,row,conflict,fresh,liveRows,klTable,setD:function(d){D=d}}")();
+// V13.2: klasemen live
+{const U="2026-11-19T12:00:00Z",T=h=>new Date(Date.parse(U)+h*36e5).toISOString();
+ const R=(id,pos,pts,gf,ga,live)=>({team_id:id,team_name:"T"+id,position:pos,played:10,won:Math.floor(pts/3),drawn:pts%3,lost:10-Math.floor(pts/3)-pts%3,gf,ga,gd:gf-ga,pts,form:"",zone:null,live:!!live});
+ const rows=[R(1,1,30,25,10),R(2,2,28,20,12),R(3,3,27,22,15,true),R(4,4,20,12,18)];
+ const zones=[{from:1,to:1,label:"Juara",type:"qualification"},{from:4,to:4,label:"Degradasi",type:"relegation"}];
+ const m=(eid,st,u,h,a,sc,extra)=>({eid,lid:7,status:st,utc:u,hid:h,aid:a,score:sc,home:{name:"T"+h},away:{name:"T"+a},...extra});
+ setD({matches:[
+   m(1,"LIVE",T(1),3,4,[2,0],{min:63}),          // C sedang live (live:true di data) -> dihitung
+   m(2,"FT",T(2),2,1,[1,0]),                      // kickoff sesudah data diambil -> dihitung
+   m(3,"FT",T(-30),1,4,[3,0]),                    // sudah terhitung di data resmi -> TIDAK dihitung lagi
+   m(4,"LIVE",T(3),1,2,[null,null],{pend:1}),     // skor belum ada -> dilewati
+   m(5,"LIVE",T(1),9,9,[1,1],{lid:8})]});          // liga lain -> dilewati
+ const q=liveRows(rows,{id:7,updated:U},zones);
+ assert(q&&q.nl===1&&q.nf===1,"1 live + 1 selesai");
+ const g=id=>q.rows.find(r=>r.team_id===id);
+ assert.equal(g(2).pts,31);assert.equal(g(2).position,1);assert.equal(g(2).mv,1);assert.equal(g(2).dp,3);
+ assert.equal(g(3).pts,30);assert.equal(g(3).played,11);assert.equal(g(3).gf,24);assert.equal(g(3).lv.s,"2-0");assert.equal(g(3).lv.min,63);
+ assert.equal(g(1).pts,30);assert.equal(g(1).played,11,"laga 3 tidak boleh dihitung dua kali; hanya laga 2");
+ assert(g(1).position===2&&g(3).position===3,"sama 30 poin: A (selisih +14) di atas C (+9)");assert.equal(g(3).mv,0);assert.equal(g(1).mv,-1);
+ assert.equal(g(4).pts,20);assert.equal(g(4).lv.s,"0-2");assert.equal(g(4).zone.label,"Degradasi");
+ assert.equal(q.rows[0].zone.label,"Juara");
+ assert.equal(rows[0].pts,30,"data asli tidak boleh berubah");
+ const html=klTable(q.rows);assert(html.includes("▲1")&&html.includes("2-0")&&html.includes("1-0 FT")&&html.includes("+3"));
+ // tanpa laga live/baru -> null (tabel resmi apa adanya)
+ setD({matches:[m(3,"FT",T(-30),1,4,[3,0])]});assert.equal(liveRows(rows,{id:7,updated:U},zones),null);
+ // Liga Indonesia: id "hl", hanya laga live
+ const hr=[{...R("hl11",1,10,8,3)},{...R("hl12",2,9,7,4)}];
+ setD({matches:[{...m(9,"LIVE",T(1),12,11,[1,0]),lid:"hl5"},{...m(10,"FT",T(2),11,12,[0,2]),lid:"hl5"}]});
+ const qh=liveRows(hr,{id:"hl5",updated:U},null);
+ assert(qh&&qh.nl===1&&qh.nf===0);assert.equal(qh.rows[0].team_id,"hl12");assert.equal(qh.rows[0].pts,12);
+ console.log("OK V13.2 klasemen live: live + baru selesai dihitung, tidak dobel, urutan & zona ikut, Liga Indonesia live saja")}
 // V13.1: "Akan Tayang" hanya laga yang belum mulai
 {const N=Date.parse("2026-11-19T12:00:00Z"),m=(id,st,u)=>({id,status:st,utc:u,score:[null,null]});
  const r=fresh([m("a","NS","2026-11-19T13:00:00Z"),m("b","NS","2026-11-19T11:00:00Z"),m("c","NS","2026-11-19T08:30:00Z"),m("d","FT","2026-11-17T16:00:00Z"),m("e","LIVE","2026-11-19T11:30:00Z")],N);
