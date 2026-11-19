@@ -426,9 +426,9 @@ select,input[type=search]{background:var(--pn)!important;color:var(--ink)!import
 @media(min-width:1200px){.mc{justify-content:flex-end;padding:0}.mcbox{max-width:560px;min-height:100vh;border-radius:0!important;border-width:0 0 0 1px!important}}
 
 /* ── V13 tata letak pro: daftar ringkas + panel Match Center tetap ── */
-.jpanel{flex:1 1 380px;max-width:460px;position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto;background:linear-gradient(180deg,#15213A,#121B2E);border:1px solid #22314F;border-radius:18px;padding:16px}
+.jpanel{flex:1 1 400px;max-width:520px;position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto;background:linear-gradient(180deg,#15213A,#121B2E);border:1px solid #22314F;border-radius:18px;padding:16px}
 @media(max-width:1199px){.jpanel{display:none}}
-@media(min-width:1200px){.w{max-width:1720px!important}}
+@media(min-width:1200px){.w{max-width:1880px!important;width:100%;box-sizing:border-box}}
 .plg{display:flex;align-items:center;gap:8px;font:600 12px var(--bd);letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin:16px 2px 8px}
 .plg span{margin-left:auto;font-family:var(--mono)}
 .prow{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;background:var(--pn);border:1px solid var(--ln);border-radius:14px;padding:10px 14px;margin-bottom:8px;color:var(--ink);font-size:14px;transition:border-color .15s,background .15s}
@@ -810,7 +810,7 @@ function demo(){
   return{updated:new Date().toISOString(),errors:[],matches:[m(1,"Premier League",-1,"LIVE",[1,0],["Liverpool",1,28],["Brighton",11,15],[62,22,16],"h"),m(2,"Serie A",1,"NS",[null,null],["Inter",1,29],["Como",19,5],[71,16,13],"h"),m(3,"La Liga",2,"NS",[null,null],["Real Madrid",2,30],["Getafe",16,9],[75,15,10],"h"),m(4,"Bundesliga",3,"NS",[null,null],["Bayern",1,21],["Holstein Kiel",18,5],[77,13,10],"h"),m(5,"Ligue 1",5,"NS",[null,null],["PSG",1,28],["Toulouse",14,11],[74,14,12],"h"),m(6,"Eredivisie",6,"NS",[null,null],["FC Twente",4,24],["Willem II",18,3],[79,11,10],"h"),m(7,"Championship",7,"NS",[null,null],["Southampton",7,24],["Derby County",23,10],[76,13,11],"h"),m(8,"Serie A",8,"NS",[null,null],["AS Roma",3,27],["AC Monza",18,7],[78,11,11],"h")]}
 }
 function fj(u){return fetch(u+"?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()})}
-function load(){Promise.all([fj("data.json").catch(function(){return null}),Promise.resolve(null),fj("all.json").catch(function(){return null})]).then(function(a){
+function load(){Promise.all([Promise.resolve(null),Promise.resolve(null),fj("all.json").catch(function(){return null})]).then(function(a){
   var j=a[0],w=a[1],al=a[2];
   if(!j&&!al)throw 0;
   if(!j)j={updated:al.updated,week:al.week,matches:[],errors:[]};
@@ -839,7 +839,7 @@ function valTag(x){var v=x.val||valOf(x);if(!v||v.v<=0)return"";return'<div clas
 function prow(x){
   var o=x.odds||{},v=x.val||valOf(x),lv=x.status==="LIVE",ns=x.status==="NS",t=lv?(x.ht?"HT":x.min!=null?x.min+"\'":"LIVE"):x.status==="FT"?"FT":tf.format(new Date(x.utc));
   var sc=function(i){return ns?"":(x.score[i]==null?"-":x.score[i])};
-  var pk=x.np?'<span class="pk mut">Jadwal</span>':'<span class="pk">'+esc(pk2(x))+'</span>';
+  var pk=x.np?'<span class="pk mut">'+(ns?"Tanpa prediksi":lv?"Live":"Selesai")+'</span>':'<span class="pk">'+esc(pk2(x))+'</span>';
   var ob=function(lab,q,k){return'<span class="ob'+(v&&v.k===k?" hv":"")+'"><i>'+lab+'</i><b>'+(q&&q.o?o2(q.o):"–")+'</b></span>'};
   return'<button class="prow'+(lv?" lv":"")+(String(MC.id)===String(x.eid)?" sel":"")+'"'+(x.eid?' data-mc="'+x.eid+'"':' disabled')+'>'
    +'<span class="pt'+(lv?" lvt":"")+'">'+t+'</span>'
@@ -990,11 +990,11 @@ function h2hHtml(h,x){if(!h||!h.total_matches)return'<div class="em">Belum ada p
 function psHtml(ps,x){if(!ps||!ps.length)return'<div class="em">Statistik pemain belum tersedia.</div>';var L=ps.slice().sort(function(a,b){return(b.r||0)-(a.r||0)});
   return'<div class="ov"><table class="kl"><tr><th style="text-align:left">Pemain</th><th>Rating</th><th>Menit</th><th>G</th><th>A</th><th>xG</th><th>Tembakan</th><th>Umpan</th><th>Umpan kunci</th><th>Tekel</th></tr>'+L.map(function(p){var nm=pNameById(p.pid);return'<tr><td class="t">'+cr(IMG+"player/"+p.pid+"/?sor=true")+esc(nm)+(x&&p.tid===x.hid?' <small class="s">'+esc(x.home.name)+'</small>':x&&p.tid===x.aid?' <small class="s">'+esc(x.away.name)+'</small>':"")+'</td><td><b>'+(p.r==null?"-":Number(p.r).toFixed(1))+'</b></td><td>'+p.min+'</td><td>'+(p.g||0)+'</td><td>'+(p.as||0)+'</td><td>'+(p.xg==null?"-":Number(p.xg).toFixed(2))+'</td><td>'+(p.sh||0)+'/'+(p.sot||0)+'</td><td>'+(p.acc||0)+'/'+(p.pa||0)+'</td><td>'+(p.kp||0)+'</td><td>'+(p.tk||0)+'</td></tr>'}).join("")+'</table></div>'}
 function pNameById(id){var d=MC.d,l=d&&d.lineups&&d.lineups.lineups;if(l)for(var s of ["home","away"]){var t=l[s];if(!t)continue;var p=(t.players||[]).concat(t.substitutes||[]).find(function(q){return q.id===id});if(p)return p.name||p.short_name}return"Pemain #"+id}
+function md(t){return esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(^|\s)- /g,"<br>• ").replace(/\n+/g,"<br>")}
 function infoHtml(d,x){
   var i=d&&d.info||{},h='',meta=d&&d.meta;
-  h+='<div class="mcg">'+(x?'<div>Kickoff<b>'+df.format(new Date(x.utc))+' '+tf.format(new Date(x.utc))+' WITA</b></div>':"")+(i.round?'<div>Babak<b>'+esc(i.round)+'</b></div>':"")+(i.weather?'<div>Cuaca<b>'+esc(i.weather.description||"")+' '+(i.weather.temperature_c!=null?Math.round(i.weather.temperature_c)+"°C":"")+'</b></div>':"")+(i.attendance?'<div>Penonton<b>'+Number(i.attendance).toLocaleString("id-ID")+'</b></div>':"")+(i.travel?'<div>Jarak tempuh tim tamu<b>'+i.travel+' km</b></div>':"")+(i.derby?'<div>Derbi lokal<b>Ya</b></div>':"")+(i.neutral?'<div>Venue netral<b>Ya</b></div>':"")+(x&&x.hts?'<div>Skor babak 1<b>'+x.hts[0]+' - '+x.hts[1]+'</b></div>':"")+'</div>';
-  if(i.venue_id)h+='<p class="cap">'+cr(IMG+"venue/"+i.venue_id+"/","lgc")+' Stadion · '+(i.home_coach_id?cr(IMG+"manager/"+i.home_coach_id+"/","lgc")+" vs "+cr(IMG+"manager/"+i.away_coach_id+"/","lgc")+" pelatih":"")+'</p>';
-  if(meta&&meta.ai_preview&&meta.ai_preview.text)h+='<h3>Preview (AI BSD, bahasa Inggris)</h3><p class="sm">'+esc(meta.ai_preview.text)+'</p>';
+  h+='<div class="mcg">'+(x?'<div>Kickoff<b>'+df.format(new Date(x.utc))+' '+tf.format(new Date(x.utc))+' WITA</b></div>':"")+(i.round?'<div>Babak<b>'+esc(i.round)+'</b></div>':"")+(i.weather&&(i.weather.description||i.weather.temperature_c!=null)?'<div>Cuaca<b>'+esc(i.weather.description||"")+' '+(i.weather.temperature_c!=null?Math.round(i.weather.temperature_c)+"°C":"")+'</b></div>':"")+(i.attendance?'<div>Penonton<b>'+Number(i.attendance).toLocaleString("id-ID")+'</b></div>':"")+(i.travel?'<div>Jarak tempuh tim tamu<b>'+i.travel+' km</b></div>':"")+(i.derby?'<div>Derbi lokal<b>Ya</b></div>':"")+(i.neutral?'<div>Venue netral<b>Ya</b></div>':"")+(x&&x.hts?'<div>Skor babak 1<b>'+x.hts[0]+' - '+x.hts[1]+'</b></div>':"")+'</div>';
+  if(meta&&meta.ai_preview&&meta.ai_preview.text)h+='<h3>Preview (AI BSD, bahasa Inggris)</h3><div class="sm mdp">'+md(meta.ai_preview.text)+'</div>';
   if(meta&&meta.funfacts&&meta.funfacts.length)h+='<h3>Fakta menarik</h3><ul class="tacticnotes">'+meta.funfacts.slice(0,8).map(function(f){return'<li>'+esc(f.sentence)+'</li>'}).join("")+'</ul>';
   if(i.highlights&&i.highlights.length)h+='<h3>Cuplikan</h3>'+i.highlights.map(function(v){return'<p><a href="'+esc(v.url)+'" target="_blank" rel="noopener">▶ '+esc(v.title||v.kind)+'</a></p>'}).join("");
   if(d&&d.tv&&d.tv.length){var id=d.tv.filter(function(t){return t.country_code==="ID"}),rest=d.tv.filter(function(t){return t.country_code!=="ID"});h+='<h3>Siaran TV</h3><p class="sm">'+(id.length?"<b>Indonesia:</b> "+id.map(function(t){return esc(t.channel_name)}).join(", ")+"<br>":"")+rest.slice(0,30).map(function(t){return esc(t.country_code)+": "+esc(t.channel_name)}).join(" · ")+'</p>'}
@@ -1009,7 +1009,7 @@ function drawMC(x,d,loading){
   var h='<div class="cap">'+cr(x.lgc,"lgc")+esc(x.league||"")+(x.rl?" · "+esc(x.rl):"")+'</div><div class="mchd"><div>'+cr(x.home.crest)+'<b>'+esc(x.home.name)+'</b></div><div><div class="bs">'+scoreTxt(x)+'</div>'+st+'</div><div>'+cr(x.away.crest)+'<b>'+esc(x.away.name)+'</b></div></div>';
   h+='<div class="mctabs">'+tabs.map(function(t){return'<button data-mct="'+t[0]+'"'+(MC.tab===t[0]?' class="on"':"")+'>'+t[1]+'</button>'}).join("")+'</div>';
   var body;
-  if(!d)body=loading?'<div class="em">Memuat detail...</div>':'<div class="em">Detail lengkap hanya disiapkan untuk laga live, ±36 jam ke depan, dan yang baru selesai. Ringkasan tetap tersedia.</div>'+(MC.tab==="h2h"?h2hPanel(x):MC.tab==="pred"||MC.tab==="sum"?pb(x)+oddLine(x):"");
+  if(!d)body=loading?'<div class="em">Memuat detail...</div>':'<div class="em">Detail lengkap hanya disiapkan untuk laga live, 4 hari ke depan, dan yang baru selesai. Ringkasan tetap tersedia.</div>'+(MC.tab==="h2h"?h2hPanel(x):MC.tab==="pred"||MC.tab==="sum"?pb(x)+oddLine(x):"");
   else body=MC.tab==="sum"?infoHtml(d,x):MC.tab==="pred"?predHtml(d.pred,x):MC.tab==="stats"?statsHtml(d.stats,x):MC.tab==="lu"?luHtml(d.lineups,x):MC.tab==="inc"?incHtml(d.incidents):MC.tab==="com"?comHtml(d.commentary):MC.tab==="ps"?psHtml(d.player_stats,x):MC.tab==="odds"?oddsHtml(d,x):h2hHtml(d.h2h,x);
   b.innerHTML=h+body+(d?'<p class="cap" style="margin-top:14px">Detail diperbarui '+tf.format(new Date(d.updated))+' WITA · sumber BSD</p>':"")
 }
