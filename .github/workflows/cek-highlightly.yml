@@ -1,0 +1,17 @@
+name: Cek Highlightly (sekali jalan)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cek:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: node bola-live/scripts/check-highlightly.mjs
+        env:
+          HIGHLIGHTLY_KEY: ${{ secrets.HIGHLIGHTLY_KEY }}
