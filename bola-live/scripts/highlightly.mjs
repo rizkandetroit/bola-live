@@ -54,6 +54,21 @@ function mapStandings(j,lg){
   const multi=new Set(rows.map(r=>r.grp)).size>1;rows.sort((a,b)=>multi?String(a.grp).localeCompare(String(b.grp))||a.position-b.position:a.position-b.position);
   return rows;
 }
+// Klasemen dihitung sendiri dari hasil laga (dipakai bila Highlightly tidak memberi klasemen, mis. Liga 2).
+// Grup = kelompok tim yang saling bertanding (Liga 2 dibagi 2 grup); poin 3/1/0; urut poin, selisih gol, gol.
+export function tableFromResults(M){
+  const fin=M.filter(x=>stOf(x.state&&x.state.description)==="FT").map(x=>({t:Date.parse(x.date),h:x.homeTeam,a:x.awayTeam,s:scoreOf(x.state)})).filter(x=>x.h&&x.a&&x.s[0]!=null).sort((a,b)=>a.t-b.t);
+  const T=new Map(),par=new Map(),find=k=>{while(par.get(k)!==k)k=par.get(k);return k};
+  const row=t=>{if(!T.has(t.id)){T.set(t.id,{team_id:"hl"+t.id,logo:t.logo,team_name:t.name,played:0,won:0,drawn:0,lost:0,gf:0,ga:0,res:[]});par.set(t.id,t.id)}return T.get(t.id)};
+  for(const m of fin){const H=row(m.h),A=row(m.a),[g1,g2]=m.s;H.played++;A.played++;H.gf+=g1;H.ga+=g2;A.gf+=g2;A.ga+=g1;
+    if(g1>g2){H.won++;A.lost++;H.res.push("W");A.res.push("L")}else if(g1<g2){A.won++;H.lost++;A.res.push("W");H.res.push("L")}else{H.drawn++;A.drawn++;H.res.push("D");A.res.push("D")}
+    const ra=find(m.h.id),rb=find(m.a.id);if(ra!==rb)par.set(ra,rb)}
+  const groups={};for(const [id,r] of T){const g=find(id);(groups[g]=groups[g]||[]).push(r)}
+  const keys=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length),out=[];
+  keys.forEach((k,gi)=>{const L=groups[k].map(r=>({...r,gd:r.gf-r.ga,pts:r.won*3+r.drawn,form:r.res.slice(-5).reverse().join(""),xgd:null,zone:null,grp:keys.length>1?"Grup "+String.fromCharCode(65+gi):null}));
+    L.sort((a,b)=>b.pts-a.pts||b.gd-a.gd||b.gf-a.gf||a.team_name.localeCompare(b.team_name));L.forEach((r,i)=>{r.position=i+1;delete r.res;out.push(r)})});
+  return out;
+}
 function mapDetail(det,rec){ // ke bentuk m/{id}.json yang dibaca Match Center
   const ev=(det.events||[]).map(e=>{const ty=String(e.type||"").toLowerCase(),home=e.team&&rec.hid!=null?String(e.team.id)===String(rec.hid):null,mn=String(e.time||"").match(/(\d+)(?:\+(\d+))?/);
     const base={minute:mn?+mn[1]:null,added_time:mn&&mn[2]?+mn[2]:null,is_home:home,player:e.player||e.playerName||"",assist:e.assist||null};
@@ -108,7 +123,7 @@ async function main(){
     const M=S.matches[key]||[],hot=M.some(x=>{const t=Date.parse(x.date);return t-now<2*H&&now-t<3*H&&!FT.test(x.state&&x.state.description||"")});
     if(hot&&(!S.today[key]||now-S.today[key]>20*60e3))await task("hari ini "+lg.short,async()=>{S.today[key]=now;const j=await get(`/football/matches?leagueId=${lg.id}&date=${today}&timezone=Asia/Makassar&limit=50`);const byId=new Map(M.map(x=>[x.id,x]));for(const x of list(j)){const o=byId.get(x.id);if(o){o.state=x.state;o.date=x.date}else M.push(x)}});
     // 3) klasemen: tiap 6 jam
-    if(!S.stand[key]||now-S.stand[key]>6*H)await task("klasemen "+lg.short,async()=>{const j=await get(`/football/standings?leagueId=${lg.id}&season=${yr}`);const rows=mapStandings(j,lg);if(rows.length){S.tables[key]=rows;S.stand[key]=now}else{S.stand[key]=now-5*H;console.log("klasemen "+lg.short+" kosong; contoh respons:",JSON.stringify(j).slice(0,400))}});
+    if(!S.stand[key]||now-S.stand[key]>6*H)await task("klasemen "+lg.short,async()=>{const j=await get(`/football/standings?leagueId=${lg.id}&season=${yr}`);const rows=mapStandings(j,lg);if(rows.length){S.tables[key]=rows;S.stand[key]=now;S.calc=S.calc||{};delete S.calc[key]}else{S.stand[key]=now+18*H;S.calc=S.calc||{};S.calc[key]=1;console.log("klasemen "+lg.short+" tidak disediakan Highlightly; dihitung sendiri dari hasil laga.")}});
   }
   // 4) detail (prediksi, kejadian, statistik): laga 48 jam ke depan sekali per 12 jam; laga live tiap run; laga selesai sekali
   const recsRaw=[];for(const lg of HL_LEAGUES)for(const x of (S.matches[String(lg.id)]||[]))recsRaw.push([x,lg]);
@@ -129,8 +144,8 @@ async function main(){
     const model=fin.length?{m:fit(fin,now),n:fin.length}:null;
     for(const x of M){const d=new Date(Date.parse(x.date)+WITA).toISOString().slice(0,10);if(d<W[0]||d>W[1])continue;
       const det=S.det[x.id],r=toRec(x,lg,det&&det.pred,model);if(!r)continue;if(det&&det.raw){r.dx=1;const raw={...det.raw,status:r.status};writeFileSync(dir+"m/"+r.eid+".json",JSON.stringify(raw))}out.push(r)}
-    const rows=S.tables[String(lg.id)];
-    if(rows&&rows.length){writeFileSync(dir+"lg/hl"+lg.id+".json",JSON.stringify({id:"hl"+lg.id,name:lg.name,country:"Indonesia",season:{name:String(yr)},grouped:new Set(rows.map(r=>r.grp)).size>1,standings:new Set(rows.map(r=>r.grp)).size>1?[]:rows,groups:new Set(rows.map(r=>r.grp)).size>1?rows.reduce((o,r)=>{(o[r.grp]=o[r.grp]||[]).push(r);return o},{}):null,zones:null,top:{},updated:new Date(S.stand[String(lg.id)]).toISOString(),src:"Highlightly"}))}
+    const calc=S.calc&&S.calc[String(lg.id)];const rows=calc?tableFromResults(M):S.tables[String(lg.id)];if(calc&&rows.length)S.tables[String(lg.id)]=rows;
+    if(rows&&rows.length){writeFileSync(dir+"lg/hl"+lg.id+".json",JSON.stringify({id:"hl"+lg.id,name:lg.name,country:"Indonesia",season:{name:String(yr)},grouped:new Set(rows.map(r=>r.grp)).size>1,standings:new Set(rows.map(r=>r.grp)).size>1?[]:rows,groups:new Set(rows.map(r=>r.grp)).size>1?rows.reduce((o,r)=>{(o[r.grp]=o[r.grp]||[]).push(r);return o},{}):null,zones:null,top:{},updated:new Date(calc?now:S.stand[String(lg.id)]).toISOString(),src:calc?"dihitung Bola Live dari hasil laga Highlightly":"Highlightly"}))}
   }
   all.matches=all.matches.concat(out).sort((a,b)=>a.utc.localeCompare(b.utc));
   all.hl={calls,left,leagues:HL_LEAGUES.length,matches:out.length,withPred:out.filter(m=>!m.np).length,errors};
