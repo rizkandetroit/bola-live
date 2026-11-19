@@ -2,6 +2,7 @@
 // SEBELUM kickoff (updated_at < event_date)? Kalau ya, data lama aman dipakai untuk uji mundur akurasi.
 // V2: mode pembanding. Angka prediksi yang disimpan situs SEBELUM kickoff (bsd-history.json) dibandingkan dengan angka
 // BSD SETELAH laga selesai. Sama persis = BSD tidak mengubah prediksi setelah laga -> riwayat BSD aman dipakai.
+// V3: cek odds laga lama (harga pembukaan & pra-laga) + akurasi pasar vs BSD pada sampel yang sama.
 // Hanya mencetak ringkasan angka ke log. Tidak menulis file situs, tidak mencetak API key.
 import {tfetch,cleanKey,sleep,siteBase} from "./net.mjs";
 
@@ -53,7 +54,7 @@ for(const [id,p] of preds){
   const pre=up<ko;if(!pre){late++;lateMin.push(Math.round((up-ko)/6e4))}
   if(Number.isFinite(cr))leadH.push((ko-cr)/36e5);
   const ou=p.markets.over_under&&num(p.markets.over_under.prob_over_25),bt=p.markets.btts&&num(p.markets.btts.prob_yes);
-  rows.push({pre,lg:e.league_name||LG.get(e.league_id)||("liga "+e.league_id),P,r:h>a?0:h===a?1:2,g:h+a,b:h>0&&a>0,ou,bt,t:e.event_date});
+  rows.push({id,ko,pre,lg:e.league_name||LG.get(e.league_id)||("liga "+e.league_id),P,r:h>a?0:h===a?1:2,g:h+a,b:h>0&&a>0,ou,bt,t:e.event_date});
 }
 function score(R){
   const n=R.length;if(!n)return{n:0};
@@ -93,7 +94,42 @@ try{
     "TIDAK AMAN: "+cmp.berubah+" dari "+cmp.dibandingkan+" prediksi berubah setelah kickoff.";
 }catch(e){errs.push("pembanding: "+e.message)}
 
+// ---- V3: odds laga lama (sampel) ----
+// Per baris: decimal_odds (terakhir dilihat), opening_decimal_odds + opening_at (harga pertama), is_live, updated_at.
+const odd={sampel:0,adaOdds:0,barisPraLaga:0,barisLive:0,pembukaanSebelumKickoff:0,pembukaanSesudahKickoff:0,hargaPraLagaTerakhirAda:0,bandar:{},contoh:[]};
+const mk={n:0,hitBSD:0,hitPasar:0,brBSD:0,brPasar:0,beda:0};
+try{
+  const pool=rows.filter(x=>x.P.every(v=>v!=null));const N=Math.min(Number(process.env.ODDS_SAMPLE??200),pool.length);
+  const step=pool.length/N;
+  for(let i=0;i<N;i++){const x=pool[Math.floor(i*step)];odd.sampel++;
+    let R=[];try{const j=await get(BASE+"/odds/?event_id="+x.id+"&market=1x2&limit=200",true);R=j?(Array.isArray(j)?j:(j.results||[])):[]}catch(e){errs.push("odds "+x.id+": "+e.message)}
+    await sleep(GAP);
+    if(!R.length)continue;odd.adaOdds++;
+    const books={},pre={},op={};
+    for(const r of R){const b=r.bookmaker_slug||"?",o=String(r.outcome||"").toUpperCase(),k=["HOME","DRAW","AWAY"].indexOf(o);if(k<0)continue;
+      odd.bandar[b]=(odd.bandar[b]||0)+1;books[b]=1;
+      if(r.is_live)odd.barisLive++;else odd.barisPraLaga++;
+      const oa=Date.parse(r.opening_at),ov=num(r.opening_decimal_odds);
+      if(Number.isFinite(oa)&&ov>1){if(oa<x.ko){odd.pembukaanSebelumKickoff++;(op[b]=op[b]||[])[k]=ov}else odd.pembukaanSesudahKickoff++}
+      const ua=Date.parse(r.updated_at),dv=num(r.decimal_odds);if(!r.is_live&&Number.isFinite(ua)&&ua<x.ko&&dv>1){(pre[b]=pre[b]||[])[k]=dv}
+    }
+    if(Object.values(pre).some(a=>a&&a[0]&&a[1]&&a[2]))odd.hargaPraLagaTerakhirAda++;
+    // probabilitas pasar = rata-rata implied (margin dibuang) dari harga PEMBUKAAN semua bandar
+    const qs=Object.values(op).filter(a=>a&&a[0]&&a[1]&&a[2]).map(a=>{const iv=a.map(v=>1/v),s=iv[0]+iv[1]+iv[2];return iv.map(v=>v/s)});
+    if(qs.length){const q=[0,1,2].map(k=>qs.reduce((t,a)=>t+a[k],0)/qs.length);
+      const s=x.P[0]+x.P[1]+x.P[2]||1,b=x.P.map(v=>v/s),pb=b.indexOf(Math.max(...b)),pm=q.indexOf(Math.max(...q));
+      mk.n++;if(pb===x.r)mk.hitBSD++;if(pm===x.r)mk.hitPasar++;if(pb!==pm)mk.beda++;
+      mk.brBSD+=b.reduce((t,v,i)=>t+(v-(i===x.r?1:0))**2,0);mk.brPasar+=q.reduce((t,v,i)=>t+(v-(i===x.r?1:0))**2,0);
+      if(odd.contoh.length<4)odd.contoh.push(x.lg+" "+x.t.slice(0,10)+": BSD "+b.map(v=>Math.round(v*100)).join("/")+" | pasar(pembukaan) "+q.map(v=>Math.round(v*100)).join("/")+" | hasil "+["tuan rumah","seri","tamu"][x.r]+" | "+Object.keys(books).length+" bandar")}
+  }
+}catch(e){errs.push("odds: "+e.message)}
+odd.persenAdaOdds=pct(odd.adaOdds,odd.sampel);
+odd.persenPembukaanSebelumKickoff=pct(odd.pembukaanSebelumKickoff,odd.pembukaanSebelumKickoff+odd.pembukaanSesudahKickoff);
+odd.bandar=Object.entries(odd.bandar).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k,v])=>k+":"+v).join(", ");
+const pasarVsBSD=mk.n?{lagaDibandingkan:mk.n,akurasiBSD:pct(mk.hitBSD,mk.n),akurasiPasarPembukaan:pct(mk.hitPasar,mk.n),brierBSD:Math.round(mk.brBSD/mk.n*1000)/1000,brierPasarPembukaan:Math.round(mk.brPasar/mk.n*1000)/1000,favoritBerbeda:mk.beda,catatan:"Brier lebih kecil = lebih baik"}:null;
+
 const out={
+  oddsLama:odd,pasarVsBSD,
   pembanding:cmp,
   jendelaHari:DAYS,permintaan:calls,error:errs,
   prediksiDiambil:preds.size,lagaSelesaiDiambil:evs.size,pasanganDenganSkor:rows.length,tanpaWaktu:noTime,
