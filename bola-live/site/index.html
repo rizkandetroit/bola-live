@@ -578,6 +578,9 @@ var LV={"Sangat kuat":4,"Kuat":3,"Sedang":2,"Tipis":1};
 var PITCH=null,OPEN={},S={lg:"Semua",st:"NS",so:"jam",q:"",v:"card",hs:"edge"},D=null,DEMO=false;
 
 function save(){try{localStorage.setItem("bl",JSON.stringify({v:S.v,v13:1}))}catch(e){}}
+/* V13.1: "Akan Tayang" hanya laga yang jam mulainya belum lewat. Jam mulai sudah lewat tapi data belum diperbarui:
+   pindah ke Live ("baru mulai") sampai 3 jam; lebih dari itu dianggap data basi dan disembunyikan. */
+function fresh(ms,now){now=now||Date.now();return(ms||[]).filter(function(x){if(x.status!=="NS")return true;var t=Date.parse(x.utc);if(!(t<=now))return true;if(now-t<3*36e5){x.status="LIVE";x.pend=1;return true}return false})}
 function pk(x){return x.pick==="h"?x.home:x.away}
 function pb(x){
   if(x.np)return"";
@@ -586,7 +589,7 @@ function pb(x){
 }
 function stt(x,b){
   var d=new Date(x.utc),a=df.format(d),h=tf.format(d)+" WITA",
-    s=x.status==="LIVE"?'<span class="st lv">Live'+(x.ht?" · turun minum":x.min!=null?" "+x.min+"\'":"")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':"";
+    s=x.status==="LIVE"?'<span class="st lv">Live'+(x.ht?" · turun minum":x.pend?" · baru mulai":x.min!=null?" "+x.min+"\'":"")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':"";
   return b?(s?s+"<br>":"")+a+"<br>"+h:(s?s+", ":"")+a+" pukul "+h
 }
 function mid(x){
@@ -851,7 +854,7 @@ function load(){Promise.all([Promise.resolve(null),Promise.resolve(null),fj("all
   if(w&&w.matches){j.matches=j.matches.concat(w.matches);j.worldInfo=w;j.errors=(j.errors||[]).concat((w.errors||[]).map(function(e){return"dunia "+e}))}
   if(al&&al.links){var byId={};j.matches.forEach(function(x){byId[x.id]=x});al.links.forEach(function(k){var x=byId[k.oid];if(x){x.eid=k.eid;x.lid=k.lid;x.hid=k.hid;x.aid=k.aid;if(k.odds)x.odds=k.odds;if(k.dx)x.dx=1;if(k.rl)x.rl=k.rl;if(k.bp)x.bp=k.bp}})}
   if(al&&al.matches){j.matches=j.matches.concat(al.matches);j.allInfo=al;j.errors=(j.errors||[]).concat((al.errors||[]).map(function(e){return"semua liga "+e}))}
-  D=j;DEMO=false;draw();if(VIEW==="s")renderLive()
+  j.matches=fresh(j.matches);D=j;DEMO=false;draw();if(VIEW==="s")renderLive()
 }).catch(function(){if(!D){D=demo();DEMO=true;draw()}})}
 /* ============================================================
    V12 — INTEGRASI PENUH BSD: Live, Klasemen, Match Center
@@ -901,7 +904,7 @@ function renderLive(){
   if(!L.length){$("#sl-list").innerHTML='<div class="em">'+(SLF.st==="LIVE"?"Tidak ada laga live saat ini.":"Tidak ada pertandingan.")+'</div>';return}
   var by={},ord=[];L.forEach(function(x){if(!by[x.league]){by[x.league]=[];ord.push(x.league)}by[x.league].push(x)});
   $("#sl-list").innerHTML=ord.map(function(l){var f=by[l][0];return'<div class="day">'+cr(f.lgc,"lgc")+esc(l)+'</div>'+by[l].map(function(x){
-    var stx=x.status==="LIVE"?'<span class="st lv">'+(x.ht?"Turun minum":x.min!=null?x.min+"\'":"Live")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':tf.format(new Date(x.utc));
+    var stx=x.status==="LIVE"?'<span class="st lv">'+(x.ht?"Turun minum":x.pend?"Baru mulai":x.min!=null?x.min+"\'":"Live")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':tf.format(new Date(x.utc));
     return'<div class="tr'+(x.status==="LIVE"?" lv":"")+'" style="cursor:pointer" data-mcrow="'+(x.eid||"")+'"><div class="dtc">'+stx+'</div><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+' <span class="sc">'+scoreTxt(x)+'</span> '+esc(x.away.name)+cr(x.away.crest)+'</div><div class="s">'+(x.hts?"Babak 1: "+x.hts[0]+"-"+x.hts[1]+" · ":"")+esc(x.rl||"")+'</div></div><div>'+(x.np?"":pb(x))+'</div><div style="text-align:right">'+(x.eid?'<span class="tag l2">Detail →</span>':"")+'</div></div>'}).join("")}).join("");
 }
 
@@ -1066,7 +1069,7 @@ function drawMC(x,d,loading){
   x=x||{home:{name:"Tuan rumah"},away:{name:"Tamu"},score:[null,null],status:d.status,utc:d.updated};
   var tabs=[["sum","Ringkasan"],["pred","Prediksi"],["stats","Statistik"],["lu","Line-up"],["inc","Kejadian"],["com","Komentar"],["ps","Pemain"],["odds","Odds"],["h2h","H2H"]];
   var isHL=(d&&d.src==="HL")||(x&&x.src==="HL");if(isHL){tabs=tabs.filter(function(t){return["sum","pred","stats","inc"].indexOf(t[0])>=0});if(!tabs.some(function(t){return t[0]===MC.tab}))MC.tab="sum"}
-  var st=x.status==="LIVE"?'<span class="st lv">'+(x.ht?"Turun minum":x.min!=null?x.min+"\'":"Live")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':df.format(new Date(x.utc))+" "+tf.format(new Date(x.utc))+" WITA";
+  var st=x.status==="LIVE"?'<span class="st lv">'+(x.ht?"Turun minum":x.pend?"Baru mulai":x.min!=null?x.min+"\'":"Live")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':df.format(new Date(x.utc))+" "+tf.format(new Date(x.utc))+" WITA";
   var h='<div class="cap">'+cr(x.lgc,"lgc")+esc(x.league||"")+(x.rl?" · "+esc(x.rl):"")+'</div><div class="mchd"><div>'+cr(x.home.crest)+'<b>'+esc(x.home.name)+'</b></div><div><div class="bs">'+scoreTxt(x)+'</div>'+st+'</div><div>'+cr(x.away.crest)+'<b>'+esc(x.away.name)+'</b></div></div>';
   h+='<div class="mctabs">'+tabs.map(function(t){return'<button data-mct="'+t[0]+'"'+(MC.tab===t[0]?' class="on"':"")+'>'+t[1]+'</button>'}).join("")+'</div>';
   var body;
