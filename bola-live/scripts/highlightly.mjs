@@ -42,13 +42,16 @@ export function toRec(x,lg,pred,model){
   return{...r,p:{...p,engine:eng},pick:p.h>=p.a?"h":"a",edge,level:level(edge),est:true,tier:2,note};
 }
 function mapStandings(j,lg){
-  const g=(j&&j.groups)||[];const rows=[];
+  // cari semua baris klasemen (objek ber-"team") di mana pun letaknya; nama grup dari induk terdekat yang punya "name"
+  const g=[];(function walk(o,name){if(!o||typeof o!=="object")return;if(Array.isArray(o)){const rows=o.filter(x=>x&&typeof x==="object"&&x.team&&(x.points!=null||x.position!=null||x.home||x.total));if(rows.length)g.push({name,standings:rows});else o.forEach(x=>walk(x,name));return}
+    for(const k of Object.keys(o))walk(o[k],typeof o.name==="string"?o.name:name)})(j,lg.name);
+  const rows=[];
   for(const grp of g)for(const s of (grp.standings||[])){
     const tot=s.total||{},hm=s.home||{},aw=s.away||{},add=k=>(tot[k]??((hm[k]||0)+(aw[k]||0)));
     const gf=add("scoredGoals"),ga=add("receivedGoals");
     rows.push({position:s.position??s.rank??rows.length+1,team_id:"hl"+(s.team&&s.team.id),logo:s.team&&s.team.logo,team_name:s.team&&s.team.name||"?",played:add("games"),won:add("wins"),drawn:add("draws"),lost:add("loses"),gf,ga,gd:gf-ga,pts:s.points??(add("wins")*3+add("draws")),xgd:null,form:"",zone:null,grp:grp.name});
   }
-  rows.sort((a,b)=>a.position-b.position);
+  const multi=new Set(rows.map(r=>r.grp)).size>1;rows.sort((a,b)=>multi?String(a.grp).localeCompare(String(b.grp))||a.position-b.position:a.position-b.position);
   return rows;
 }
 function mapDetail(det,rec){ // ke bentuk m/{id}.json yang dibaca Match Center
@@ -105,7 +108,7 @@ async function main(){
     const M=S.matches[key]||[],hot=M.some(x=>{const t=Date.parse(x.date);return t-now<2*H&&now-t<3*H&&!FT.test(x.state&&x.state.description||"")});
     if(hot&&(!S.today[key]||now-S.today[key]>20*60e3))await task("hari ini "+lg.short,async()=>{S.today[key]=now;const j=await get(`/football/matches?leagueId=${lg.id}&date=${today}&timezone=Asia/Makassar&limit=50`);const byId=new Map(M.map(x=>[x.id,x]));for(const x of list(j)){const o=byId.get(x.id);if(o){o.state=x.state;o.date=x.date}else M.push(x)}});
     // 3) klasemen: tiap 6 jam
-    if(!S.stand[key]||now-S.stand[key]>6*H)await task("klasemen "+lg.short,async()=>{const j=await get(`/football/standings?leagueId=${lg.id}&season=${yr}`);const rows=mapStandings(j,lg);if(rows.length){S.tables[key]=rows;S.stand[key]=now}});
+    if(!S.stand[key]||now-S.stand[key]>6*H)await task("klasemen "+lg.short,async()=>{const j=await get(`/football/standings?leagueId=${lg.id}&season=${yr}`);const rows=mapStandings(j,lg);if(rows.length){S.tables[key]=rows;S.stand[key]=now}else{S.stand[key]=now-5*H;console.log("klasemen "+lg.short+" kosong; contoh respons:",JSON.stringify(j).slice(0,400))}});
   }
   // 4) detail (prediksi, kejadian, statistik): laga 48 jam ke depan sekali per 12 jam; laga live tiap run; laga selesai sekali
   const recsRaw=[];for(const lg of HL_LEAGUES)for(const x of (S.matches[String(lg.id)]||[]))recsRaw.push([x,lg]);
@@ -127,7 +130,7 @@ async function main(){
     for(const x of M){const d=new Date(Date.parse(x.date)+WITA).toISOString().slice(0,10);if(d<W[0]||d>W[1])continue;
       const det=S.det[x.id],r=toRec(x,lg,det&&det.pred,model);if(!r)continue;if(det&&det.raw){r.dx=1;const raw={...det.raw,status:r.status};writeFileSync(dir+"m/"+r.eid+".json",JSON.stringify(raw))}out.push(r)}
     const rows=S.tables[String(lg.id)];
-    if(rows&&rows.length){writeFileSync(dir+"lg/hl"+lg.id+".json",JSON.stringify({id:"hl"+lg.id,name:lg.name,country:"Indonesia",season:{name:String(yr)},grouped:false,standings:rows,groups:null,zones:null,top:{},updated:new Date(S.stand[String(lg.id)]).toISOString(),src:"Highlightly"}))}
+    if(rows&&rows.length){writeFileSync(dir+"lg/hl"+lg.id+".json",JSON.stringify({id:"hl"+lg.id,name:lg.name,country:"Indonesia",season:{name:String(yr)},grouped:new Set(rows.map(r=>r.grp)).size>1,standings:new Set(rows.map(r=>r.grp)).size>1?[]:rows,groups:new Set(rows.map(r=>r.grp)).size>1?rows.reduce((o,r)=>{(o[r.grp]=o[r.grp]||[]).push(r);return o},{}):null,zones:null,top:{},updated:new Date(S.stand[String(lg.id)]).toISOString(),src:"Highlightly"}))}
   }
   all.matches=all.matches.concat(out).sort((a,b)=>a.utc.localeCompare(b.utc));
   all.hl={calls,left,leagues:HL_LEAGUES.length,matches:out.length,withPred:out.filter(m=>!m.np).length,errors};
