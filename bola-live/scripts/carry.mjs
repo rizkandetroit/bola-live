@@ -1,9 +1,10 @@
-// V12.2 (BSD saja): run tiap 5 menit = mode ringan, kecuali run berat terakhir sudah > 55 menit lalu.
+// V12.2 (BSD saja): run tiap 5 menit (jadwal GitHub atau cron-job.org) = mode ringan, kecuali run berat terakhir sudah > 55 menit lalu.
 // Mengambil all.json yang sedang tayang hanya untuk membaca kapan run berat terakhir (heavyAt).
 import {writeFileSync,appendFileSync,mkdirSync} from "node:fs";
 import {tfetch,siteBase,outDir} from "./net.mjs";
 const E=process.env,dir=outDir(import.meta.url),site=siteBase();mkdirSync(dir,{recursive:true});
-let heavy=E.GITHUB_EVENT_NAME&&E.GITHUB_EVENT_NAME!=="schedule"?1:0;
+// V13.1: dipicu cron-job.org (workflow_dispatch) tiap 5 menit -> diperlakukan seperti jadwal; hanya push (upload file) yang langsung berat.
+let heavy=E.GITHUB_EVENT_NAME==="push"?1:0;
 if(E.FORCE_HEAVY==="1")heavy=1;
 if(!heavy&&site){
   let age=1e9;
