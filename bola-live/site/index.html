@@ -846,7 +846,7 @@ function prow(x){
    +'<span class="ptm"><span class="pr">'+cr(x.home.crest)+'<span class="nm">'+esc(x.home.name)+'</span><b>'+sc(0)+'</b></span><span class="pr">'+cr(x.away.crest)+'<span class="nm">'+esc(x.away.name)+'</span><b>'+sc(1)+'</b></span></span>'
    +'<span class="pp">'+(x.np?'<span class="mut" style="font-size:12px">Tanpa prediksi</span>':'<span class="pbar"><i style="width:'+x.p.h+'%;background:var(--H)"></i><i style="width:'+x.p.d+'%;background:var(--D)"></i><i style="width:'+x.p.a+'%;background:var(--A)"></i></span><span class="pnum"><span style="color:#8EC5FF">'+Math.round(x.p.h)+'%</span><span>'+Math.round(x.p.d)+'%</span><span style="color:#FFC48A">'+Math.round(x.p.a)+'%</span></span>')
    +'<span class="ogrid">'+ob("1",o.h,"h")+ob("X",o.d,"d")+ob("2",o.a,"a")+'</span></span>'
-   +'<span class="pside">'+pk+(v&&v.v>0?'<span class="vb">Value +'+Math.round(v.v*100)+'%</span>':x.level&&!x.np?'<span class="tag l'+LV[x.level]+'">'+x.level+'</span>':"")+'</span></button>'}
+   +'<span class="pside">'+pk+(v&&v.v>0?'<span class="vb" title="Peluang '+Math.round(v.p)+'% × odds '+o2(v.o)+' − 1">Value +'+Math.round(v.v*100)+'% · '+esc(v.k==="d"?"Seri":v.n||"")+'</span>':x.level&&!x.np?'<span class="tag l'+LV[x.level]+'">'+x.level+'</span>':"")+'</span></button>'}
 function pk2(x){return x.pick==="h"?x.home.name:x.away.name}
 function mcBtn(x){return x.eid?'<button class="mcbtn" data-mc="'+x.eid+'">Match Center'+(x.dx?"":" (ringkas)")+' →</button>':""}
 function scoreTxt(x){if(x.status==="NS")return"vs";var t=(x.score[0]==null?"-":x.score[0])+" - "+(x.score[1]==null?"-":x.score[1]);if(x.et)t+=' <small>(PW '+(x.score[0]+x.et[0])+'-'+(x.score[1]+x.et[1])+')</small>';if(x.pen)t+=' <small>(pen '+x.pen[0]+'-'+x.pen[1]+')</small>';return t}
