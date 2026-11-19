@@ -117,6 +117,7 @@ const trimCmp=c=>{ if(!c||!c.markets)return null; // grid bookmaker: simpan pasa
   return{bookmakers_count:c.bookmakers_count,main_lines:c.main_lines||null,markets:keep}};
 const slimPS=ps=>(ps&&ps.player_stats||[]).filter(p=>p.minutes_played>0).map(p=>({pid:p.player_id,tid:p.team_id,min:p.minutes_played,r:p.rating,g:p.goals,as:p.goal_assist,xg:p.expected_goals,xa:p.expected_assists,sh:p.total_shots,sot:p.shots_on_target,kp:p.key_pass,pa:p.total_pass,acc:p.accurate_pass,tk:p.won_tackle,int:p.interception,sv:p.saves,yc:p.yellow_card,rc:p.red_card}));
 
+// Value hanya dihitung bila peluang model >= 20%, odds <= 5 dan value >= 2% (tim yang sangat tidak diunggulkan terlalu peka terhadap galat model).
 // ===================== V12.2: catatan & evaluasi akurasi prediksi BSD =====================
 // Prediksi dicatat (dan diperbarui) sampai kickoff, lalu dikunci. Setelah laga selesai, skor akhir diisi dan dinilai.
 const LG=Math.log;
@@ -134,7 +135,7 @@ export function updateHistory(hist,matches,now){
   for(const [k,e] of H){const t=Date.parse(e.u);if((!e.r&&t<now-3*864e5)||t<now-120*864e5)H.delete(k)}   // tanpa hasil >3 hari / >120 hari: buang
   return [...H.values()].sort((a,b)=>a.u.localeCompare(b.u)).slice(-6000);
 }
-function bestVal(m){if(!m.odds||!m.p)return null;let b=null;[[0,m.p.h,m.odds.h],[1,m.p.d,m.odds.d],[2,m.p.a,m.odds.a]].forEach(([k,p,o])=>{if(p==null||!o||!o.o)return;const v=p/100*o.o-1;if(!b||v>b[1])b=[k,Math.round(v*1000)/1000,o.o]});return b}
+function bestVal(m){if(!m.odds||!m.p)return null;let b=null;[[0,m.p.h,m.odds.h],[1,m.p.d,m.odds.d],[2,m.p.a,m.odds.a]].forEach(([k,p,o])=>{if(p==null||!o||!o.o||p<20||o.o>5)return;const v=p/100*o.o-1;if(v<.02)return;if(!b||v>b[1])b=[k,Math.round(v*1000)/1000,o.o]});return b}
 export function evalHistory(hist){
   const R=(hist||[]).filter(e=>e.r&&e.p),z=()=>({n:0,hit:0,br:0,ll:0,home:0,ouN:0,ouHit:0,btN:0,btHit:0,bets:0,profit:0,mkN:0,mkHit:0,mkBr:0});
   const add=(s,e)=>{const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e.p.map(x=>x/100),pk=p.indexOf(Math.max(...p));
