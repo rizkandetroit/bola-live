@@ -221,7 +221,9 @@ async function main(){
     const lids=[...new Set(matches.map(m=>m.lid).filter(x=>x!=null))];
     mkdirSync(dir+"lg",{recursive:true});
     const lgIndex=[];
-    if(!LIGHT){
+    const prevLg=LIGHT?await pull("leagues.json"):null;
+    const fetchLeagues=!LIGHT||!(prevLg&&prevLg.leagues&&prevLg.leagues.length);   // run ringan tanpa data lama: ambil langsung, jangan menulis klasemen kosong
+    if(fetchLeagues){
       await pool(lids,async id=>{
         const st=await get(`${BASE}/leagues/${id}/standings/`,{soft:true});
         const top={};
@@ -233,8 +235,7 @@ async function main(){
         lgIndex.push({id,name:o.name,country:o.country,n:o.standings.length||(o.groups?Object.values(o.groups).reduce((a,g)=>a+((g&&g.length)||(g&&g.standings&&g.standings.length)||0),0):0)});
       });
     }else{
-      const prev=await pull("leagues.json");
-      for(const l of (prev&&prev.leagues)||[]){const o=await pull("lg/"+l.id+".json");if(o){writeFileSync(dir+"lg/"+l.id+".json",JSON.stringify(o));lgIndex.push(l)}}
+      await pool(prevLg.leagues,async l=>{const o=await pull("lg/"+l.id+".json");if(o){writeFileSync(dir+"lg/"+l.id+".json",JSON.stringify(o));lgIndex.push(l)}});
     }
     lgIndex.sort((a,b)=>(a.country+a.name).localeCompare(b.country+b.name));
     writeFileSync(dir+"leagues.json",JSON.stringify({updated:new Date(now).toISOString(),leagues:lgIndex}));
@@ -259,7 +260,7 @@ async function main(){
     });
     if(LIGHT){ // laga fokus heavy yang tidak disegarkan: bawa dari situs tayang (supaya Match Center tetap lengkap)
       const prev=await pull("m/index.json"),want=new Set(focusOf(every,now,false).map(m=>m.eid));
-      for(const id of ((prev&&prev.ids)||[]).filter(i=>want.has(i)&&!hotIds.has(i)).slice(0,MAXD)){const o=await pull("m/"+id+".json");if(o){writeFileSync(dir+"m/"+id+".json",JSON.stringify(o));have.add(id);deep.carried++}}
+      await pool(((prev&&prev.ids)||[]).filter(i=>want.has(i)&&!hotIds.has(i)).slice(0,MAXD),async id=>{const o=await pull("m/"+id+".json");if(o){writeFileSync(dir+"m/"+id+".json",JSON.stringify(o));have.add(id);deep.carried++}});
     }
     for(const m of every)if(have.has(m.eid))m.dx=1;
     writeFileSync(dir+"m/index.json",JSON.stringify({updated:new Date(now).toISOString(),ids:[...have]}));
