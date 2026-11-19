@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Bola Live V12</title>
+<title>Bola Live V13</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 /* ============================================================
    BOLA LIVE V11 — TEMA TERANG (DM Sans)
@@ -15,26 +15,27 @@
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 
 :root{
-  --bg:#f2f4f8;
-  --pn:#ffffff;
-  --pn2:#f7f8fc;
-  --ln:#e3e7f0;
-  --ink:#1a1f36;
-  --mut:#6b7599;
-  --H:#2563eb;
-  --D:#64748b;
-  --A:#dc2626;
-  --ok:#059669;
-  --hot:#ef4444;
-  --gold:#d97706;
-  --H-soft:#eff4ff;
-  --ok-soft:#ecfdf5;
-  --gold-soft:#fffbeb;
-  --A-soft:#fef2f2;
-  --r:12px;
-  --hd:"DM Sans","Segoe UI",system-ui,sans-serif;
-  --bd:"DM Sans",system-ui,-apple-system,sans-serif;
-  color-scheme:light
+  --bg:#0A101C;
+  --pn:#121B2E;
+  --pn2:#0D1424;
+  --ln:#1F2B45;
+  --ink:#E6EBF5;
+  --mut:#9AA7C0;
+  --H:#5AA9FF;
+  --D:#56627A;
+  --A:#FF9F43;
+  --ok:#C6F432;
+  --hot:#FF5A5F;
+  --gold:#FFB020;
+  --H-soft:#14243F;
+  --ok-soft:#1E2A0A;
+  --gold-soft:#2A2110;
+  --A-soft:#2A1616;
+  --r:16px;
+  --hd:"Space Grotesk","Inter",system-ui,sans-serif;
+  --bd:"Inter",system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:dark
 }
 
 body{
@@ -157,17 +158,17 @@ h2 small{font-size:12px;color:var(--mut);font-weight:400}
   transition:box-shadow .15s,border-color .15s
 }
 .c:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:#c8cfdf}
-.c.lv{border-color:var(--hot);border-left-width:3px;background:#fffafa}
-.c.r1{border-color:var(--H);box-shadow:0 0 0 1px var(--H)}
-.c.r2{border-color:#7c3aed;box-shadow:0 0 0 1px #7c3aed}
-.c.r3{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok)}
+.c.lv{border-color:var(--hot);border-left-width:3px;background:#1A1A2A}
+.c.r1{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok)}
+.c.r2{border-color:#A78BFA;box-shadow:0 0 0 1px #A78BFA}
+.c.r3{border-color:var(--H);box-shadow:0 0 0 1px var(--H)}
 
 .tp{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;margin-bottom:9px;gap:4px;row-gap:3px;font-size:12px;color:var(--mut)}
 .tme{white-space:nowrap;margin-left:auto;font-size:11px;text-align:right}
 .rk{font-size:11px;font-weight:600;padding:2px 7px;border-radius:5px;white-space:nowrap}
-.rk.r1{background:var(--H);color:#fff}
-.rk.r2{background:#7c3aed;color:#fff}
-.rk.r3{background:var(--ok);color:#fff}
+.rk.r1{background:var(--ok);color:#0A101C}
+.rk.r2{background:#A78BFA;color:#0A101C}
+.rk.r3{background:var(--H);color:#0A101C}
 .rk.rn{background:var(--H-soft);color:var(--H)}
 .st{font-weight:600}.st.lv{color:var(--hot)}.st.ft{color:var(--ink)}
 
@@ -366,6 +367,62 @@ table.kl td.t{text-align:left;white-space:nowrap}table.kl img{width:18px;height:
 .frm .W{background:var(--ok)}.frm .D{background:var(--D)}.frm .L{background:var(--A)}
 .mcg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:8px 0}.mcg div{background:var(--pn2);border:1px solid var(--ln);border-radius:10px;padding:8px 10px;font-size:12px}.mcg b{display:block;font-size:15px}
 @media(max-width:640px){.lu{grid-template-columns:1fr}.mchd .bs{font-size:26px}}
+
+/* ── V13 "Floodlight" ── */
+body{background:radial-gradient(1200px 500px at 70% -200px,#13233F 0%,transparent 70%),var(--bg);background-attachment:fixed}
+.hdr{background:rgba(13,20,36,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--ln);position:sticky;top:0;z-index:50}
+.logo{font-family:var(--hd);font-weight:700;letter-spacing:.03em}
+.logo-icon{background:var(--ok)!important;color:#0A101C!important;border-radius:10px}
+.seg{background:var(--pn)!important;border:1px solid var(--ln)!important;border-radius:12px!important;padding:3px!important}
+.seg button,.chip{color:#B8C3D9!important;background:transparent!important;border:0!important;border-radius:9px!important;min-height:38px;font-weight:600}
+.seg button.on,.chip.on,.ctl .chip.on{background:var(--ok)!important;color:#0A101C!important}
+.live-pill{background:var(--A-soft)!important;color:#FF8A8E!important;border:1px solid #4A2226!important}
+.k{background:var(--pn)!important;border:1px solid var(--ln)!important;border-top-width:1px!important;border-radius:16px!important}
+.k b{font-family:var(--mono)!important;font-weight:700}
+.k:nth-child(1) b{color:var(--ink)}.k:nth-child(2) b,.k.lv b{color:#FF8A8E}.k:nth-child(3) b{color:var(--ok)}.k:nth-child(4) b{color:var(--H)}
+h2{font-family:var(--hd)}
+.c,.tr,.mcbox{background:var(--pn)!important;border:1px solid var(--ln)!important;border-radius:16px!important;box-shadow:none}
+.c:hover{border-color:#2E4068!important;transform:translateY(-1px)}
+.c.lv,.tr.lv{box-shadow:inset 3px 0 var(--hot)!important}
+.c.r1{border-color:var(--ok)!important}.c.r2{border-color:#A78BFA!important}.c.r3{border-color:var(--H)!important}
+.sc,.pl,.tme,.dtc,.oddl b,.mchd .bs,table.kl td,.ev td{font-family:var(--mono)}
+.sc{color:var(--ink)}.sc.vs{color:var(--mut)}
+.pb{background:var(--ln)!important}.pb .h{background:var(--H)!important}.pb .d{background:var(--D)!important}.pb .a{background:var(--A)!important}
+.pl .h{color:#8EC5FF!important}.pl .a{color:#FFC48A!important}
+.tag{border-radius:999px}.l4{color:var(--ok)}.l3{color:var(--H)}.l2{color:var(--gold)}.l1{color:var(--mut)}
+.oddl span{background:var(--pn2);border-color:#22314F}
+.mcbtn{background:var(--pn2);border-color:#22314F;color:var(--ok);min-height:44px}
+.mcbtn:hover{background:var(--ok-soft);border-color:#4A6110}
+select,input[type=search]{background:var(--pn)!important;color:var(--ink)!important;border:1px solid var(--ln)!important;border-radius:10px!important;min-height:44px}
+.day{font-family:var(--hd);color:var(--mut)}
+.ev th{color:var(--mut)}.ev td,.ev th,table.kl td,table.kl th{border-color:var(--ln)!important}
+.why summary{color:var(--H)}
+.em{background:var(--pn);border:1px dashed var(--ln);border-radius:16px}
+.mc{background:rgba(4,8,16,.7)}
+.mcbox{background:linear-gradient(180deg,#15213A,#121B2E)!important;border-color:#22314F!important}
+.mctabs button.on{color:var(--ok);border-bottom-color:var(--ok)}
+.sbar .bar i:first-child{background:var(--H)}.sbar .bar i:last-child{background:var(--A)}
+.mcg div{background:var(--pn2);border-color:#22314F}
+.com.imp{background:var(--gold-soft)}
+.good{color:var(--ok)}.warn{color:var(--gold)}
+/* ticker live */
+.tick{display:flex;gap:10px;overflow-x:auto;padding:10px 20px;border-bottom:1px solid var(--ln);background:#0B1220;scrollbar-width:thin}
+.tick button{flex:0 0 auto;display:flex;align-items:center;gap:10px;background:var(--pn);border:1px solid #22314F;border-radius:999px;padding:0 14px;min-height:44px;color:var(--ink);cursor:pointer;font-size:13px}
+.tick .m{font-family:var(--mono);color:#FF8A8E;font-size:12px}.tick b{font-family:var(--mono);color:var(--ok)}
+.tick .dt{width:8px;height:8px;border-radius:50%;background:var(--hot);animation:pl 1.4s infinite}
+/* layout: sidebar liga di layar lebar */
+.jlay{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+.jside{flex:1 1 220px;max-width:280px;background:var(--pn);border:1px solid var(--ln);border-radius:16px;padding:8px;position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto}
+.jside h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:8px 10px}
+.jside button{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:0 10px;border-radius:10px;font-size:13px;color:var(--ink)}
+.jside button:hover{background:#17223A}.jside button.on{background:#1A2640;box-shadow:inset 3px 0 var(--ok)}
+.jside button img{width:20px;height:20px;object-fit:contain}
+.jside button span.n{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--mut)}
+.jmain{flex:999 1 560px;min-width:0}
+@media(max-width:900px){.jside{display:none}}
+@media(min-width:901px){#lg{display:none}}
+/* Match Center sebagai panel kanan di layar lebar */
+@media(min-width:1200px){.mc{justify-content:flex-end;padding:0}.mcbox{max-width:560px;min-height:100vh;border-radius:0!important;border-width:0 0 0 1px!important}}
 </style>
 </head>
 <body>
@@ -374,7 +431,7 @@ table.kl td.t{text-align:left;white-space:nowrap}table.kl img{width:18px;height:
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V12</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V13</span>
   </div>
   <div class="nvb">
     <div class="seg" id="nv" aria-label="Halaman">
@@ -387,14 +444,16 @@ table.kl td.t{text-align:left;white-space:nowrap}table.kl img{width:18px;height:
   <div class="live-pill" id="livepill" hidden><span class="pulse"></span><span id="livecount">0</span> live</div>
 </div>
 
+<div class="tick" id="tick" hidden></div>
 <div class="w" id="app">
 
   <!-- JADWAL TAB -->
   <div id="v-j">
     <div class="kpi" id="kpi"></div>
-    <h2>14 pilihan teratas <small>laga yang akan tayang</small> <span class="seg" id="hs" style="margin-left:8px;vertical-align:middle"><button data-hs="edge" class="on">Keunggulan</button><button data-hs="value">Value (vs odds)</button></span></h2>
+    <h2>14 pilihan teratas <small>laga yang akan tayang</small> <span class="seg" id="hs" style="margin-left:8px;vertical-align:middle"><button data-hs="edge" class="on">Keunggulan</button><button data-hs="value" title="Peluang model × odds terbaik − 1">Value</button></span></h2>
     <div class="hero" id="hero"></div>
     <div class="scroll-hint">← geser untuk lihat semua →</div>
+    <div class="jlay"><aside class="jside" id="lgside" aria-label="Daftar liga"></aside><div class="jmain">
     <h2 id="wk">Jadwal dan hasil</h2>
     <div class="ctl" id="lg"></div>
     <div class="ctl">
@@ -405,6 +464,7 @@ table.kl td.t{text-align:left;white-space:nowrap}table.kl img{width:18px;height:
       </div>
     </div>
     <div id="list"></div>
+    </div></div>
   </div>
 
   <!-- LIVE TAB (BSD) -->
@@ -648,7 +708,7 @@ function nav(v){VIEW=v;$("#v-j").hidden=v!=="j";$("#v-s").hidden=v!=="s";$("#v-k
 
 function fmtMetric(v){return v==null||v===""?"—":typeof v==="number"?v.toFixed(2):String(v)}
 function lineupSide(side,intel,label){if(!side)return'<div><b>'+esc(label)+'</b><div class="players">Data line-up belum tersedia.</div></div>';var starters=side.starters||[],subs=side.subs||[],score=intel&&intel.score!=null?intel.score:null,abs=intel&&intel.absences||[];return'<div><b>'+esc(label)+'</b><div class="formation">'+esc(side.formation||"Formasi —")+' <span class="tag">'+(side.confirmed?'Terkonfirmasi':'Prediksi')+'</span></div>'+(score!=null?'<div class="pitchscore">Kekuatan efektif XI: <b>'+score.toFixed(1)+'/100</b></div><div class="strengthbar"><i style="width:'+Math.max(0,Math.min(100,score))+'%"></i></div>':'')+'<div class="players">'+starters.map(function(p){return'<div><b>'+(p.shirt_number?esc(p.shirt_number)+'. ':'')+esc(p.name||'Pemain')+'</b>'+(p.is_captain?' ©':'')+'</div>'}).join('')+'</div><h3>Cadangan ('+subs.length+')</h3><div class="players">'+subs.map(function(p){return esc(p.shirt_number?p.shirt_number+'. ':'')+esc(p.name||'Pemain')}).join(' · ')+'</div>'+(abs.length?'<h3>Pemain reguler tidak masuk XI</h3><div class="players">'+abs.map(function(p){return esc(p.name)+' — '+esc(p.status)}).join('<br>')+'</div>':'')+'</div>'}
-function shotMapHtml(d,homeId){var periods=d.shots&&d.shots.periods||[],shots=[];periods.forEach(function(p){(p.shots||[]).forEach(function(s){if(Number.isFinite(Number(s.x))&&Number.isFinite(Number(s.y)))shots.push(s)})});if(!shots.length)return'';return'<h3>Peta tembakan</h3><svg class="shotmap" viewBox="0 0 105 68"><rect x="1" y="1" width="103" height="66" fill="none" stroke="#d7f3df" stroke-width=".7"/><line x1="52.5" y1="1" x2="52.5" y2="67" stroke="#d7f3df" stroke-width=".5"/><circle cx="52.5" cy="34" r="9.15" fill="none" stroke="#d7f3df" stroke-width=".5"/>'+shots.map(function(s){var home=String(s.team_id)===String(homeId),color=home?'#2563eb':'#dc2626',goal=String(s.event_type||'').toLowerCase()==='goal';return'<circle cx="'+Math.max(0,Math.min(105,Number(s.x)))+'" cy="'+Math.max(0,Math.min(68,Number(s.y)))+'" r="'+(goal?1.8:Math.max(.65,Math.min(1.5,.55+(Number(s.expected_goals)||0)*1.6)))+'" fill="'+color+'"'+(goal?' stroke="#fbbf24" stroke-width=".8"':'')+'><title>'+esc(s.player&&s.player.name||'Pemain')+' · xG '+fmtMetric(s.expected_goals)+'</title></circle>'}).join('')+'</svg>'}
+function shotMapHtml(d,homeId){var periods=d.shots&&d.shots.periods||[],shots=[];periods.forEach(function(p){(p.shots||[]).forEach(function(s){if(Number.isFinite(Number(s.x))&&Number.isFinite(Number(s.y)))shots.push(s)})});if(!shots.length)return'';return'<h3>Peta tembakan</h3><svg class="shotmap" viewBox="0 0 105 68"><rect x="1" y="1" width="103" height="66" fill="none" stroke="#cfe9d8" stroke-width=".7"/><line x1="52.5" y1="1" x2="52.5" y2="67" stroke="#cfe9d8" stroke-width=".5"/><circle cx="52.5" cy="34" r="9.15" fill="none" stroke="#cfe9d8" stroke-width=".5"/>'+shots.map(function(s){var home=String(s.team_id)===String(homeId),color=home?'#2563eb':'#dc2626',goal=String(s.event_type||'').toLowerCase()==='goal';return'<circle cx="'+Math.max(0,Math.min(105,Number(s.x)))+'" cy="'+Math.max(0,Math.min(68,Number(s.y)))+'" r="'+(goal?1.8:Math.max(.65,Math.min(1.5,.55+(Number(s.expected_goals)||0)*1.6)))+'" fill="'+color+'"'+(goal?' stroke="#fbbf24" stroke-width=".8"':'')+'><title>'+esc(s.player&&s.player.name||'Pemain')+' · xG '+fmtMetric(s.expected_goals)+'</title></circle>'}).join('')+'</svg>'}
 function pitchCard(m){var d=PITCH.details&&PITCH.details[m.id]||{},ctx=PITCH.intelligence&&PITCH.intelligence[m.id]||{},l=d.lineups||{},home=l.home||null,away=l.away||null,rawAd=d.advanced&&d.advanced.teams||[],ad=rawAd.length>=2?(function(){var h=rawAd.find(function(x){return String(x.team&&x.team.id)===String(m.home_team&&m.home_team.id)}),a=rawAd.find(function(x){return String(x.team&&x.team.id)===String(m.away_team&&m.away_team.id)});if(h&&a)return[h,a];if(rawAd.every(function(x){return !x.team||x.team.id==null}))return rawAd.slice(0,2);return[]})():[],kickoff=m.time_utc?df.format(new Date(m.time_utc))+' pukul '+tf.format(new Date(m.time_utc))+' WITA':'Waktu belum tersedia',status=m.status==='finished'?'Selesai':m.status==='started'?'Live':'Akan datang',score=m.score_home==null?'vs':m.score_home+' - '+m.score_away;var hi=ctx.teams&&ctx.teams.home||{},ai=ctx.teams&&ctx.teams.away||{};var metrics=ad.length>=2?'<div class="pitchmetrics">'+[['xT',ad[0].possession_value&&ad[0].possession_value.xt_total,ad[1].possession_value&&ad[1].possession_value.xt_total],['PPDA',ad[0].defending&&ad[0].defending.ppda,ad[1].defending&&ad[1].defending.ppda],['Field tilt',ad[0].territory&&ad[0].territory.field_tilt,ad[1].territory&&ad[1].territory.field_tilt],['VAEP',ad[0].possession_value&&ad[0].possession_value.vaep_total,ad[1].possession_value&&ad[1].possession_value.vaep_total]].map(function(q){return'<div class="metric"><b>'+fmtMetric(q[1])+' / '+fmtMetric(q[2])+'</b><span>'+q[0]+' · kandang / tandang</span></div>'}).join('')+'</div>':'';var tactical=ctx.tactical?'<div class="pitchnote"><strong>Analisis taktik</strong> · '+esc(ctx.tactical.homeFormation||'—')+' vs '+esc(ctx.tactical.awayFormation||'—')+'</div><ul class="tacticnotes">'+(ctx.tactical.notes||[]).map(function(x){return'<li>'+esc(x)+'</li>'}).join('')+'</ul>':'';var hi2=hi.profile||{},ai2=ai.profile||{};var performance='<div class="pitchnote"><strong>Performa rolling</strong> · xG/xGA '+fmtMetric(hi2.xgFor)+'/'+fmtMetric(hi2.xgAgainst)+' vs '+fmtMetric(ai2.xgFor)+'/'+fmtMetric(ai2.xgAgainst)+'</div>';var lineups=(home||away)?'<div class="lineupcols">'+lineupSide(home,hi.lineup,m.home_team&&m.home_team.name||'Tuan rumah')+lineupSide(away,ai.lineup,m.away_team&&m.away_team.name||'Tamu')+'</div>':'<div class="pitchnote">Line-up belum tersedia.</div>';return'<article class="pitchcard"><div class="pitchhead"><span>'+esc(m.league&&m.league.name||'Kompetisi')+'</span><span>'+status+' · '+kickoff+'</span></div><div class="pitchteams"><b>'+esc(m.home_team&&m.home_team.name||'Home')+'</b><strong>'+score+'</strong><b style="text-align:right">'+esc(m.away_team&&m.away_team.name||'Away')+'</b></div>'+lineups+performance+metrics+tactical+shotMapHtml(d,m.home_team&&m.home_team.id)+'</article>'}
 function loadPitch(){if(PITCH){renderPitch();return}fetch('pitch.json?'+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){PITCH=j;renderPitch()}).catch(function(){$('#pitch-list').innerHTML='<div class="em">Data PitchAPI belum tersedia.</div>'})}
 function renderPitch(){if(!PITCH)return;var all=new Map();(PITCH.fixtures||[]).concat(PITCH.schedule||[]).forEach(function(m){if(m&&m.id)all.set(String(m.id),m)});var arr=[...all.values()].filter(function(m){return String(m.status||'').toLowerCase()!=='finished'||PITCH.details&&PITCH.details[m.id]});arr.sort(function(a,b){return String(a.time_utc).localeCompare(String(b.time_utc))});$('#pitch-list').innerHTML='<p class="cap">Diperbarui '+tf.format(new Date(PITCH.updated))+' WITA · '+arr.length+' pertandingan</p><div class="pitchgrid">'+arr.map(pitchCard).join('')+'</div>'}
@@ -675,6 +735,8 @@ function draw(){
     live=M.filter(function(x){return x.status==="LIVE"}).length;
   var livePill=$("#livepill");
   if(live>0){livePill.hidden=false;$("#livecount").textContent=live}else livePill.hidden=true;
+  var tk=$("#tick"),LV2=M.filter(function(x){return x.status==="LIVE"});
+  if(tk){tk.hidden=!LV2.length;tk.innerHTML=LV2.map(function(x){return'<button '+(x.eid?'data-mc="'+x.eid+'"':'')+'><span class="dt"></span><span class="m">'+(x.ht?"HT":x.min!=null?x.min+"\'":"LIVE")+'</span>'+esc(x.home.name)+' <b>'+(x.score[0]==null?"-":x.score[0])+'-'+(x.score[1]==null?"-":x.score[1])+'</b> '+esc(x.away.name)+'</button>'}).join("")}
   var strong=open.filter(function(x){return x.edge>=20}).length,
     avg=open.length?open.reduce(function(a,x){return a+x.edge},0)/open.length:0;
   $("#kpi").innerHTML='<div class="k"><b>'+M.length+'</b><span>Pertandingan</span></div>'
@@ -688,6 +750,8 @@ function draw(){
   $("#hero").innerHTML=top.map(function(x,i){return card(x,i+1)}).join("")||'<div class="em">Belum ada pertandingan yang akan tayang.</div>';
   var lgs=["Semua"].concat(Array.from(new Set(M.map(function(x){return x.league}))).sort(function(a,b){return a.localeCompare(b)}));
   if(lgs.indexOf(S.lg)<0)S.lg="Semua";
+  var cnt={},lgc={};M.forEach(function(x){if(x.status===S.st){cnt[x.league]=(cnt[x.league]||0)+1;if(x.lgc)lgc[x.league]=x.lgc}});
+  var sd=$("#lgside");if(sd)sd.innerHTML='<h3>Liga</h3>'+lgs.filter(function(l){return l==="Semua"||cnt[l]}).map(function(l){return'<button data-k="lg" data-val="'+esc(l)+'" class="'+(l===S.lg?"on":"")+'">'+(l==="Semua"?'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C6F432" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg>':cr(lgc[l])||"")+'<span>'+esc(l==="Semua"?"Semua liga":l)+'</span><span class="n">'+(l==="Semua"?M.filter(function(x){return x.status===S.st}).length:cnt[l])+'</span></button>'}).join("");
   if(lgs.length>9)$("#lg").innerHTML='<select id="lgs" aria-label="Liga">'+lgs.map(function(l){return'<option value="'+esc(l)+'"'+(l===S.lg?" selected":"")+'>'+esc(l==="Semua"?"Semua liga":l)+'</option>'}).join("")+'</select>';
   else chips("#lg",lgs.map(function(l){return[l,l]}),"lg");
   chips("#st",[["NS","Akan Tayang"],["LIVE","Live"],["FT","Selesai"]],"st");
@@ -742,7 +806,7 @@ function valOf(x){ // value = peluang model x harga terbaik - 1 (positif = pasar
   if(!x||!x.odds||!x.p||x.np)return null;var best=null;
   [["h",x.p.h,x.odds.h,x.home&&x.home.name],["d",x.p.d,x.odds.d,"Seri"],["a",x.p.a,x.odds.a,x.away&&x.away.name]].forEach(function(q){if(q[1]==null||!q[2])return;var v=q[1]/100*q[2].o-1;if(!best||v>best.v)best={k:q[0],v:v,o:q[2].o,b:q[2].b,n:q[3],p:q[1]}});
   return best}
-function valTag(x){var v=x.val||valOf(x);if(!v||v.v<=0)return"";return'<div class="oddl"><span style="background:var(--ok-soft);border-color:#a7f3d0;color:var(--ok)" title="Peluang model '+Math.round(v.p)+'% × odds '+o2(v.o)+' ('+esc(v.b||"")+') − 1">Value <b>+'+Math.round(v.v*100)+'%</b> · '+esc(v.n||"")+' @'+o2(v.o)+'</span></div>'}
+function valTag(x){var v=x.val||valOf(x);if(!v||v.v<=0)return"";return'<div class="oddl"><span style="background:var(--ok-soft);border-color:#4A6110;color:var(--ok)" title="Peluang model '+Math.round(v.p)+'% × odds '+o2(v.o)+' ('+esc(v.b||"")+') − 1">Value <b>+'+Math.round(v.v*100)+'%</b> · '+esc(v.n||"")+' @'+o2(v.o)+'</span></div>'}
 function mcBtn(x){return x.eid?'<button class="mcbtn" data-mc="'+x.eid+'">Match Center'+(x.dx?"":" (ringkas)")+' →</button>':""}
 function scoreTxt(x){if(x.status==="NS")return"vs";var t=(x.score[0]==null?"-":x.score[0])+" - "+(x.score[1]==null?"-":x.score[1]);if(x.et)t+=' <small>(PW '+(x.score[0]+x.et[0])+'-'+(x.score[1]+x.et[1])+')</small>';if(x.pen)t+=' <small>(pen '+x.pen[0]+'-'+x.pen[1]+')</small>';return t}
 
@@ -823,7 +887,7 @@ function momentumSvg(m){if(!m||!m.length)return"";var W=600,Hh=90,mx=Math.max.ap
   return'<h3>Momentum</h3><svg viewBox="0 0 '+W+' '+Hh+'" style="width:100%;height:90px;background:var(--pn2);border-radius:8px"><line x1="0" y1="45" x2="'+W+'" y2="45" stroke="#cbd5e1"/>'+m.map(function(p){var x=p.m/Math.max(90,last)*W,y=p.v/mx*42;return'<rect x="'+x.toFixed(1)+'" y="'+(y>0?45-y:45).toFixed(1)+'" width="'+(W/Math.max(90,last)*.8).toFixed(1)+'" height="'+Math.abs(y).toFixed(1)+'" fill="'+(y>0?"#2563eb":"#dc2626")+'"/>'}).join("")+'</svg><p class="cap">Biru = tekanan tuan rumah, merah = tamu.</p>'}
 function shotSvg(s){
   s=(s||[]).filter(function(q){return q.pos&&q.sit!=="shootout"});if(!s.length)return"";
-  return'<h3>Peta tembakan</h3><svg class="shotmap" viewBox="0 0 105 68"><rect x="1" y="1" width="103" height="66" fill="#1f7a3f" stroke="#d7f3df" stroke-width=".7"/><line x1="52.5" y1="1" x2="52.5" y2="67" stroke="#d7f3df" stroke-width=".5"/><circle cx="52.5" cy="34" r="9.15" fill="none" stroke="#d7f3df" stroke-width=".5"/><rect x="1" y="13.85" width="16.5" height="40.3" fill="none" stroke="#d7f3df" stroke-width=".5"/><rect x="87.5" y="13.85" width="16.5" height="40.3" fill="none" stroke="#d7f3df" stroke-width=".5"/>'+s.map(function(q){
+  return'<h3>Peta tembakan</h3><svg class="shotmap" viewBox="0 0 105 68"><rect x="1" y="1" width="103" height="66" fill="#1f7a3f" stroke="#cfe9d8" stroke-width=".7"/><line x1="52.5" y1="1" x2="52.5" y2="67" stroke="#cfe9d8" stroke-width=".5"/><circle cx="52.5" cy="34" r="9.15" fill="none" stroke="#cfe9d8" stroke-width=".5"/><rect x="1" y="13.85" width="16.5" height="40.3" fill="none" stroke="#cfe9d8" stroke-width=".5"/><rect x="87.5" y="13.85" width="16.5" height="40.3" fill="none" stroke="#cfe9d8" stroke-width=".5"/>'+s.map(function(q){
     // BSD: x 0-100 menuju gawang lawan. Tuan rumah menyerang ke kanan, tamu ke kiri.
     var X=q.home?q.pos.x*1.05:105-q.pos.x*1.05,Y=q.home?q.pos.y*.68:68-q.pos.y*.68,g=q.type==="goal",r=Math.max(.8,Math.min(2.6,.8+(q.xg||0)*4));
     return'<circle cx="'+X.toFixed(1)+'" cy="'+Y.toFixed(1)+'" r="'+r.toFixed(2)+'" fill="'+(q.home?"#60a5fa":"#f87171")+'" fill-opacity="'+(g?1:.65)+'"'+(g?' stroke="#fde047" stroke-width=".7"':"")+'><title>'+q.min+'\' · '+esc(q.type)+' · xG '+(q.xg==null?"-":q.xg.toFixed(2))+'</title></circle>'}).join("")+'</svg><p class="cap">Lingkaran makin besar = xG makin tinggi; garis kuning = gol.</p>'
