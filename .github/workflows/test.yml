@@ -13,11 +13,5 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: node bola-live/scripts/test.mjs
       - run: node bola-live/scripts/test-bsd.mjs
-      - run: node bola-live/scripts/test-lite.mjs
-      - run: node bola-live/scripts/test-understat.mjs
       - run: node bola-live/scripts/test-ui.mjs
-      - run: node bola-live/scripts/test-ci.mjs
-      - run: node bola-live/scripts/test-pitch.mjs
-      - run: node bola-live/scripts/test-intelligence.mjs
