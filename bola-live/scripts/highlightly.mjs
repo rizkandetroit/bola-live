@@ -33,7 +33,10 @@ export function toRec(x,lg,pred,model){
   if(st==="LIVE"){if(/Half time/.test(x.state.description))r.ht=true;else{const c=parseInt(x.state.clock,10);if(Number.isFinite(c))r.min=c}}
   let p=null,eng=null,note="";
   if(pred){p={h:pred.h,d:pred.d,a:pred.a};eng="hl";note="Prediksi model Highlightly."}
-  else if(model&&r.hid!=null&&r.aid!=null&&model.n>=20){const q=predictM(model.m,r.hid,r.aid);p={h:q.h,d:q.d,a:q.a,ou:q.ou,bt:q.bt,xg:q.xg,ms:q.ms};eng="poisson";note="Prediksi model Poisson + Elo Bola Live dari hasil laga musim ini (Highlightly tidak memberi prediksi untuk laga ini)."}
+  else if(model&&r.hid!=null&&r.aid!=null&&model.n>=20){const q=predictM(model.m,r.hid,r.aid),gp=id=>((model.m.T&&model.m.T.get(id))||{}).gp||0;
+    // sedikit data = peluang ditarik ke rata-rata liga (46/27/27), supaya tidak muncul angka ekstrem seperti 97%
+    const w=Math.max(.15,Math.min(.8,Math.min(gp(r.hid),gp(r.aid))/12)),sh=(v,b)=>w*v+(1-w)*b;let h=sh(q.h,46),d=sh(q.d,27),a=sh(q.a,27);const t=h+d+a;h=h/t*100;d=d/t*100;a=a/t*100;
+    p={h:r1(h),d:r1(d),a:r1(100-r1(h)-r1(d)),ou:q.ou,bt:q.bt,xg:q.xg,ms:q.ms};eng="poisson";note="Prediksi model Poisson + Elo Bola Live dari hasil laga musim ini (Highlightly tidak memberi prediksi untuk laga ini)."}
   if(!p)return{...r,np:true};
   const edge=r1(Math.abs(p.h-p.a));
   return{...r,p:{...p,engine:eng},pick:p.h>=p.a?"h":"a",edge,level:level(edge),est:true,tier:2,note};
