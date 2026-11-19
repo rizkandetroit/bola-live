@@ -927,7 +927,7 @@ function topList(t,lab,unit){if(!t||!t.length)return"";return'<div><h3>'+lab+'</
 function showKl(id){
   KL.cur=id;var b=$("#kl-body");
   var go=function(o){
-    var h='<p class="cap">'+esc(o.name)+(o.season?" · "+esc(o.season.name):"")+' · diperbarui '+tf.format(new Date(o.updated))+' WITA</p>';
+    var h='<p class="cap">'+esc(o.name)+(o.season?" · "+esc(o.season.name):"")+' · diperbarui '+tf.format(new Date(o.updated))+' WITA'+(o.src&&/dihitung/.test(o.src)?' · klasemen dihitung dari hasil laga':'')+'</p>';
     if(o.standings&&o.standings.length){h+=klTable(o.standings)+legend(Array.isArray(o.zones)?o.zones:null)}
     else if(o.groups){Object.keys(o.groups).forEach(function(g){var rows=Array.isArray(o.groups[g])?o.groups[g]:(o.groups[g]&&o.groups[g].standings)||[];if(rows.length)h+='<h3>'+esc(g)+'</h3>'+klTable(rows)})}
     else h+='<div class="em">Kompetisi ini tidak punya tabel klasemen (mis. piala/persahabatan).</div>';
