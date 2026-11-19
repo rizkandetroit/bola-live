@@ -73,6 +73,17 @@ const srv=http.createServer((q,s)=>{
   }
   if(u.pathname==="/api/v2/predictions/")return send(200,{count:S.predictions.length,next:null,results:S.predictions});
   if(u.pathname==="/api/v2/leagues/")return send(200,{count:S.leagues.length,next:null,results:S.leagues});
+  // V12 deep
+  if(u.pathname==="/api/v2/odds/best/"){const mk=u.searchParams.get("market"),e=S.events[0];
+    return send(200,{count:1,next:null,results:[{event_id:e.id,market:mk,best_odds:mk==="1x2"?[{outcome:"HOME",decimal_odds:2.1,bookmaker_name:"Pinnacle"},{outcome:"DRAW",decimal_odds:3.3,bookmaker_name:"Bet365"},{outcome:"AWAY",decimal_odds:3.9,bookmaker_name:"1xBet"}]:[{outcome:mk==="btts"?"yes":"over",decimal_odds:1.8,bookmaker_name:"Unibet"}]}]})}
+  let mm;
+  if((mm=u.pathname.match(/^\/api\/v2\/leagues\/(\d+)\/standings\/$/)))return send(200,{league_id:+mm[1],season:{id:1,name:"S"},grouped:false,standings:[{position:1,team_id:1,team_name:"A",played:1,won:1,drawn:0,lost:0,gf:2,ga:0,gd:2,pts:3,form:"W",zone:null}],zones:[]});
+  if(/^\/api\/v2\/leagues\/\d+\/top\/\w+\/$/.test(u.pathname))return send(200,{leaders:[{rank:1,player_id:5,player_name:"P",team_name:"A",value:3}]});
+  if((mm=u.pathname.match(/^\/api\/v2\/events\/(\d+)\/(\w[\w-]*)\/(\w+\/)?$/))){const k=mm[2]+(mm[3]?"/"+mm[3]:"");
+    if(k==="polymarket")return send(404,{error:true,status:404,detail:"Not found."});
+    if(k==="odds/comparison/")return send(200,{bookmakers_count:2,markets:{"1x2":[{bookmaker_name:"Pinnacle",outcome:"HOME",decimal_odds:2.1}],corners:[]},main_lines:{}});
+    return send(200,{event_id:+mm[1],kind:k,stats:{home:{ball_possession:55},away:{ball_possession:45}},lineup_status:"predicted",incidents:[{type:"goal",minute:10,is_home:true}],commentary:[{id:"a",text:"x"}],player_stats:[{player_id:1,minutes_played:90,rating:7}],results:[]})}
+  if(/^\/api\/v2\/teams\/\d+\/form\/$/.test(u.pathname))return send(200,{overall:{matches:5,won:3,drawn:1,lost:1,form:"WWDLW"}});
   send(404,{error:true,status:404,detail:"Not found."});
 });
 await new Promise(r=>srv.listen(0,"127.0.0.1",r));
@@ -86,7 +97,7 @@ const run=(env)=>new Promise(res=>{
 const T=[];const sc=(n,f)=>T.push([n,f]);
 const reset=(m="ok")=>{cfg.mode=m;cfg.hits=[]};
 sc("1. jalur normal: dua halaman events, header Token, filter tanggal, hasil digabung",async()=>{reset();
-  const r=await run({BSD_API_KEY:' "tok123"\n'});assert.equal(r.code,0,r.e);
+  const r=await run({BSD_API_KEY:' "tok123"\n',BSD_DEEP:"0"});assert.equal(r.code,0,r.e);
   assert(r.all.matches.length>=8);assert.equal(r.all.errors.length,0);
   assert(cfg.hits.every(h=>h.auth==="Token tok123"),"semua permintaan harus memakai Authorization: Token <key> bersih");
   const ev=cfg.hits.filter(h=>h.path.endsWith("/events/"));assert.equal(ev.length,2);assert(/date_from=/.test(ev[0].qs)&&/date_to=/.test(ev[0].qs)&&/limit=200/.test(ev[0].qs));
@@ -107,6 +118,17 @@ sc("5. data.json (model sendiri) ada: laga yang sama tidak digandakan",async()=>
   writeFileSync(out+"/data.json",JSON.stringify({matches:[{utc:new Date(first.event_date).toISOString(),home:{name:first.home_team},away:{name:first.away_team}}]}));
   const r=await new Promise(res=>{const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base,GAP_MS:"0",RETRY_MS:"0",BSD_API_KEY:"k"}});p.on("close",c=>res({c,all:JSON.parse(readFileSync(out+"/all.json","utf8"))}))});
   assert.equal(r.all.bsd.dup,1);assert(!r.all.matches.some(m=>m.home.name===first.home_team&&m.away.name===first.away_team))});
+sc("6. mode lengkap (Unlimited): odds terbaik, klasemen + top skor, Match Center per laga",async()=>{reset();
+  const r=await run({BSD_API_KEY:"k",BSD_DEEP:"1",BSD_CONCURRENCY:"3"});assert.equal(r.code,0,r.e);
+  assert.equal(r.all.errors.length,0,JSON.stringify(r.all.errors));assert.equal(r.all.bsd.mode,"heavy");
+  const m=r.all.matches.find(x=>x.eid===S.events[0].id);assert(m.odds&&m.odds.h.o===2.1&&m.odds.h.b==="Pinnacle"&&m.odds.by.o===1.8,"harga terbaik");
+  const idx=JSON.parse(readFileSync(r.out+"/leagues.json","utf8"));assert(idx.leagues.length>=1);
+  const lg=JSON.parse(readFileSync(r.out+"/lg/"+idx.leagues[0].id+".json","utf8"));assert(lg.standings.length===1&&lg.top.scorers.length===1);
+  const mi=JSON.parse(readFileSync(r.out+"/m/index.json","utf8"));assert(mi.ids.length>=1);
+  const live=r.all.matches.find(x=>x.status==="LIVE");assert(live.dx===1,"laga live wajib punya Match Center");
+  const d=JSON.parse(readFileSync(r.out+"/m/"+live.eid+".json","utf8"));assert(d.stats&&d.incidents.length===1&&d.commentary.length===1&&d.player_stats.length===1);
+  assert(cfg.hits.every(h=>h.auth==="Token k"));
+  return r.all.bsd.details+" Match Center, "+r.all.bsd.leagues+" liga, "+cfg.hits.length+" permintaan"});
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}
 srv.close();console.log(bad?`\n${bad} GAGAL`:"\ntest-bsd ok");process.exit(bad?1:0);
