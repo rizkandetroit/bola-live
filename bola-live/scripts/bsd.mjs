@@ -68,15 +68,16 @@ export const isDup=(r,x)=>Math.abs(Date.parse(x.utc)-Date.parse(r.utc))<3*36e5&&
 export function buildAll({events,preds,leagues,own=[]}){
   const L=new Map((leagues||[]).map(l=>[l.id,l])),P=new Map();
   for(const p of preds||[])if(p.event&&p.event.id!=null)P.set(p.event.id,p);
-  const out=[];let dup=0,skipped=0;
+  const out=[],linked=[];let dup=0,skipped=0;
   for(const e of events||[]){
     const r=toRecord(e,P.get(e.id),L);
     if(!r){skipped++;continue}
-    if(own.some(x=>isDup(r,x))){dup++;continue}
+    const o=own.find(x=>isDup(r,x));
+    if(o){dup++;r.oid=o.id;linked.push(r);continue}   // V12.1: laga model sendiri tetap dapat odds + Match Center BSD
     out.push(r);
   }
   out.sort((a,b)=>a.utc.localeCompare(b.utc));
-  return{matches:out,dup,skipped};
+  return{matches:out,dup,skipped,linked};
 }
 
 // ===================== V12: integrasi penuh BSD (paket Football Unlimited) =====================
@@ -102,13 +103,13 @@ export function pickBest(rows){ // /odds/best/ -> Map(event_id -> {h,d,a,o25,u25
   }
   return M;
 }
-export function focusOf(matches,now,light){
+export function focusOf(matches,now,light,aheadH=Number(process.env.BSD_FOCUS_H??96)){
   const H=36e5;
   return matches.filter(m=>{
     const t=Date.parse(m.utc);
     if(m.status==="LIVE")return true;
     if(light)return m.status==="NS"?t-now<2*H&&t-now>-3*H:now-t<4*H;
-    return m.status==="NS"?t-now<36*H:now-t<20*H;
+    return m.status==="NS"?t-now<aheadH*H:now-t<20*H;
   });
 }
 const trimCmp=c=>{ if(!c||!c.markets)return null; // grid bookmaker: simpan pasar utama saja agar berkas kecil
@@ -116,13 +117,48 @@ const trimCmp=c=>{ if(!c||!c.markets)return null; // grid bookmaker: simpan pasa
   return{bookmakers_count:c.bookmakers_count,main_lines:c.main_lines||null,markets:keep}};
 const slimPS=ps=>(ps&&ps.player_stats||[]).filter(p=>p.minutes_played>0).map(p=>({pid:p.player_id,tid:p.team_id,min:p.minutes_played,r:p.rating,g:p.goals,as:p.goal_assist,xg:p.expected_goals,xa:p.expected_assists,sh:p.total_shots,sot:p.shots_on_target,kp:p.key_pass,pa:p.total_pass,acc:p.accurate_pass,tk:p.won_tackle,int:p.interception,sv:p.saves,yc:p.yellow_card,rc:p.red_card}));
 
+// ===================== V12.2: catatan & evaluasi akurasi prediksi BSD =====================
+// Prediksi dicatat (dan diperbarui) sampai kickoff, lalu dikunci. Setelah laga selesai, skor akhir diisi dan dinilai.
+const LG=Math.log;
+export function updateHistory(hist,matches,now){
+  const H=new Map((hist||[]).map(e=>[e.id,e]));
+  for(const m of matches){
+    if(!m.eid)continue;const t=Date.parse(m.utc),e=H.get(m.eid);
+    if(m.status==="NS"&&t>now&&m.p&&!m.np&&m.p.h!=null){
+      const v=bestVal(m);
+      H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:[m.p.h,m.p.d,m.p.a],ou:m.p.ou??null,bt:m.p.bt??null,
+        o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:null,v:v,r:e&&e.r||null});
+    }
+    if(e&&!e.r&&m.status==="FT"&&m.score[0]!=null&&m.score[1]!=null)e.r=[m.score[0],m.score[1]];
+  }
+  for(const [k,e] of H){const t=Date.parse(e.u);if((!e.r&&t<now-3*864e5)||t<now-120*864e5)H.delete(k)}   // tanpa hasil >3 hari / >120 hari: buang
+  return [...H.values()].sort((a,b)=>a.u.localeCompare(b.u)).slice(-6000);
+}
+function bestVal(m){if(!m.odds||!m.p)return null;let b=null;[[0,m.p.h,m.odds.h],[1,m.p.d,m.odds.d],[2,m.p.a,m.odds.a]].forEach(([k,p,o])=>{if(p==null||!o||!o.o)return;const v=p/100*o.o-1;if(!b||v>b[1])b=[k,Math.round(v*1000)/1000,o.o]});return b}
+export function evalHistory(hist){
+  const R=(hist||[]).filter(e=>e.r&&e.p),z=()=>({n:0,hit:0,br:0,ll:0,home:0,ouN:0,ouHit:0,btN:0,btHit:0,bets:0,profit:0,mkN:0,mkHit:0,mkBr:0});
+  const add=(s,e)=>{const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e.p.map(x=>x/100),pk=p.indexOf(Math.max(...p));
+    s.n++;if(pk===o)s.hit++;if(o===0)s.home++;s.br+=p.reduce((a,x,i)=>a+(x-(i===o?1:0))**2,0);s.ll+=-LG(Math.max(1e-6,p[o]));
+    const g=e.r[0]+e.r[1];if(e.ou!=null){s.ouN++;if((e.ou>=50)===(g>2.5))s.ouHit++}
+    if(e.bt!=null){s.btN++;if((e.bt>=50)===(e.r[0]>0&&e.r[1]>0))s.btHit++}
+    if(e.o&&e.o.every(x=>x>1)){const q=e.o.map(x=>1/x),t=q[0]+q[1]+q[2],m=q.map(x=>x/t),mk=m.indexOf(Math.max(...m));s.mkN++;if(mk===o)s.mkHit++;s.mkBr+=m.reduce((a,x,i)=>a+(x-(i===o?1:0))**2,0)}
+    if(e.v&&e.v[1]>0){s.bets++;s.profit+=e.v[0]===o?e.v[2]-1:-1}};
+  const fin=s=>({n:s.n,acc:s.n?s.hit/s.n*100:null,brier:s.n?s.br/s.n:null,ll:s.n?s.ll/s.n:null,homeAcc:s.n?s.home/s.n*100:null,
+    ou:s.ouN?{n:s.ouN,acc:s.ouHit/s.ouN*100}:null,bt:s.btN?{n:s.btN,acc:s.btHit/s.btN*100}:null,
+    market:s.mkN?{n:s.mkN,acc:s.mkHit/s.mkN*100,brier:s.mkBr/s.mkN}:null,value:{bets:s.bets,profit:Math.round(s.profit*100)/100,roi:s.bets?s.profit/s.bets*100:null}});
+  const all=z(),lg={},bk=[[0,40],[40,50],[50,60],[60,70],[70,101]].map(([lo,hi])=>({lo,hi,n:0,hit:0,sum:0}));
+  for(const e of R){add(all,e);(lg[e.lg]=lg[e.lg]||z(),add(lg[e.lg],e));const mx=Math.max(...e.p),o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,b=bk.find(b=>mx>=b.lo&&mx<b.hi);if(b){b.n++;b.sum+=mx;if(e.p.indexOf(mx)===o)b.hit++}}
+  const byLeague={};for(const k in lg)if(lg[k].n>=5)byLeague[k]=fin(lg[k]);
+  return{...fin(all),byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
+}
+
 async function main(){
   const KEY=cleanKey(process.env.BSD_API_KEY);
   if(!KEY){console.log("BSD_API_KEY kosong: langkah BSD dilewati.");return}
   const BASE=(process.env.BSD_API||"https://sports.bzzoiro.com/api/v2").replace(/\/+$/,"");
   const GAP=Number(process.env.GAP_MS??500),RETRY=Number(process.env.RETRY_MS??20000);
   const DEEP=process.env.BSD_DEEP!=="0",LIGHT=process.env.BSD_MODE==="light";
-  const MAXD=Number(process.env.BSD_MAX_DETAIL??250),CONC=Number(process.env.BSD_CONCURRENCY??6);
+  const MAXD=Number(process.env.BSD_MAX_DETAIL??400),CONC=Number(process.env.BSD_CONCURRENCY??6);
   const WITA=8*3600e3,DAY=864e5,now=Date.now(),wday=t=>new Date(t+WITA).toISOString().slice(0,10);
   const from=wday(now-2*DAY),to=wday(now+7*DAY);
   const errors=[];let calls=0,fatal=false;
@@ -164,8 +200,10 @@ async function main(){
   const leagues=await safe("leagues",()=>pages("/leagues/?limit=200",5));
 
   const dir=outDir(import.meta.url);mkdirSync(dir,{recursive:true});
+  let prevHeavy=null;try{prevHeavy=JSON.parse(readFileSync(dir+"all.json","utf8")).heavyAt||null}catch(e){}
   let own=[];try{own=JSON.parse(readFileSync(dir+"data.json","utf8")).matches||[]}catch(e){}
-  const {matches,dup,skipped}=buildAll({events,preds,leagues,own});
+  const {matches,dup,skipped,linked}=buildAll({events,preds,leagues,own});
+  const every=matches.concat(linked);
   const L=new Map((leagues||[]).map(l=>[l.id,l])),P=new Map((preds||[]).map(p=>[p.event&&p.event.id,p])),EV=new Map((events||[]).map(e=>[e.id,e]));
   const deep={odds:0,details:0,carried:0,leagues:0};
 
@@ -174,7 +212,7 @@ async function main(){
     const best=[];
     for(const mk of ["1x2","over_under_25","btts"])best.push(...await safe("odds "+mk,()=>pages(`/odds/best/?market=${mk}&date_from=${from}&date_to=${to}&limit=200`,40,{soft:true})));
     const B=pickBest(best);
-    for(const m of matches){const o=B.get(m.eid);if(o&&Object.keys(o).length){m.odds=o;deep.odds++}}
+    for(const m of every){const o=B.get(m.eid);if(o&&Object.keys(o).length){m.odds=o;deep.odds++}}
     const site=siteBase();
     const pull=async f=>{if(!site)return null;try{const r=await tfetch(site+f+"?t="+now);return r.ok?await r.json():null}catch(e){return null}};
 
@@ -202,7 +240,7 @@ async function main(){
 
     // 3) Match Center per laga
     mkdirSync(dir+"m",{recursive:true});
-    const hot=focusOf(matches,now,LIGHT).sort((a,b)=>(a.status==="LIVE"?0:1)-(b.status==="LIVE"?0:1)||Math.abs(Date.parse(a.utc)-now)-Math.abs(Date.parse(b.utc)-now)).slice(0,MAXD);
+    const hot=focusOf(every,now,LIGHT).sort((a,b)=>(a.status==="LIVE"?0:1)-(b.status==="LIVE"?0:1)||Math.abs(Date.parse(a.utc)-now)-Math.abs(Date.parse(b.utc)-now)).slice(0,MAXD);
     const hotIds=new Set(hot.map(m=>m.eid)),have=new Set();
     await pool(hot,async m=>{
       const id=m.eid,g=p=>get(`${BASE}/events/${id}/${p}`,{soft:true}),isNS=m.status==="NS",e=EV.get(id)||{};
@@ -219,16 +257,21 @@ async function main(){
       writeFileSync(dir+"m/"+id+".json",JSON.stringify(out));have.add(id);deep.details++;
     });
     if(LIGHT){ // laga fokus heavy yang tidak disegarkan: bawa dari situs tayang (supaya Match Center tetap lengkap)
-      const prev=await pull("m/index.json"),want=new Set(focusOf(matches,now,false).map(m=>m.eid));
+      const prev=await pull("m/index.json"),want=new Set(focusOf(every,now,false).map(m=>m.eid));
       for(const id of ((prev&&prev.ids)||[]).filter(i=>want.has(i)&&!hotIds.has(i)).slice(0,MAXD)){const o=await pull("m/"+id+".json");if(o){writeFileSync(dir+"m/"+id+".json",JSON.stringify(o));have.add(id);deep.carried++}}
     }
-    for(const m of matches)if(have.has(m.eid))m.dx=1;
+    for(const m of every)if(have.has(m.eid))m.dx=1;
     writeFileSync(dir+"m/index.json",JSON.stringify({updated:new Date(now).toISOString(),ids:[...have]}));
   }
 
   const T={2:matches.filter(x=>x.tier===2).length,3:0,4:0};
-  const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,
-    tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};
+  // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
+  let hist=[];{const site=siteBase();if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
+    else if(site){try{const r=await tfetch(site+"bsd-history.json?t="+now);if(r.ok)hist=await r.json()}catch(e){}}}
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist)}))}
+  const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
+  const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,
+    heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};
   writeFileSync(dir+"all.json",JSON.stringify(all));
   if(errors.length)ghWarn("bsd: "+errors.slice(0,10).join(" ; "));
   console.log("OK bsd:",matches.length,"laga,",T[2],"berprediksi,",all.nLeagues,"liga;",dup,"sudah dimodelkan sendiri;",calls,"permintaan;",errors.length,"error; deep",JSON.stringify(deep));

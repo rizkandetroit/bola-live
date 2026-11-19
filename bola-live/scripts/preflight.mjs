@@ -28,7 +28,7 @@ export function checkBranch(ref,def){
 
 async function main(){
   const E=process.env,res=[];
-  res.push(["Token football-data.org",checkKey(E.FOOTBALL_DATA_KEY)]);
+  res.push(["Token BSD",E.BSD_API_KEY&&String(E.BSD_API_KEY).trim()?{level:"ok",msg:"Secret BSD_API_KEY terisi."}:{level:"error",msg:"Secret BSD_API_KEY kosong. Buka Settings > Secrets and variables > Actions dan isi token dari sports.bzzoiro.com/dashboard."}]);
   const repo=E.GITHUB_REPOSITORY;
   if(repo&&E.GITHUB_TOKEN){
     try{
