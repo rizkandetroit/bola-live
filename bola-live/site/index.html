@@ -130,7 +130,7 @@ h2{font:700 15px var(--hd);margin:24px 0 12px;display:flex;align-items:center;ju
 h2 small{font-size:12px;color:var(--mut);font-weight:400}
 
 /* ── HERO SCROLL (14 kartu) ── */
-.jmain .kpi{grid-template-columns:repeat(4,minmax(0,1fr))}
+.jmain .kpi{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .hero{
   display:grid;
   grid-auto-flow:column;
@@ -463,6 +463,22 @@ select,input[type=search]{background:var(--pn)!important;color:var(--ink)!import
 .vb{background:var(--ok-soft);color:var(--ok);border:1px solid var(--okB);border-radius:999px;padding:2px 10px;font:700 12px var(--bd)}
 @media(max-width:560px){.pside{flex:1 1 100%;flex-direction:row;justify-content:space-between;align-items:center}.pt{flex-basis:44px}}
 .jpanel .mchd img{width:44px;height:44px}.jpanel .mchd .bs{font-size:28px}
+
+/* ── V13.2: kartu = pintu Match Center ── */
+.cc[data-mc]{cursor:pointer}
+.cc[data-mc]:focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+.cc.sel{border-color:var(--ok)!important;box-shadow:0 0 0 1px var(--ok)!important}
+.cc .ft2{margin-bottom:2px}
+.snap{background:var(--pn2);border:1px solid var(--ln2);border-radius:14px;padding:12px;margin-bottom:10px}
+.snap .pl{font-size:12px;margin-top:6px}
+.vbox{background:var(--ok-soft);border:1px solid var(--okB);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:13px;margin:8px 0}
+.vbox b{color:var(--ok)}
+
+/* V13.3 kerapian */
+.cc .tp{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.cc .tme{flex-basis:100%;text-align:left;order:9;color:var(--mut)}
+.mcg{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+@media(max-width:600px){.kpi .k b{font-size:26px}.mcbox{padding:14px 12px 20px}.mctabs button{padding:8px 8px}}
 </style>
 </head>
 <body>
@@ -498,11 +514,7 @@ select,input[type=search]{background:var(--pn)!important;color:var(--ink)!import
     <div class="ctl" id="lg"></div>
     <div class="ctl">
       <div class="seg" id="st"></div>
-      <div class="seg" id="vw" style="margin-left:auto">
-        <button data-v="list">Daftar</button>
-        <button data-v="card">Kartu</button>
-        <button data-v="tabel">Tabel</button>
-      </div>
+
     </div>
     <div id="list"></div>
     </div><aside class="jpanel" id="mcp" aria-label="Match Center"><div id="mcp-body"><div class="em">Pilih laga untuk melihat Match Center.</div></div></aside></div>
@@ -555,8 +567,8 @@ var TZ="Asia/Makassar",
   dnf=new Intl.DateTimeFormat("id-ID",{timeZone:TZ,weekday:"long",day:"numeric",month:"long"}),
   df=new Intl.DateTimeFormat("id-ID",{timeZone:TZ,weekday:"short",day:"numeric",month:"short"});
 var LV={"Sangat kuat":4,"Kuat":3,"Sedang":2,"Tipis":1};
-var PITCH=null,OPEN={},S={lg:"Semua",st:"NS",so:"jam",q:"",v:"list",hs:"edge"},D=null,DEMO=false;
-try{var sv=JSON.parse(localStorage.getItem("bl")||"{}");if(sv.v&&sv.v13)S.v=sv.v}catch(e){}
+var PITCH=null,OPEN={},S={lg:"Semua",st:"NS",so:"jam",q:"",v:"card",hs:"edge"},D=null,DEMO=false;
+
 function save(){try{localStorage.setItem("bl",JSON.stringify({v:S.v,v13:1}))}catch(e){}}
 function pk(x){return x.pick==="h"?x.home:x.away}
 function pb(x){
@@ -679,8 +691,8 @@ function rkStyle(i){return i===0?" r1":i===1?" r2":i===2?" r3":""}
 
 function cr(u,c){return u&&/^https:\/\//.test(u)?'<img class="'+(c||'cr')+'" src="'+esc(u)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':""}
 function cardNp(x){
-  return'<div class="c'+(x.status==="LIVE"?" lv":"")+'"><div class="tp"><span>'+esc(x.league)+' <span class="tag l1">tanpa prediksi</span></span><span class="tme">'+stt(x)+'</span></div>'
-    +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+cr(x.away.crest)+'</div></div></div>'+oddLine(x)+h2hPanel(x)+mcBtn(x)+'</div>'
+  return'<div class="c cc'+(x.status==="LIVE"?" lv":"")+(String(MC.id)===String(x.eid)?" sel":"")+'"'+(x.eid?' data-mc="'+x.eid+'" role="button" tabindex="0"':"")+'><div class="tp"><span>'+esc(x.league)+' <span class="tag l1">tanpa prediksi</span></span><span class="tme">'+stt(x)+'</span></div>'
+    +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+cr(x.away.crest)+'</div></div></div></div>'
 }
 
 function rowNp(x){
@@ -690,14 +702,14 @@ function rowNp(x){
 function card(x,rank){
   if(x.np)return cardNp(x);
   var ri=rank!=null?rank-1:99,rc=rkStyle(ri);
-  return'<div class="c'+rc+(x.status==="LIVE"?" lv":"")+'"><div class="tp">'
+  return'<div class="c cc'+rc+(x.status==="LIVE"?" lv":"")+(String(MC.id)===String(x.eid)?" sel":"")+'"'+(x.eid?' data-mc="'+x.eid+'" role="button" tabindex="0" aria-label="Buka Match Center '+esc(x.home.name)+' vs '+esc(x.away.name)+'"':"")+'><div class="tp">'
     +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+cr(x.lgc,"lgc")+esc(x.league)+'</span>':'<span>'+cr(x.lgc,"lgc")+esc(x.league)+'</span>')
     +(x.src==="BSD"?' <span class="tag l2" title="Peluang dari model BSD (machine learning), bukan model Poisson+Elo milik dasbor ini">BSD</span>':x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
     +'<span class="tme">'+stt(x)+'</span></div>'
     +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+'</div><div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"&nbsp;")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+cr(x.away.crest)+'</div><div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"&nbsp;")+'</div></div></div>'
     +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'
     +(x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"")
-    +oddLine(x)+valTag(x)+why(x)+h2hPanel(x)+mcBtn(x)+'</div>'
+    +valTag(x)+'</div>'
 }
 
 function row(x){
@@ -926,7 +938,7 @@ function openMC(id,refresh){
   MC.id=id;if(!refresh){MC.tab="sum";MC.d=null}
   MC.panel=wide();
   if(!MC.panel){$("#mc").hidden=false;document.body.style.overflow="hidden"}
-  [].forEach.call(document.querySelectorAll(".prow.sel"),function(r){r.classList.remove("sel")});[].forEach.call(document.querySelectorAll('.prow[data-mc="'+id+'"]'),function(r){r.classList.add("sel")});
+  [].forEach.call(document.querySelectorAll(".prow.sel,.cc.sel"),function(r){r.classList.remove("sel")});[].forEach.call(document.querySelectorAll('.prow[data-mc="'+id+'"],.cc[data-mc="'+id+'"]'),function(r){r.classList.add("sel")});
   var x=findM(id);if(!refresh)drawMC(x,null,true);
   fj("m/"+id+".json").then(function(d){if(MC.id!==id)return;MC.d=d;drawMC(findM(id)||x,d)}).catch(function(){if(MC.id===id&&!MC.d)drawMC(x,null)})
 }
@@ -1017,9 +1029,17 @@ function trId(key,text,cb){
   .then(function(a){var t=a.join(" ");TR[key]={s:text.length,t:t};var ks=Object.keys(TR);if(ks.length>150)delete TR[ks[0]];try{localStorage.setItem("bltr",JSON.stringify(TR))}catch(e){}cb(t)}).catch(function(){cb(null)})
 }
 function md(t){return esc(t).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/(^|\s)- /g,"<br>• ").replace(/\n+/g,"<br>")}
+function snapHtml(d,x){
+  var h='',p=d&&d.pred&&d.pred.markets,mr=p&&p.match_result,ph=mr?mr.prob_home:x&&x.p&&!x.np?x.p.h:null,pd=mr?mr.prob_draw:x&&x.p?x.p.d:null,pa=mr?mr.prob_away:x&&x.p?x.p.a:null;
+  if(ph!=null)h+='<div class="snap"><div class="pb"><i class="h" style="width:'+ph+'%"></i><i class="d" style="width:'+pd+'%"></i><i class="a" style="width:'+pa+'%"></i></div><div class="pl"><span class="h">'+esc(x.home.name)+' '+Math.round(ph)+'%</span><span class="d">Seri '+Math.round(pd)+'%</span><span class="a">'+Math.round(pa)+'% '+esc(x.away.name)+'</span></div>'
+    +(p?'<div class="mcg"><div>Skor paling mungkin<b>'+esc((p.score||{}).most_likely||"-")+'</b></div><div>Over 2,5<b>'+((p.over_under||{}).prob_over_25==null?"-":Math.round(p.over_under.prob_over_25)+"%")+'</b></div><div>Kedua tim cetak gol<b>'+((p.btts||{}).prob_yes==null?"-":Math.round(p.btts.prob_yes)+"%")+'</b></div></div>':"")+'</div>';
+  var v=x&&(x.val||valOf(x));if(v&&v.v>0)h+='<div class="vbox">Value <b>+'+Math.round(v.v*100)+'%</b> pada <b>'+esc(v.k==="d"?"Seri":v.n)+'</b> — peluang model '+Math.round(v.p)+'% × odds terbaik '+o2(v.o)+' ('+esc(v.b||"")+').</div>';
+  if(x&&x.odds)h+='<h3>Odds terbaik</h3>'+oddLine(x);
+  var hh=d&&d.h2h;if(hh&&hh.total_matches)h+='<h3>Head-to-head ('+hh.total_matches+' laga)</h3><div class="mcg"><div>'+esc(x.home.name)+'<b>'+hh.home_wins+' menang</b></div><div>Seri<b>'+hh.draws+'</b></div><div>'+esc(x.away.name)+'<b>'+hh.away_wins+' menang</b></div></div>';
+  return h}
 function infoHtml(d,x){
-  var i=d&&d.info||{},h='',meta=d&&d.meta;
-  h+='<div class="mcg">'+(x?'<div>Kickoff<b>'+df.format(new Date(x.utc))+' '+tf.format(new Date(x.utc))+' WITA</b></div>':"")+(i.round?'<div>Babak<b>'+esc(i.round)+'</b></div>':"")+(i.weather&&(i.weather.description||i.weather.temperature_c!=null)?'<div>Cuaca<b>'+esc(i.weather.description||"")+' '+(i.weather.temperature_c!=null?Math.round(i.weather.temperature_c)+"°C":"")+'</b></div>':"")+(i.attendance?'<div>Penonton<b>'+Number(i.attendance).toLocaleString("id-ID")+'</b></div>':"")+(i.travel?'<div>Jarak tempuh tim tamu<b>'+i.travel+' km</b></div>':"")+(i.derby?'<div>Derbi lokal<b>Ya</b></div>':"")+(i.neutral?'<div>Venue netral<b>Ya</b></div>':"")+(x&&x.hts?'<div>Skor babak 1<b>'+x.hts[0]+' - '+x.hts[1]+'</b></div>':"")+'</div>';
+  var i=d&&d.info||{},h=snapHtml(d,x),meta=d&&d.meta;
+  h+='<div class="mcg">'+(x?'<div>Kickoff<b>'+df.format(new Date(x.utc))+' '+tf.format(new Date(x.utc))+' WITA</b></div>':"")+(i.round?'<div>Babak<b>'+esc(i.round)+'</b></div>':"")+(i.weather&&(i.weather.description||i.weather.temperature_c!=null)?'<div>Cuaca<b>'+esc(/unknown/i.test(i.weather.description||"")?"":i.weather.description||"")+' '+(i.weather.temperature_c!=null?Math.round(i.weather.temperature_c)+"°C":"")+'</b></div>':"")+(i.attendance?'<div>Penonton<b>'+Number(i.attendance).toLocaleString("id-ID")+'</b></div>':"")+(i.travel?'<div>Jarak tempuh tim tamu<b>'+i.travel+' km</b></div>':"")+(i.derby?'<div>Derbi lokal<b>Ya</b></div>':"")+(i.neutral?'<div>Venue netral<b>Ya</b></div>':"")+(x&&x.hts?'<div>Skor babak 1<b>'+x.hts[0]+' - '+x.hts[1]+'</b></div>':"")+'</div>';
   if(meta&&meta.ai_preview&&meta.ai_preview.text)(function(){var key="p"+(d.id||""),txt=meta.ai_preview.text,c=TR[key]&&TR[key].s===txt.length?TR[key].t:null;
     h+='<h3>Preview laga</h3><div class="sm mdp" id="mdp">'+md(c||txt)+'</div><p class="cap" id="mdpc">'+(c?"Diterjemahkan otomatis dari preview AI BSD.":"Menerjemahkan ke Bahasa Indonesia…")+'</p>';
     if(!c)setTimeout(function(){trId(key,txt,function(t){var el=document.getElementById("mdp"),cp=document.getElementById("mdpc");if(!el)return;if(t){el.innerHTML=md(t);if(cp)cp.textContent="Diterjemahkan otomatis dari preview AI BSD."}else if(cp)cp.textContent="Terjemahan tidak tersedia; ditampilkan dalam bahasa Inggris."})},0)})();
@@ -1037,7 +1057,7 @@ function drawMC(x,d,loading){
   var h='<div class="cap">'+cr(x.lgc,"lgc")+esc(x.league||"")+(x.rl?" · "+esc(x.rl):"")+'</div><div class="mchd"><div>'+cr(x.home.crest)+'<b>'+esc(x.home.name)+'</b></div><div><div class="bs">'+scoreTxt(x)+'</div>'+st+'</div><div>'+cr(x.away.crest)+'<b>'+esc(x.away.name)+'</b></div></div>';
   h+='<div class="mctabs">'+tabs.map(function(t){return'<button data-mct="'+t[0]+'"'+(MC.tab===t[0]?' class="on"':"")+'>'+t[1]+'</button>'}).join("")+'</div>';
   var body;
-  if(!d)body=loading?'<div class="em">Memuat detail...</div>':'<div class="em">Detail lengkap hanya disiapkan untuk laga live, 4 hari ke depan, dan yang baru selesai. Ringkasan tetap tersedia.</div>'+(MC.tab==="h2h"?h2hPanel(x):MC.tab==="pred"||MC.tab==="sum"?pb(x)+oddLine(x):"");
+  if(!d)body=loading?'<div class="em">Memuat detail...</div>':'<div class="em">Detail lengkap hanya disiapkan untuk laga live, 4 hari ke depan, dan yang baru selesai. Ringkasan tetap tersedia.</div>'+(MC.tab==="h2h"?h2hPanel(x):MC.tab==="pred"||MC.tab==="sum"?snapHtml(null,x)+h2hPanel(x):"");
   else body=MC.tab==="sum"?infoHtml(d,x):MC.tab==="pred"?predHtml(d.pred,x):MC.tab==="stats"?statsHtml(d.stats,x):MC.tab==="lu"?luHtml(d.lineups,x):MC.tab==="inc"?incHtml(d.incidents):MC.tab==="com"?comHtml(d.commentary):MC.tab==="ps"?psHtml(d.player_stats,x):MC.tab==="odds"?oddsHtml(d,x):h2hHtml(d.h2h,x);
   b.innerHTML=h+body+(d?'<p class="cap" style="margin-top:14px">Detail diperbarui '+tf.format(new Date(d.updated))+' WITA · sumber BSD</p>':"")
 }
@@ -1050,7 +1070,7 @@ document.addEventListener("click",function(e){
   var hb=t.closest("[data-hs]");if(hb){S.hs=hb.dataset.hs;draw();return}
 },true);
 document.addEventListener("change",function(e){if(e.target.id==="sl-lig"){SLF.lg=e.target.value;renderLive()}if(e.target.id==="kl-sel")showKl(Number(e.target.value))});
-document.addEventListener("keydown",function(e){if(e.key==="Escape"&&MC.id)closeMC()});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&MC.id&&!MC.panel)closeMC();var c=e.target.closest&&e.target.closest(".cc[data-mc]");if(c&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openMC(c.dataset.mc)}});
 
 nav("j");load(); setInterval(function(){if(!document.hidden)load()},60000); setInterval(function(){if(!document.hidden&&VIEW==="s")load()},30000); setInterval(function(){if(!document.hidden&&VIEW==="p"){PITCH=null;loadPitch()}},300000); setInterval(function(){if(!document.hidden&&MC.id&&(MC.panel||!$("#mc").hidden))openMC(MC.id,true)},60000);
 </script>
