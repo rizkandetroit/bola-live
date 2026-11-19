@@ -6,7 +6,17 @@ const js=html.match(/<script>([\s\S]*?)<\/script>/g).pop().replace(/<\/?script>/
 const pre=js.slice(0,js.indexOf('nav("j");load();'));
 globalThis.document={querySelector:()=>({addEventListener:()=>{},innerHTML:"",value:""}),addEventListener:()=>{},documentElement:{dataset:{}},querySelectorAll:()=>[]};
 globalThis.localStorage={getItem:()=>null,setItem:()=>{}};globalThis.window=globalThis;
-const {why,compHtml,v10Comparison,tierTag,card,row,conflict}=new Function(pre+";return {why,compHtml,v10Comparison,tierTag,card,row,conflict}")();
+const {why,compHtml,v10Comparison,tierTag,card,row,conflict,fresh}=new Function(pre+";return {why,compHtml,v10Comparison,tierTag,card,row,conflict,fresh}")();
+// V13.1: "Akan Tayang" hanya laga yang belum mulai
+{const N=Date.parse("2026-11-19T12:00:00Z"),m=(id,st,u)=>({id,status:st,utc:u,score:[null,null]});
+ const r=fresh([m("a","NS","2026-11-19T13:00:00Z"),m("b","NS","2026-11-19T11:00:00Z"),m("c","NS","2026-11-19T08:30:00Z"),m("d","FT","2026-11-17T16:00:00Z"),m("e","LIVE","2026-11-19T11:30:00Z")],N);
+ const g=id=>r.find(x=>x.id===id);
+ assert.equal(g("a").status,"NS","belum mulai tetap Akan Tayang");
+ assert.equal(g("b").status,"LIVE");assert.equal(g("b").pend,1,"jam mulai lewat 1 jam -> Live (baru mulai)");
+ assert(!g("c"),"lewat 3,5 jam tanpa pembaruan -> disembunyikan");
+ assert.equal(g("d").status,"FT");assert.equal(g("e").status,"LIVE");
+ assert(!r.some(x=>x.status==="NS"&&Date.parse(x.utc)<=N),"tidak ada laga yang sudah lewat jam di Akan Tayang");
+ console.log("OK V13.1 Akan Tayang hanya laga belum mulai")}
 const side=(n,o={})=>({name:n,pos:3,pts:20,gp:8,gf:20,ga:6,w:6,d:2,l:0,sp:null,elo:1600,f:{l5:"MMSMM",t:{w:7,d:2,l:1,gf:25,ga:8,cs:4,n:10},v:{w:3,d:1,l:1,gf:9,ga:4,n:5}},...o});
 const base=(o={})=>({id:"x1",league:"Bundesliga",utc:new Date().toISOString(),status:"NS",score:[null,null],home:side("FC Bayern München"),away:side("1. FC Köln",{ga:12,gp:8}),pick:"h",edge:72,level:"Sangat kuat",
  p:{h:81,d:10,a:9,xg:[2.4,.8],ms:[3,0,11],sc5:[[3,0,11,0]],ou:70,bt:40,pe:{h:65,d:18,a:18},raw:{h:88,d:8,a:4},gp:[8,8],el:[1600,1400],fr:[45,26,29],...o}});

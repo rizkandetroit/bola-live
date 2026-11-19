@@ -59,6 +59,24 @@ const b2=buildAll({events:[{...ns,id:9,status:"cancelled"},{...ns,id:10,event_da
 assert.equal(b2.matches.length,0);assert.equal(b2.skipped,2);
 console.log("buildAll ok:",b.matches.length,"laga,",b.dup,"duplikat");
 
+// V13.1: event hantu (Jordan-Australia: FT 17 Nov + sisa event NS 19 Nov di liga sama)
+const ev=(id,st,d,lg,h,a,hn,an)=>({...ns,id,status:st,event_date:d,league_id:lg,home_team_id:h,away_team_id:a,home_team:hn,away_team:an,home_score:st==="finished"?2:null,away_score:st==="finished"?0:null});
+const g=buildAll({events:[
+  ev(655369,"finished","2026-11-17T16:00:00Z",31,484,459,"Jordan","Australia"),
+  ev(654421,"notstarted","2026-11-19T16:00:00Z",31,484,459,"Jordan","Australia"),     // hantu -> dibuang
+  ev(654044,"finished","2026-11-17T23:30:00Z",70,10,11,"Atlético Nacional","Once Caldas"),
+  ev(655420,"notstarted","2026-11-22T01:15:00Z",71,10,11,"Atlético Nacional","Once Caldas"), // liga lain -> tetap
+  ev(700001,"finished","2026-11-17T19:00:00Z",50,20,21,"Tim A","Tim B"),
+  ev(700002,"notstarted","2026-11-19T19:00:00Z",50,21,20,"Tim B","Tim A"),            // tuan rumah tertukar (leg 2 / playoff) -> tetap
+  ev(700003,"notstarted","2026-11-25T19:00:00Z",50,20,21,"Tim A","Tim B")             // lebih dari 3,5 hari -> tetap
+],preds:[],leagues:[],now:Date.parse("2026-11-19T11:00:00Z")});
+assert.equal(g.ghost,1);
+assert(!g.matches.some(m=>m.eid===654421),"event hantu harus dibuang");
+for(const id of [655369,654044,655420,700001,700002,700003])assert(g.matches.some(m=>m.eid===id),"laga sah "+id+" tidak boleh terbuang");
+const g2=buildAll({events:[ev(654421,"notstarted","2026-11-19T16:00:00Z",31,484,459,"Jordan","Australia"),ev(1,"notstarted","2026-11-20T10:00:00Z",31,1,2,"X","Y")],preds:[],leagues:[],now:Date.parse("2026-11-20T12:00:00Z")});
+assert.equal(g2.ghost,1);assert.deepEqual(g2.matches.map(m=>m.eid),[1]);   // basi > 3 jam dibuang, baru lewat 2 jam tetap
+console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
+
 // ---- e2e: bsd.mjs dijalankan sungguhan ke server tiruan ----
 const cfg={mode:"ok",hits:[]};
 const srv=http.createServer((q,s)=>{
@@ -90,7 +108,7 @@ await new Promise(r=>srv.listen(0,"127.0.0.1",r));
 const base="http://127.0.0.1:"+srv.address().port+"/api/v2";
 const run=(env)=>new Promise(res=>{
   const out=mkdtempSync(join(tmpdir(),"bsd-"));
-  const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base,GAP_MS:"0",RETRY_MS:"0",FETCH_TIMEOUT_MS:"2000",...env}});
+  const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base,GAP_MS:"0",RETRY_MS:"0",FETCH_TIMEOUT_MS:"2000",BSD_NOW:"2026-11-17T15:00:00Z",...env}});
   let o="",e="";p.stdout.on("data",d=>o+=d);p.stderr.on("data",d=>e+=d);
   p.on("close",code=>res({code,o,e,all:existsSync(out+"/all.json")?JSON.parse(readFileSync(out+"/all.json","utf8")):null,out}));
 });

@@ -65,7 +65,7 @@ const norm=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLo
 const same=(a,b)=>{a=norm(a);b=norm(b);return!!a&&!!b&&(a===b||(Math.min(a.length,b.length)>=4&&(a.includes(b)||b.includes(a))))};
 export const isDup=(r,x)=>Math.abs(Date.parse(x.utc)-Date.parse(r.utc))<3*36e5&&same(x.home&&x.home.name,r.home.name)&&same(x.away&&x.away.name,r.away.name);
 
-export function buildAll({events,preds,leagues,own=[]}){
+export function buildAll({events,preds,leagues,own=[],now=Date.now()}){
   const L=new Map((leagues||[]).map(l=>[l.id,l])),P=new Map();
   for(const p of preds||[])if(p.event&&p.event.id!=null)P.set(p.event.id,p);
   const out=[],linked=[];let dup=0,skipped=0;
@@ -76,8 +76,16 @@ export function buildAll({events,preds,leagues,own=[]}){
     if(o){dup++;r.oid=o.id;linked.push(r);continue}   // V12.1: laga model sendiri tetap dapat odds + Match Center BSD
     out.push(r);
   }
-  out.sort((a,b)=>a.utc.localeCompare(b.utc));
-  return{matches:out,dup,skipped,linked};
+  // V13.1: event "hantu" BSD -> laga yang sama (liga sama, tuan rumah & tamu sama) sudah selesai/live dalam 3,5 hari,
+  // tapi BSD masih menyisakan event lama berstatus belum mulai. Event belum-mulai itu dibuang,
+  // begitu juga event belum-mulai yang kickoff-nya sudah lewat > 3 jam (basi, tak pernah diperbarui BSD).
+  const played=out.filter(x=>x.status!=="NS");let ghost=0;
+  const isGhost=r=>r.status==="NS"&&(Date.parse(r.utc)<now-3*36e5||played.some(x=>x!==r&&(x.lid??x.league)===(r.lid??r.league)&&
+    (x.hid!=null&&r.hid!=null?(x.hid===r.hid&&x.aid===r.aid):(same(x.home.name,r.home.name)&&same(x.away.name,r.away.name)))&&
+    Math.abs(Date.parse(x.utc)-Date.parse(r.utc))<=84*36e5));
+  const kept=out.filter(r=>isGhost(r)?(ghost++,false):true);
+  kept.sort((a,b)=>a.utc.localeCompare(b.utc));
+  return{matches:kept,dup,skipped,linked,ghost};
 }
 
 // ===================== V12: integrasi penuh BSD (paket Football Unlimited) =====================
@@ -160,7 +168,7 @@ async function main(){
   const GAP=Number(process.env.GAP_MS??500),RETRY=Number(process.env.RETRY_MS??20000);
   const DEEP=process.env.BSD_DEEP!=="0",LIGHT=process.env.BSD_MODE==="light";
   const MAXD=Number(process.env.BSD_MAX_DETAIL??400),CONC=Number(process.env.BSD_CONCURRENCY??6);
-  const WITA=8*3600e3,DAY=864e5,now=Date.now(),wday=t=>new Date(t+WITA).toISOString().slice(0,10);
+  const WITA=8*3600e3,DAY=864e5,now=Date.parse(process.env.BSD_NOW||"")||Date.now(),wday=t=>new Date(t+WITA).toISOString().slice(0,10);
   const from=wday(now-2*DAY),to=wday(now+7*DAY);
   const errors=[];let calls=0,fatal=false;
   const quiet=new Set([402,403,404,503]);   // sub-resource kosong/tak berlangganan: lewati tanpa mengotori errors
@@ -203,7 +211,7 @@ async function main(){
   const dir=outDir(import.meta.url);mkdirSync(dir,{recursive:true});
   let prevHeavy=null;try{prevHeavy=JSON.parse(readFileSync(dir+"all.json","utf8")).heavyAt||null}catch(e){}
   let own=[];try{own=JSON.parse(readFileSync(dir+"data.json","utf8")).matches||[]}catch(e){}
-  const {matches,dup,skipped,linked}=buildAll({events,preds,leagues,own});
+  const {matches,dup,skipped,linked,ghost}=buildAll({events,preds,leagues,own,now});
   const every=matches.concat(linked);
   const L=new Map((leagues||[]).map(l=>[l.id,l])),P=new Map((preds||[]).map(p=>[p.event&&p.event.id,p])),EV=new Map((events||[]).map(e=>[e.id,e]));
   const deep={odds:0,details:0,carried:0,leagues:0};
@@ -273,7 +281,7 @@ async function main(){
   if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist)}))}
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,
-    heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};
+    heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,ghost,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};
   writeFileSync(dir+"all.json",JSON.stringify(all));
   if(errors.length)ghWarn("bsd: "+errors.slice(0,10).join(" ; "));
   console.log("OK bsd:",matches.length,"laga,",T[2],"berprediksi,",all.nLeagues,"liga;",dup,"sudah dimodelkan sendiri;",calls,"permintaan;",errors.length,"error; deep",JSON.stringify(deep));
