@@ -50,6 +50,13 @@ jobs:
           BSD_CONCURRENCY: 6
           GAP_MS: 150
 
+      # Liga Indonesia (Liga 1 + Liga 2) dari Highlightly, paket gratis 100 permintaan/hari (hemat kuota otomatis)
+      - name: Ambil liga Indonesia (Highlightly)
+        run: node bola-live/scripts/highlightly.mjs
+        continue-on-error: true
+        env:
+          HIGHLIGHTLY_KEY: ${{ secrets.HIGHLIGHTLY_KEY }}
+
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
