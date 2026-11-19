@@ -21,3 +21,12 @@ Catatan: arsip V8 asli tidak ada di paket V9 yang diterima. Karena itu kolom V8 
 
 ## Perubahan V11 (rombak sumber data)
 BSD (sports.bzzoiro.com, paket Football gratis, 7.500 permintaan/hari) kini menjadi sumber utama semua liga. Lihat `MIGRASI_V11.md` untuk daftar yang dihapus, dipertahankan, dan diubah.
+
+## Perubahan V12 (integrasi penuh BSD Football Unlimited)
+- **Live tiap ±5 menit**: workflow berjalan `*/5`. Mode *ringan* hanya menyegarkan laga live / dekat kickoff / baru selesai; mode *berat* (±tiap jam, atau saat dijalankan manual/push) mengambil semua sumber. Data run berat dibawa dari situs tayang (`scripts/carry.mjs`) sehingga tidak hilang.
+- **football-data.org tidak lagi wajib**: bila token gagal, situs tetap tayang dengan data BSD.
+- **Tab Live** memakai data BSD (menggantikan proxy SBOBET yang rapuh).
+- **Tab Klasemen**: tabel dengan zona Liga Champions/degradasi, xG±, form, top skor, top assist, kartu (`leagues.json`, `lg/{id}.json`).
+- **Match Center** (tombol di tiap kartu): ringkasan (cuaca, penonton, siaran TV termasuk Indonesia, preview AI, fakta, cuplikan, form 10 laga), prediksi BSD lengkap (1X2, skor, over/under, BTTS, pojok), statistik + momentum + peta tembakan, line-up resmi/prediksi AI + pemain absen, kejadian, komentar, rating pemain, odds konsensus + perbandingan bookmaker + Polymarket, H2H (`m/{id}.json`).
+- **Odds terbaik antar bookmaker** (1X2, over/under 2,5, BTTS) tampil di kartu.
+- Variabel: `BSD_MAX_DETAIL` (default 250 laga), `BSD_CONCURRENCY` (6), `BSD_DEEP=0` untuk mematikan mode lengkap, variabel repo `FORCE_HEAVY=1` untuk memaksa mode berat tiap run.
