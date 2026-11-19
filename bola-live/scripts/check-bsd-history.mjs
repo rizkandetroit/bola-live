@@ -1,7 +1,9 @@
 // Cek sekali jalan: apakah prediksi BSD untuk laga yang SUDAH selesai masih tersedia, dan apakah semuanya dibuat
 // SEBELUM kickoff (updated_at < event_date)? Kalau ya, data lama aman dipakai untuk uji mundur akurasi.
+// V2: mode pembanding. Angka prediksi yang disimpan situs SEBELUM kickoff (bsd-history.json) dibandingkan dengan angka
+// BSD SETELAH laga selesai. Sama persis = BSD tidak mengubah prediksi setelah laga -> riwayat BSD aman dipakai.
 // Hanya mencetak ringkasan angka ke log. Tidak menulis file situs, tidak mencetak API key.
-import {tfetch,cleanKey,sleep} from "./net.mjs";
+import {tfetch,cleanKey,sleep,siteBase} from "./net.mjs";
 
 const KEY=cleanKey(process.env.BSD_API_KEY);
 if(!KEY){console.log("BSD_API_KEY kosong: cek dilewati.");process.exit(0)}
@@ -9,12 +11,13 @@ const BASE=(process.env.BSD_API||"https://sports.bzzoiro.com/api/v2").replace(/\
 const DAYS=Number(process.env.CHECK_DAYS??90),CHUNK=7,GAP=Number(process.env.GAP_MS??150);
 let calls=0;const errs=[];
 
-async function get(url){
+async function get(url,soft=false){
   for(let i=0;i<3;i++){
     calls++;
     try{const r=await tfetch(url,{headers:{Authorization:"Token "+KEY,Accept:"application/json"}});
       if(r.status===401||r.status===403)throw Object.assign(new Error("BSD menolak (HTTP "+r.status+")"),{fatal:true});
       if(r.status===429||r.status>=500){await sleep(3000*(i+1));continue}
+      if(soft&&r.status===404)return null;
       if(!r.ok)throw new Error("HTTP "+r.status+" "+url.replace(BASE,""));
       return await r.json()}
     catch(e){if(e.fatal)throw e;if(i===2)throw e;await sleep(2000)}
@@ -27,7 +30,8 @@ const day=d=>new Date(d).toISOString().slice(0,10);
 const num=v=>v==null||v===""?null:Number(v);
 const pct=(a,b)=>b?Math.round(a/b*1000)/10:null;
 
-const now=Date.now(),preds=new Map(),evs=new Map();
+const now=Date.now(),preds=new Map(),evs=new Map(),LG=new Map();
+try{for(const l of await all("/leagues/?limit=200"))LG.set(l.id,l.name+(l.country?" ("+(l.country.name||l.country)+")":""))}catch(e){errs.push("leagues: "+e.message)}
 for(let k=DAYS;k>0;k-=CHUNK){
   const from=day(now-k*864e5),to=day(now-Math.max(1,k-CHUNK+1)*864e5);
   try{
@@ -49,7 +53,7 @@ for(const [id,p] of preds){
   const pre=up<ko;if(!pre){late++;lateMin.push(Math.round((up-ko)/6e4))}
   if(Number.isFinite(cr))leadH.push((ko-cr)/36e5);
   const ou=p.markets.over_under&&num(p.markets.over_under.prob_over_25),bt=p.markets.btts&&num(p.markets.btts.prob_yes);
-  rows.push({pre,lg:e.league_name||("liga "+e.league_id),P,r:h>a?0:h===a?1:2,g:h+a,b:h>0&&a>0,ou,bt,t:e.event_date});
+  rows.push({pre,lg:e.league_name||LG.get(e.league_id)||("liga "+e.league_id),P,r:h>a?0:h===a?1:2,g:h+a,b:h>0&&a>0,ou,bt,t:e.event_date});
 }
 function score(R){
   const n=R.length;if(!n)return{n:0};
@@ -67,7 +71,30 @@ const calib=[[0,40],[40,50],[50,60],[60,70],[70,101]].map(([lo,hi])=>{const b=pr
 leadH.sort((a,b)=>a-b);lateMin.sort((a,b)=>a-b);
 const dates=rows.map(x=>x.t).sort();
 
+// ---- mode pembanding: angka sebelum kickoff (disimpan situs) vs angka BSD sekarang ----
+const cmp={dibandingkan:0,samaPersis:0,berubah:0,selisihMaks:0,belumSelesai:0,tanpaPrediksiBSD:0,contohBerubah:[],contohSama:[]};
+try{
+  const site=process.env.SITE_URL||siteBase();
+  const H=site?await (await tfetch(site+"bsd-history.json?t="+now)).json():[];
+  const cand=(H||[]).filter(e=>typeof e.id==="number"&&Date.parse(e.u)<now-150*6e4&&Array.isArray(e.p));
+  for(const e of cand.slice(0,150)){
+    const ev=await get(BASE+"/events/"+e.id+"/",true);await sleep(GAP);
+    if(!ev||String(ev.status).toLowerCase()!=="finished"){cmp.belumSelesai++;continue}
+    const p=await get(BASE+"/events/"+e.id+"/prediction/",true);await sleep(GAP);
+    const mr=p&&p.markets&&p.markets.match_result;if(!mr){cmp.tanpaPrediksiBSD++;continue}
+    const now3=[num(mr.prob_home),num(mr.prob_draw),num(mr.prob_away)],ou=num(p.markets.over_under&&p.markets.over_under.prob_over_25),bt=num(p.markets.btts&&p.markets.btts.prob_yes);
+    const d=Math.max(...now3.map((v,i)=>Math.abs(v-e.p[i])),e.ou!=null&&ou!=null?Math.abs(ou-e.ou):0,e.bt!=null&&bt!=null?Math.abs(bt-e.bt):0);
+    cmp.dibandingkan++;cmp.selisihMaks=Math.max(cmp.selisihMaks,Math.round(d*10)/10);
+    const info=e.h+" vs "+e.a+" ("+e.u.slice(0,16)+"): sebelum "+e.p.join("/")+" -> sesudah "+now3.join("/")+", skor "+ev.home_score+"-"+ev.away_score+", updated_at "+p.updated_at;
+    if(d<0.05){cmp.samaPersis++;if(cmp.contohSama.length<5)cmp.contohSama.push(info)}else{cmp.berubah++;if(cmp.contohBerubah.length<8)cmp.contohBerubah.push(info)}
+  }
+  cmp.kesimpulan=!cmp.dibandingkan?"Belum ada laga yang bisa dibandingkan (tunggu laga yang dicatat situs selesai).":
+    cmp.berubah===0?"AMAN: semua angka BSD setelah laga sama persis dengan angka sebelum kickoff.":
+    "TIDAK AMAN: "+cmp.berubah+" dari "+cmp.dibandingkan+" prediksi berubah setelah kickoff.";
+}catch(e){errs.push("pembanding: "+e.message)}
+
 const out={
+  pembanding:cmp,
   jendelaHari:DAYS,permintaan:calls,error:errs,
   prediksiDiambil:preds.size,lagaSelesaiDiambil:evs.size,pasanganDenganSkor:rows.length,tanpaWaktu:noTime,
   lagaTertua:dates[0]||null,lagaTerbaru:dates[dates.length-1]||null,
