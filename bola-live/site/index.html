@@ -838,6 +838,9 @@ function incHtml(inc){
     var who=pName(i.player)||i.player_name||"";if(t==="substitution")who='⬆ '+(pName(i.player_in)||who)+' ⬇ '+(pName(i.player_out)||"");
     if(i.assist||i.assist_name)who+=' <small>(assist '+esc(pName(i.assist)||i.assist_name)+')</small>';
     if(t==="penalty_missed")who+=' <small>('+esc(i.reason||"")+')</small>';
+    if(t==="goal"&&i.goal_type&&i.goal_type!=="regular")who+=' <small>('+({ownGoal:"bunuh diri",penalty:"penalti"}[i.goal_type]||esc(i.goal_type))+')</small>';
+    if(t==="varDecision")who+=' <small>(VAR: '+esc(({goalNotAwarded:"gol dianulir",goalAwarded:"gol disahkan",penaltyNotAwarded:"penalti batal",penaltyAwarded:"penalti diberikan",redCard:"kartu merah"}[i.decision])||i.decision||"")+')</small>';
+    if(t==="card"&&i.reason)who+=' <small>'+esc(i.reason)+'</small>';
     var sc=i.home_score!=null?' <b>'+i.home_score+'-'+i.away_score+'</b>':"",txt=icon+" "+who+sc,home=i.is_home!==false&&i.is_home!=null?i.is_home:i.team==="home";
     return'<div class="inc"><div class="h">'+(home?txt:"")+'</div><div class="m">'+(i.minute!=null?i.minute+(i.added_time?"+"+i.added_time:"")+"'":"")+'</div><div class="a">'+(!home?txt:"")+'</div></div>'}).join("")
 }
