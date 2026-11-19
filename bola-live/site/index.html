@@ -399,7 +399,7 @@ h2{font-family:var(--hd)}
 .c:hover{border-color:var(--ln3)!important;transform:translateY(-1px)}
 .c.lv,.tr.lv{box-shadow:inset 3px 0 var(--hot)!important}
 .c.r1{border-color:var(--ok)!important}.c.r2{border-color:var(--vio)!important}.c.r3{border-color:var(--H)!important}
-.sc,.pl,.tme,.dtc,.oddl b,.mchd .bs,table.kl td,.ev td{font-family:var(--mono)}
+.sc,.pl,.tme,.dtc,.oddl b,.mchd .bs{font-family:var(--mono)}
 .sc{color:var(--ink)}.sc.vs{color:var(--mut)}
 .pb{background:var(--ln)!important}.pb .h{background:var(--H)!important}.pb .d{background:var(--D)!important}.pb .a{background:var(--A)!important}
 .pl .h{color:var(--hT)!important}.pl .a{color:var(--aT)!important}
@@ -441,7 +441,7 @@ select,input[type=search]{background:var(--pn)!important;color:var(--ink)!import
 /* ── V13 tata letak pro: daftar ringkas + panel Match Center tetap ── */
 .jpanel{flex:1 1 400px;max-width:520px;position:sticky;top:76px;max-height:calc(100vh - 96px);overflow:auto;background:var(--pn);border:1px solid var(--ln2);border-radius:18px;padding:16px}
 @media(max-width:1199px){.jpanel{display:none}}
-@media(min-width:1200px){.w{max-width:1880px!important;width:100%;box-sizing:border-box}}
+@media(min-width:1200px){.w{max-width:1880px!important;width:100%;box-sizing:border-box;margin:0 auto!important}}
 .plg{display:flex;align-items:center;gap:8px;font:600 12px var(--bd);letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin:16px 2px 8px}
 .plg span{margin-left:auto;font-family:var(--mono)}
 .prow{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;background:var(--pn);border:1px solid var(--ln);border-radius:14px;padding:10px 14px;margin-bottom:8px;color:var(--ink);font-size:14px;transition:border-color .15s,background .15s}
@@ -479,6 +479,14 @@ select,input[type=search]{background:var(--pn)!important;color:var(--ink)!import
 .cc .tme{flex-basis:100%;text-align:left;order:9;color:var(--mut)}
 .mcg{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
 @media(max-width:600px){.kpi .k b{font-size:26px}.mcbox{padding:14px 12px 20px}.mctabs button{padding:8px 8px}}
+
+/* V13.4: tabel rapi di HP */
+table.kl td,table.kl th{white-space:nowrap;font-family:var(--bd);font-variant-numeric:tabular-nums}
+table.kl td b{font-family:var(--mono)}
+.frm{white-space:nowrap;display:inline-block}
+#kl-body .ov,.mcbox .ov{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:600px){table.kl{font-size:12px}table.kl th,table.kl td{padding:6px 4px}table.kl img{width:16px;height:16px;margin-right:4px}
+ .h2t td.t{max-width:120px;overflow:hidden;text-overflow:ellipsis}}
 </style>
 </head>
 <body>
@@ -1012,7 +1020,7 @@ function predHtml(p,x){
 }
 function formBox(f,lab){if(!f||!f.overall)return"";var o=f.overall;return'<div><b>'+esc(f.team_name||lab)+'</b> '+frm(String(o.form||"").split("").join(""))+'<div class="mcg"><div>M-S-K<b>'+o.won+'-'+o.drawn+'-'+o.lost+'</b></div><div>Gol<b>'+o.goals_for+':'+o.goals_against+'</b></div><div>Poin/laga<b>'+o2(o.points_per_match)+'</b></div>'+(o.stats&&o.stats.ball_possession?'<div>Penguasaan<b>'+Math.round(o.stats.ball_possession.average)+'%</b></div>':"")+(o.stats&&o.stats.expected_goals?'<div>xG/laga<b>'+o2(o.stats.expected_goals.average)+'</b></div>':"")+'</div></div>'}
 function h2hHtml(h,x){if(!h||!h.total_matches)return'<div class="em">Belum ada pertemuan sebelumnya.</div>';
-  return'<div class="mcg"><div>'+esc(x?x.home.name:"Tuan rumah")+' menang<b>'+h.home_wins+'</b></div><div>Seri<b>'+h.draws+'</b></div><div>'+esc(x?x.away.name:"Tamu")+' menang<b>'+h.away_wins+'</b></div><div>Rata-rata gol<b>'+o2(h.avg_total_goals)+'</b></div></div><table class="kl">'+(h.recent_matches||[]).map(function(r){return'<tr><td>'+String(r.date||"").slice(0,10)+'</td><td class="t">'+cr(IMG+"team/"+r.home_team_id+"/")+esc(r.home)+'</td><td><b>'+(r.home_score==null?"-":r.home_score+" - "+r.away_score)+'</b></td><td class="t">'+cr(IMG+"team/"+r.away_team_id+"/")+esc(r.away)+'</td></tr>'}).join("")+'</table>'}
+  return'<div class="mcg"><div>'+esc(x?x.home.name:"Tuan rumah")+' menang<b>'+h.home_wins+'</b></div><div>Seri<b>'+h.draws+'</b></div><div>'+esc(x?x.away.name:"Tamu")+' menang<b>'+h.away_wins+'</b></div><div>Rata-rata gol<b>'+o2(h.avg_total_goals)+'</b></div></div><div class="ov"><table class="kl h2t">'+(h.recent_matches||[]).map(function(r){return'<tr><td>'+String(r.date||"").slice(0,10)+'</td><td class="t">'+cr(IMG+"team/"+r.home_team_id+"/")+esc(r.home)+'</td><td><b>'+(r.home_score==null?"-":r.home_score+" - "+r.away_score)+'</b></td><td class="t">'+cr(IMG+"team/"+r.away_team_id+"/")+esc(r.away)+'</td></tr>'}).join("")+'</table></div>'}
 function psHtml(ps,x){if(!ps||!ps.length)return'<div class="em">Statistik pemain belum tersedia.</div>';var L=ps.slice().sort(function(a,b){return(b.r||0)-(a.r||0)});
   return'<div class="ov"><table class="kl"><tr><th style="text-align:left">Pemain</th><th>Rating</th><th>Menit</th><th>G</th><th>A</th><th>xG</th><th>Tembakan</th><th>Umpan</th><th>Umpan kunci</th><th>Tekel</th></tr>'+L.map(function(p){var nm=pNameById(p.pid);return'<tr><td class="t">'+cr(IMG+"player/"+p.pid+"/?sor=true")+esc(nm)+(x&&p.tid===x.hid?' <small class="s">'+esc(x.home.name)+'</small>':x&&p.tid===x.aid?' <small class="s">'+esc(x.away.name)+'</small>':"")+'</td><td><b>'+(p.r==null?"-":Number(p.r).toFixed(1))+'</b></td><td>'+p.min+'</td><td>'+(p.g||0)+'</td><td>'+(p.as||0)+'</td><td>'+(p.xg==null?"-":Number(p.xg).toFixed(2))+'</td><td>'+(p.sh||0)+'/'+(p.sot||0)+'</td><td>'+(p.acc||0)+'/'+(p.pa||0)+'</td><td>'+(p.kp||0)+'</td><td>'+(p.tk||0)+'</td></tr>'}).join("")+'</table></div>'}
 function pNameById(id){var d=MC.d,l=d&&d.lineups&&d.lineups.lineups;if(l)for(var s of ["home","away"]){var t=l[s];if(!t)continue;var p=(t.players||[]).concat(t.substitutes||[]).find(function(q){return q.id===id});if(p)return p.name||p.short_name}return"Pemain #"+id}
