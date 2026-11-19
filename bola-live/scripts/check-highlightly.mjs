@@ -16,7 +16,13 @@ if(!top){console.log("\nHASIL: Super League Indonesia TIDAK ditemukan di paket i
 // 2) laga musim berjalan (tanggal hari ini s.d. 7 hari) dan klasemen
 const d=new Date(),ymd=t=>new Date(t).toISOString().slice(0,10);
 let found=0;
-for(let i=0;i<7&&found<1;i++){const r=await get(`/football/matches?leagueId=${top.id}&date=${ymd(d.getTime()+i*864e5)}&limit=20`);const m=r.j&&(r.j.data||r.j)||[];if(Array.isArray(m)&&m.length){found=m.length;console.log(`\nLaga ${ymd(d.getTime()+i*864e5)} (HTTP ${r.status}, sisa kuota ${r.lim}):`);for(const x of m.slice(0,5))console.log(" -",(x.homeTeam&&x.homeTeam.name)||"?","vs",(x.awayTeam&&x.awayTeam.name)||"?","|",x.date||x.startTime,"|",x.state&&x.state.description||"")}else if(r.status!==200)console.log("matches HTTP",r.status,JSON.stringify(r.j).slice(0,200))}
+for(let i=0;i<7&&found<1;i++){const r=await get(`/football/matches?leagueId=${top.id}&date=${ymd(d.getTime()+i*864e5)}&limit=20`);const m=r.j&&(r.j.data||r.j)||[];if(Array.isArray(m)&&m.length){found=m.length;console.log(`\nLaga ${ymd(d.getTime()+i*864e5)} (HTTP ${r.status}, sisa kuota ${r.lim}):`);if(!globalThis.__first)globalThis.__first=m[0];for(const x of m.slice(0,5))console.log(" -",(x.homeTeam&&x.homeTeam.name)||"?","vs",(x.awayTeam&&x.awayTeam.name)||"?","|",x.date||x.startTime,"|",x.state&&x.state.description||"")}else if(r.status!==200)console.log("matches HTTP",r.status,JSON.stringify(r.j).slice(0,200))}
+// 3) prediksi di detail laga (paket gratis?)
+globalThis.__first=globalThis.__first||null;
 const yr=d.getUTCFullYear();
 for(const s of [yr,yr-1]){const r=await get(`/football/standings?leagueId=${top.id}&season=${s}`);const ok=r.status===200&&JSON.stringify(r.j).length>200;console.log(`klasemen musim ${s}: HTTP ${r.status}`,ok?"ADA":"tidak ada",JSON.stringify(r.j).slice(0,160));if(ok)break}
+if(globalThis.__first){const id=globalThis.__first.id;const r=await get(`/football/matches/${id}`);const o=Array.isArray(r.j)?r.j[0]:(r.j&&(r.j.data?r.j.data[0]||r.j.data:r.j));const pr=o&&o.predictions;
+  console.log(`\nDetail laga ${id}: HTTP ${r.status}; kunci: ${o?Object.keys(o).join(","):"-"}`);
+  console.log("PREDIKSI:",pr?JSON.stringify(pr).slice(0,700):"TIDAK ADA di respons paket ini");
+  if(r.j&&r.j.plan)console.log("plan:",JSON.stringify(r.j.plan).slice(0,200))}
 console.log("\nHASIL:",found?"✅ ADA laga musim berjalan untuk Super League Indonesia di paket gratis.":"⚠️ Liga ada, tapi tidak ditemukan laga dalam 7 hari ke depan (bisa jeda kompetisi / dibatasi paket).");
