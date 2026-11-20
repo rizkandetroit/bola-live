@@ -201,6 +201,47 @@ sc("6. mode lengkap (Unlimited): odds terbaik, klasemen + top skor, Match Center
   const hj=JSON.parse(readFileSync(r.out+"/bsd-history.json","utf8")).find(x=>x.id===ns.id);assert(hj&&hj.po&&hj.pc,"riwayat menyimpan harga Pinnacle");
   assert(JSON.parse(readFileSync(r.out+"/bsd-eval.json","utf8")).move.pending>=1);
   return r.all.bsd.details+" Match Center, "+r.all.bsd.leagues+" liga, "+cfg.hits.length+" permintaan"});
+// V14.1: Highlightly — liga Indonesia + 2 liga tambahan (Denmark, Algeria), prioritas kuota, musim lintas tahun
+sc("Highlightly: liga tambahan ikut tampil, Indonesia diprioritaskan, musim tahun lalu dipakai bila tahun ini kosong",async()=>{
+  const hits=[],now=Date.now(),iso=h=>new Date(now+h*36e5).toISOString(),yr=new Date(now).getUTCFullYear();
+  const mk=(lid,n)=>[0,1,2,3].map(i=>({id:lid*10+i,date:iso(i<2?-30-i:3+i),round:"R1",state:{description:i<2?"Finished":"Not started",score:{current:i<2?"2 - 1":null}},
+    homeTeam:{id:lid*100+i,name:n+" A"+i,logo:null},awayTeam:{id:lid*100+50+i,name:n+" B"+i,logo:null},league:{logo:null}}));
+  const H=http.createServer((q,s)=>{const u=new URL(q.url,"http://x");hits.push(u.pathname+u.search);const send=o=>{s.writeHead(200,{"content-type":"application/json","x-ratelimit-requests-remaining":"60"});s.end(JSON.stringify(o))};
+    if(u.pathname==="/football/matches"){const lid=+u.searchParams.get("leagueId"),se=+u.searchParams.get("season");
+      if(lid===159070&&se===yr)return send({data:[],pagination:{totalCount:0}});               // Algeria: musim tahun ini kosong -> tahun lalu
+      return send({data:mk(lid,{233958:"Persib",234809:"PSS",102904:"Kolding",159070:"Setif"}[lid]),pagination:{totalCount:4}})}
+    if(u.pathname==="/football/standings")return send({groups:[{name:"G",standings:[{position:1,team:{id:1,name:"X"},total:{games:1,wins:1,draws:0,loses:0,scoredGoals:2,receivedGoals:1},points:3}]}]});
+    if(u.pathname.startsWith("/football/matches/"))return send([{id:+u.pathname.split("/").pop(),state:{description:"Not started"},predictions:{prematch:[{generatedAt:"2026-01-01",probabilities:{home:"50%",draw:"25%",away:"25%"}}]}}]);
+    s.writeHead(404);s.end("{}")});
+  await new Promise(r=>H.listen(0,"127.0.0.1",r));
+  const run=(extraEnv,stateFile)=>new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"hl-"));
+    writeFileSync(out+"/all.json",JSON.stringify({matches:[],errors:[]}));writeFileSync(out+"/leagues.json",JSON.stringify({leagues:[{id:1,name:"Premier League"}]}));
+    const sf=stateFile||join(out,"state.json");if(!stateFile)writeFileSync(sf,"{}");
+    const p=spawn(process.execPath,[join(here,"highlightly.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,HL_API:"http://127.0.0.1:"+H.address().port,HIGHLIGHTLY_KEY:"k",HL_STATE_FILE:sf,...extraEnv}});
+    let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
+  try{
+    const r=await run({});assert.equal(r.c,0,r.e);
+    const all=JSON.parse(readFileSync(r.out+"/all.json","utf8")),L=new Set(all.matches.map(m=>m.league));
+    for(const n of ["Liga 1 Indonesia","Liga 2 Indonesia","1st Division Denmark","Ligue 1 Algeria"])assert(L.has(n),"liga hilang: "+n+" "+[...L]);
+    const li=JSON.parse(readFileSync(r.out+"/leagues.json","utf8")).leagues;
+    assert.deepEqual(li.slice(0,4).map(l=>l.country),["Indonesia","Indonesia","Denmark","Algeria"]);assert.equal(li[4].name,"Premier League");
+    const dk=JSON.parse(readFileSync(r.out+"/lg/hl102904.json","utf8"));assert.equal(dk.country,"Denmark");assert(dk.standings.length===1);
+    const dz=JSON.parse(readFileSync(r.out+"/lg/hl159070.json","utf8"));assert.equal(dz.season.name,String(yr-1),"Algeria pakai musim tahun lalu");
+    assert(hits.some(h=>h.includes("standings?leagueId=159070&season="+(yr-1))),"klasemen Algeria memakai musim tahun lalu");
+    assert(all.matches.some(m=>m.league==="1st Division Denmark"&&m.p&&m.p.engine==="hl"),"prediksi Highlightly untuk liga tambahan");
+    // detail: Indonesia lebih dulu
+    const det=hits.filter(h=>/^\/football\/matches\/\d+/.test(h)).map(h=>+h.split("/")[3].split("?")[0]);
+    const firstX=det.findIndex(id=>id>=1029040);assert(firstX<0||det.slice(firstX).every(id=>id>=1029040),"detail Indonesia lebih dulu: "+det);
+    // kuota sudah dipakai banyak hari ini -> liga tambahan dilewati, Indonesia tetap jalan, laga tambahan lama tetap tampil
+    const st=JSON.parse(readFileSync(join(r.out,"hl.json"),"utf8"));const day=st.calls.day;
+    st.calls={day,n:70};st.season={};st.stand={};hits.length=0;writeFileSync(join(r.out,"state2.json"),JSON.stringify(st));
+    const r2=await run({},join(r.out,"state2.json"));assert.equal(r2.c,0,r2.e);
+    assert(hits.some(h=>h.includes("leagueId=233958")),"Indonesia tetap disegarkan");assert(!hits.some(h=>/leagueId=(102904|159070)/.test(h)),"liga tambahan dilewati: "+hits.join(" "));
+    const a2=JSON.parse(readFileSync(r2.out+"/all.json","utf8"));assert(a2.matches.some(m=>m.league==="1st Division Denmark"),"laga tambahan dari catatan lama tetap tampil");
+    assert(!(a2.errors||[]).some(e=>/tambahan/.test(e)),"melewati liga tambahan bukan galat");
+    return all.matches.length+" laga, "+hits.length+" permintaan saat kuota dihemat";
+  }finally{H.close()}
+});
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}
 srv.close();console.log(bad?`\n${bad} GAGAL`:"\ntest-bsd ok");process.exit(bad?1:0);

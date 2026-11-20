@@ -9,7 +9,12 @@ import {tfetch,cleanKey,outDir,siteBase,ghWarn,sleep} from "./net.mjs";
 import {fit,predictM,level,r1} from "./lib.mjs";
 import {updateHistory,evalHistory,evalMove} from "./bsd.mjs";
 
-export const HL_LEAGUES=[{id:233958,name:"Liga 1 Indonesia",short:"Liga 1"},{id:234809,name:"Liga 2 Indonesia",short:"Liga 2",noTable:true}];
+// V14.1 (20 Nov 2026): + 2 liga yang tidak ada di BSD (dicek di paket gratis: laga, prediksi, klasemen tersedia).
+// Liga tambahan (extra) memakai sisa kuota: disegarkan lebih jarang dan berhenti bila pemakaian hari ini sudah >= HL_EXTRA_CAP,
+// supaya liga Indonesia selalu kebagian.
+export const HL_LEAGUES=[{id:233958,name:"Liga 1 Indonesia",short:"Liga 1",country:"Indonesia"},{id:234809,name:"Liga 2 Indonesia",short:"Liga 2",noTable:true,country:"Indonesia"},
+  {id:102904,name:"1st Division Denmark",short:"Denmark 1",country:"Denmark",extra:true},{id:159070,name:"Ligue 1 Algeria",short:"Algeria 1",country:"Algeria",extra:true}];
+const EVERY={season:12,today:20,stand:6},EVERY_X={season:24,today:45,stand:12};
 const H=36e5,DAY=864e5,WITA=8*H;
 const LIVE=new Set(["First half","Second half","Half time","Extra time","Break time","Penalties","In progress"]);
 const FT=/^Finished/;
@@ -112,24 +117,30 @@ async function main(){
   const yr=new Date(now).getUTCFullYear();
   let stop=false;const task=async(name,fn)=>{if(stop)return;try{await fn()}catch(e){errors.push(name+": "+e.message);if(e.fatal||e.quota)stop=true}};
 
-  for(const lg of HL_LEAGUES){
-    const key=String(lg.id);
+  const XCAP=Number(process.env.HL_EXTRA_CAP??60),only=(process.env.HL_ONLY||"").split(",").filter(Boolean);
+  const LGS=HL_LEAGUES.filter(lg=>!only.length||only.includes(String(lg.id)));
+  for(const lg of LGS){
+    const key=String(lg.id),E=lg.extra?EVERY_X:EVERY;
+    if(lg.extra&&S.calls.n>=XCAP){console.log("liga tambahan "+lg.short+" dilewati run ini: kuota hari ini dihemat untuk liga Indonesia");continue}
     // 1) seluruh laga musim (jadwal + hasil): tiap 12 jam
-    if(!S.season[key]||now-S.season[key].at>12*H)await task("musim "+lg.short,async()=>{
-      let all=[];for(let off=0;off<1000;off+=100){const j=await get(`/football/matches?leagueId=${lg.id}&season=${yr}&limit=100&offset=${off}`);const L=list(j);all=all.concat(L);const tc=j&&j.pagination&&j.pagination.totalCount;if(L.length<100||(tc&&all.length>=tc))break}
-      if(all.length){S.matches[key]=all.map(x=>({id:x.id,date:x.date,round:x.round,state:x.state,homeTeam:x.homeTeam&&{id:x.homeTeam.id,name:x.homeTeam.name,logo:x.homeTeam.logo},awayTeam:x.awayTeam&&{id:x.awayTeam.id,name:x.awayTeam.name,logo:x.awayTeam.logo},league:x.league&&{logo:x.league.logo}}));S.season[key]={at:now,n:all.length}}
+    // musim yang melewati pergantian tahun (mis. 2026/27): bila musim tahun ini kosong, pakai musim tahun sebelumnya
+    if(!S.season[key]||now-S.season[key].at>E.season*H)await task("musim "+lg.short,async()=>{
+      let all=[],sy=yr;for(const y of [yr,yr-1]){all=[];for(let off=0;off<1000;off+=100){const j=await get(`/football/matches?leagueId=${lg.id}&season=${y}&limit=100&offset=${off}`);const L=list(j);all=all.concat(L);const tc=j&&j.pagination&&j.pagination.totalCount;if(L.length<100||(tc&&all.length>=tc))break}
+        if(all.length){sy=y;break}}
+      if(all.length){S.matches[key]=all.map(x=>({id:x.id,date:x.date,round:x.round,state:x.state,homeTeam:x.homeTeam&&{id:x.homeTeam.id,name:x.homeTeam.name,logo:x.homeTeam.logo},awayTeam:x.awayTeam&&{id:x.awayTeam.id,name:x.awayTeam.name,logo:x.awayTeam.logo},league:x.league&&{logo:x.league.logo}}));S.season[key]={at:now,n:all.length,yr:sy}}
     });
     // 2) laga hari ini (skor live): tiap run bila ada laga Indonesia antara 2 jam sebelum dan 3 jam sesudah kickoff
     const M=S.matches[key]||[],hot=M.some(x=>{const t=Date.parse(x.date);return t-now<2*H&&now-t<3*H&&!FT.test(x.state&&x.state.description||"")});
-    if(hot&&(!S.today[key]||now-S.today[key]>20*60e3))await task("hari ini "+lg.short,async()=>{S.today[key]=now;const j=await get(`/football/matches?leagueId=${lg.id}&date=${today}&timezone=Asia/Makassar&limit=50`);const byId=new Map(M.map(x=>[x.id,x]));for(const x of list(j)){const o=byId.get(x.id);if(o){o.state=x.state;o.date=x.date}else M.push(x)}});
+    if(hot&&(!S.today[key]||now-S.today[key]>E.today*60e3))await task("hari ini "+lg.short,async()=>{S.today[key]=now;const j=await get(`/football/matches?leagueId=${lg.id}&date=${today}&timezone=Asia/Makassar&limit=50`);const byId=new Map(M.map(x=>[x.id,x]));for(const x of list(j)){const o=byId.get(x.id);if(o){o.state=x.state;o.date=x.date}else M.push(x)}});
     // 3) klasemen: tiap 6 jam
-    if(!lg.noTable&&(!S.stand[key]||now-S.stand[key]>6*H))await task("klasemen "+lg.short,async()=>{const j=await get(`/football/standings?leagueId=${lg.id}&season=${yr}`);const rows=mapStandings(j,lg);if(rows.length){S.tables[key]=rows;S.stand[key]=now;S.calc=S.calc||{};delete S.calc[key]}else{S.stand[key]=now+18*H;S.calc=S.calc||{};S.calc[key]=1;console.log("klasemen "+lg.short+" tidak disediakan Highlightly; dihitung sendiri dari hasil laga.")}});
+    if(!lg.noTable&&(!S.stand[key]||now-S.stand[key]>E.stand*H))await task("klasemen "+lg.short,async()=>{const j=await get(`/football/standings?leagueId=${lg.id}&season=${(S.season[key]&&S.season[key].yr)||yr}`);const rows=mapStandings(j,lg);if(rows.length){S.tables[key]=rows;S.stand[key]=now;S.calc=S.calc||{};delete S.calc[key]}else{S.stand[key]=now+18*H;S.calc=S.calc||{};S.calc[key]=1;console.log("klasemen "+lg.short+" tidak disediakan Highlightly; dihitung sendiri dari hasil laga.")}});
   }
   // 4) detail (prediksi, kejadian, statistik): laga 48 jam ke depan sekali per 12 jam; laga live tiap run; laga selesai sekali
-  const recsRaw=[];for(const lg of HL_LEAGUES)for(const x of (S.matches[String(lg.id)]||[]))recsRaw.push([x,lg]);
-  const want=recsRaw.filter(([x])=>{const t=Date.parse(x.date),st=stOf(x.state&&x.state.description),d=S.det[x.id];
+  const recsRaw=[];for(const lg of LGS)for(const x of (S.matches[String(lg.id)]||[]))recsRaw.push([x,lg]);
+  const want=recsRaw.filter(([x,lg])=>{const t=Date.parse(x.date),st=stOf(x.state&&x.state.description),d=S.det[x.id];
+    if(lg.extra&&(S.calls.n>=XCAP||(st==="NS"&&t-now>24*H)))return false;
     if(st==="LIVE")return!d||now-d.at>40*60e3;if(st==="NS"&&t-now<48*H&&t>now-3*H)return!d||now-d.at>(t-now<6*H?6*H:24*H);if(st==="FT"&&now-t<36*H)return!d||d.st!=="FT";return false})
-    .sort((a,b)=>Math.abs(Date.parse(a[0].date)-now)-Math.abs(Date.parse(b[0].date)-now)).slice(0,Number(process.env.HL_MAX_DETAIL??12));
+    .sort((a,b)=>(a[1].extra?1:0)-(b[1].extra?1:0)||Math.abs(Date.parse(a[0].date)-now)-Math.abs(Date.parse(b[0].date)-now)).slice(0,Number(process.env.HL_MAX_DETAIL??12));
   for(const [x] of want)await task("detail "+x.id,async()=>{const j=await get(`/football/matches/${x.id}`);const det=Array.isArray(j)?j[0]:(j&&j.data?(Array.isArray(j.data)?j.data[0]:j.data):j);if(det){S.det[x.id]={at:now,st:stOf(det.state&&det.state.description),pred:predOf(det),raw:mapDetail(det,{hid:x.homeTeam&&x.homeTeam.id,eid:"hl"+x.id,status:stOf(det.state&&det.state.description)})}}});
   for(const k of Object.keys(S.det)){const x=recsRaw.find(([m])=>String(m.id)===k);if(!x||now-Date.parse(x[0].date)>10*DAY)delete S.det[k]}
 
@@ -138,7 +149,7 @@ async function main(){
   all.matches=(all.matches||[]).filter(m=>m.src!=="HL");
   const W=all.week||[new Date(now-2*DAY+WITA).toISOString().slice(0,10),new Date(now+7*DAY+WITA).toISOString().slice(0,10)];
   const out=[];
-  for(const lg of HL_LEAGUES){
+  for(const lg of LGS){
     const M=S.matches[String(lg.id)]||[];
     const fin=M.map(x=>({t:Date.parse(x.date),h:x.homeTeam&&x.homeTeam.id,a:x.awayTeam&&x.awayTeam.id,s:scoreOf(x.state),st:stOf(x.state&&x.state.description)})).filter(m=>m.st==="FT"&&m.s[0]!=null).map(m=>({t:m.t,h:m.h,a:m.a,gh:m.s[0],ga:m.s[1]})).sort((a,b)=>a.t-b.t);
     const model=fin.length?{m:fit(fin,now),n:fin.length}:null;
@@ -146,16 +157,16 @@ async function main(){
       const det=S.det[x.id],r=toRec(x,lg,det&&det.pred,model);if(!r)continue;if(det&&det.raw){r.dx=1;const raw={...det.raw,status:r.status};writeFileSync(dir+"m/"+r.eid+".json",JSON.stringify(raw))}out.push(r)}
     // klasemen dari Highlightly; bila tidak tersedia (mis. Liga 2) dihitung sendiri dari hasil laga
     const api=S.tables[String(lg.id)],calc=(S.calc&&S.calc[String(lg.id)])||!(api&&api.length);const rows=calc?tableFromResults(M):api;
-    if(rows&&rows.length){writeFileSync(dir+"lg/hl"+lg.id+".json",JSON.stringify({id:"hl"+lg.id,name:lg.name,country:"Indonesia",season:{name:String(yr)},grouped:new Set(rows.map(r=>r.grp)).size>1,standings:new Set(rows.map(r=>r.grp)).size>1?[]:rows,groups:new Set(rows.map(r=>r.grp)).size>1?rows.reduce((o,r)=>{(o[r.grp]=o[r.grp]||[]).push(r);return o},{}):null,zones:null,top:{},updated:new Date(calc?now:S.stand[String(lg.id)]).toISOString(),src:calc?"dihitung Bola Live dari hasil laga Highlightly":"Highlightly"}))}
+    if(rows&&rows.length){writeFileSync(dir+"lg/hl"+lg.id+".json",JSON.stringify({id:"hl"+lg.id,name:lg.name,country:lg.country,season:{name:String((S.season[String(lg.id)]&&S.season[String(lg.id)].yr)||yr)},grouped:new Set(rows.map(r=>r.grp)).size>1,standings:new Set(rows.map(r=>r.grp)).size>1?[]:rows,groups:new Set(rows.map(r=>r.grp)).size>1?rows.reduce((o,r)=>{(o[r.grp]=o[r.grp]||[]).push(r);return o},{}):null,zones:null,top:{},updated:new Date(calc?now:(S.stand[String(lg.id)]||now)).toISOString(),src:calc?"dihitung Bola Live dari hasil laga Highlightly":"Highlightly"}))}
   }
   all.matches=all.matches.concat(out).sort((a,b)=>a.utc.localeCompare(b.utc));
-  all.hl={calls,left,leagues:HL_LEAGUES.length,matches:out.length,withPred:out.filter(m=>!m.np).length,errors};
+  all.hl={calls,left,leagues:LGS.length,matches:out.length,withPred:out.filter(m=>!m.np).length,errors};
   if(errors.length)all.errors=(all.errors||[]).concat(errors.slice(0,5).map(e=>"Highlightly: "+e));
   writeFileSync(allPath,JSON.stringify(all));
   // leagues.json: tambahkan liga Indonesia di urutan teratas
   let li={leagues:[]};try{li=JSON.parse(readFileSync(dir+"leagues.json","utf8"))}catch(e){}
   li.leagues=(li.leagues||[]).filter(l=>!String(l.id).startsWith("hl"));
-  for(const lg of HL_LEAGUES.slice().reverse())if(existsSync(dir+"lg/hl"+lg.id+".json"))li.leagues.unshift({id:"hl"+lg.id,name:lg.name,country:"Indonesia",n:(S.tables[String(lg.id)]||[]).length});
+  for(const lg of LGS.slice().reverse())if(existsSync(dir+"lg/hl"+lg.id+".json"))li.leagues.unshift({id:"hl"+lg.id,name:lg.name,country:lg.country,n:(S.tables[String(lg.id)]||[]).length});
   li.updated=new Date(now).toISOString();writeFileSync(dir+"leagues.json",JSON.stringify(li));
   // m/index.json: tambahkan id detail Indonesia
   let mi={ids:[]};try{mi=JSON.parse(readFileSync(dir+"m/index.json","utf8"))}catch(e){}
