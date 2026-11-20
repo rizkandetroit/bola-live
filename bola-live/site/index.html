@@ -755,9 +755,11 @@ function dateStrip(L,td,dk){
   var el=$("#ds");if(!el)return L;
   if(S.st==="LIVE"||!D.week){el.hidden=true;el.innerHTML="";return L}
   var a=D.week[0],b=D.week[1],days=[],t=Date.parse(a+"T12:00:00Z"),end=Date.parse(b+"T12:00:00Z");
-  for(;t<=end;t+=864e5){var k=new Date(t).toISOString().slice(0,10);if(S.st==="NS"?k>=td:k<=td)days.push(k)}
-  if(S.st==="FT")days.reverse();
   var cnt={};L.forEach(function(x){var k=dk.format(new Date(x.utc));cnt[k]=(cnt[k]||0)+1});
+  /* tanggal dari jendela data + tanggal laga yang benar-benar ada (laga larut malam UTC bisa jatuh ke hari berikutnya di WITA) */
+  var seen={};for(;t<=end;t+=864e5)seen[new Date(t).toISOString().slice(0,10)]=1;for(var c in cnt)seen[c]=1;
+  for(var k0 in seen)if(S.st==="NS"?k0>=td:k0<=td)days.push(k0);days.sort();if(S.st==="FT")days.reverse();
+  if(days.length){a=days.reduce(function(m,x){return x<m?x:m},a);b=days.reduce(function(m,x){return x>m?x:m},b)}
   if(S.dt&&days.indexOf(S.dt)<0)S.dt="";
   var wf=new Intl.DateTimeFormat("id-ID",{timeZone:"UTC",weekday:"short",day:"numeric",month:"short"});
   var h='<button class="chip'+(S.dt?"":" on")+'" data-k="dt" data-val=""><span>Semua</span><small>'+L.length+' laga</small></button>'
