@@ -808,7 +808,7 @@ function bsdEvalHtml(e){
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
 function loadEval(){var gj=function(f){return fetch(f+"?"+Date.now()).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
-  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
+  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
 /* V13.4: pergerakan harga Pinnacle (buka -> terkini/tutup) */
 function dvg(o){if(!o||o.length!==3||!o.every(function(x){return x>1}))return null;var q=o.map(function(x){return 1/x}),t=q[0]+q[1]+q[2];return q.map(function(x){return x/t*100})}
 function pinMove(x){var a=x&&x.pin&&dvg(x.pin.o),b=x&&x.pin&&dvg(x.pin.c);if(!a||!b)return null;var d=b.map(function(v,i){return v-a[i]}),k=0;
@@ -872,6 +872,19 @@ function mblHtml(M,live){
   h+='<p class="cap">Isi model: kekuatan serang/tahan tiap tim (laga baru lebih berbobot), keunggulan kandang per liga (rata-rata +'+Math.round((Math.exp(M.hfa)-1)*100)+'% gol), efek jadwal padat dari data (istirahat ≤3 hari: gol sendiri '+(M.rest.own>=0?"+":"")+Math.round((Math.exp(M.rest.own)-1)*100)+'%, kebobolan '+(M.rest.opp>=0?"+":"")+Math.round((Math.exp(M.rest.opp)-1)*100)+'%), dan koreksi pemain inti yang tidak main (dari line-up resmi BSD).</p>';
   if(live&&live.n)h+='<p>Penilaian langsung (prediksi dicatat sebelum kickoff): '+live.n+' laga, Model BL tepat '+pc(live.model.acc)+' vs BSD '+pc(live.bsd.acc)+'.</p>';
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(M.updated))+' WITA, dilatih ulang sekali sehari.</p></div>'}
+/* V16 (Tahap 1): uji "klasemen menipu" + kemajuan data pemain */
+function tblHtml(M){
+  if(!M||!M.tbl)return"";var T=M.tbl,d=D&&D.allInfo&&D.allInfo.bsd||{};
+  var h='<div class="evs"><h2>Klasemen vs kekuatan asli <small>apakah BSD ikut "tertipu" posisi klasemen</small></h2>';
+  var row=function(t,q){return q&&q.n?'<tr><td style="text-align:left">'+t+'</td><td>'+q.n+'</td><td>'+pc(q.win)+'</td><td>'+pc(q.bsd)+'</td><td>'+pc(q.bl)+'</td><td class="'+(q.gapBsd<-2*q.se?"warn":q.gapBsd>2*q.se?"good":"")+'">'+(q.gapBsd>=0?"+":"")+q.gapBsd.toFixed(1).replace(".",",")+' ± '+(2*q.se).toFixed(1).replace(".",",")+'</td></tr>':'<tr><td style="text-align:left">'+t+'</td><td>0</td><td colspan="4">-</td></tr>'};
+  h+='<p class="cap">Untuk tim yang diunggulkan klasemen (selisih peringkat minimal 5, kedua tim sudah main minimal 6 laga musim ini): seberapa sering ia benar-benar menang, dibanding peluang menang yang diberikan BSD dan Model BL. Klasemen dihitung ulang tepat sebelum tiap laga.</p>';
+  h+='<div class="ov"><table class="ev"><tr><th style="text-align:left">Kelompok</th><th>Laga</th><th>Menang nyata</th><th>Peluang BSD</th><th>Peluang Model BL</th><th>Nyata − BSD</th></tr>'
+    +row("Kekuatan asli <b>beda</b> unggulan",T.g5&&T.g5.beda)+row("Kekuatan asli sepakat",T.g5&&T.g5.sama)+row("Semua (selisih ≥ 5)",T.g5&&T.g5.semua)+row("Beda unggulan, selisih ≥ 8",T.g8&&T.g8.beda)+'</table></div>';
+  var q=T.g5&&T.g5.beda;
+  if(q&&q.n>=30)h+='<p class="'+(q.gapBsd<-2*q.se?"good":"cap")+'">'+(q.gapBsd<-2*q.se?'Celah nyata: saat klasemen dan kekuatan asli berbeda, tim unggulan klasemen menang '+Math.abs(q.gapBsd).toFixed(1).replace(".",",")+' poin lebih jarang dari perkiraan BSD. BSD ikut tertipu klasemen.':q.gapBsd>2*q.se?'Kebalikannya: tim unggulan klasemen justru menang lebih sering dari perkiraan BSD.':'BSD tidak terbukti tertipu klasemen: selisihnya masih dalam batas kebetulan (± '+(2*q.se).toFixed(1).replace(".",",")+' poin).')+'</p>';
+  else h+='<p class="cap">Data belum cukup untuk menyimpulkan (perlu minimal 30 laga di kelompok "beda unggulan").</p>';
+  if(d.psTeams!=null)h+='<p class="cap">Data pemain terkumpul: '+d.psTeams+' tim, nilai pasar '+(d.psVals||0).toLocaleString("id-ID")+' pemain (diisi bertahap, tim yang akan bermain didahulukan).</p>';
+  return h+'</div>'}
 /* V13.3: uji mundur 90 hari dari riwayat BSD */
 var BT=null;
 function btLg(name){var q=BT&&BT.byLeague&&BT.byLeague[name];return q&&q.n>=20?q:null}
