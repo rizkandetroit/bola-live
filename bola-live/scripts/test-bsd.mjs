@@ -300,7 +300,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
   const cp=(o,f)=>{try{writeFileSync(join(st,f),readFileSync(join(o,f)))}catch(e){}};
   try{
     // run 1: riwayat baru sebagian (90 hari + 30 minggu) -> model ditandai "partial"
-    const r1=await go();assert.equal(r1.c,0,r1.e);for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json"])cp(r1.out,f);
+    const r1=await go();assert.equal(r1.c,0,r1.e);for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json","xi.json"])cp(r1.out,f);
     const res1=JSON.parse(readFileSync(join(r1.out,"results.json"),"utf8"));assert(res1.rows.length>900,"riwayat: "+res1.rows.length);
     const m1=JSON.parse(readFileSync(join(r1.out,"model-bl.json"),"utf8"));assert.equal(m1.partial,true);
     // run 2: lanjut isi mundur sampai setahun -> model lengkap
@@ -332,12 +332,15 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     const TJ=JSON.parse(readFileSync(join(r2.out,"teams.json"),"utf8")).t,tu=TJ[U.home_team_id];assert(tu&&tu.sr>=1&&tu.sr<=14,"peringkat kekuatan");
     assert(tu.luck&&tu.luck.n>0,"keberuntungan musim ini");assert(tu.ps&&tu.ps.key.length===5&&tu.ps.key[0][1],"pemain kunci + nama");
     assert(M.bt&&M.tbl&&M.tbl.g5&&M.tbl.g5.semua.n>0,"uji klasemen menipu berjalan: "+JSON.stringify(M.tbl&&M.tbl.g5));
+    const XJ2=JSON.parse(readFileSync(join(r2.out,"xi.json"),"utf8")).e;assert(Object.keys(XJ2).length>=100,"kekuatan line-up per laga tercatat: "+Object.keys(XJ2).length);
+    assert(M.cov&&M.cov.nXr>0&&Number.isFinite(M.cov.gA),"model mengukur efek line-up: "+JSON.stringify(M.cov));
+    assert(mU.bl.lu&&mU.bl.lu[1]<.98,"3 pemain belakang absen: lini bertahan tuan rumah turun "+JSON.stringify(mU.bl.lu));
     const h2=JSON.parse(readFileSync(join(r2.out,"bsd-history.json"),"utf8")).find(e=>e.id===U.id);assert(h2&&h2.bl,"riwayat menyimpan prediksi Model BL");
     // run 3 (ringan): model dibawa, tidak dilatih ulang, prediksi tetap menempel
-    for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json"])cp(r2.out,f);hits.length=0;
+    for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json","xi.json"])cp(r2.out,f);hits.length=0;
     const r3=await new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",BSD_MODE:"light",GAP_MS:"0",RETRY_MS:"0",BSD_NOW:new Date(NOW+36e5).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json")}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
     assert.equal(r3.c,0,r3.e);assert(!hits.some(h=>/status=finished|\/stats\/|player-stats|\/players\//.test(h)),"run ringan tidak mengunduh riwayat / xG / data pemain");
-    for(const f of ["players.json","values.json","teams.json"])assert(existsSync(join(r3.out,f)),"run ringan membawa "+f);
+    for(const f of ["players.json","values.json","teams.json","xi.json"])assert(existsSync(join(r3.out,f)),"run ringan membawa "+f);
     const a3=JSON.parse(readFileSync(join(r3.out,"all.json"),"utf8"));assert(a3.matches.find(x=>x.eid===U.id).bl,"prediksi dibawa di run ringan");
     const M3=JSON.parse(readFileSync(join(r3.out,"model-bl.json"),"utf8"));assert.equal(M3.updated,M.updated,"run ringan tidak melatih ulang");assert(M.temp>=.8&&M.temp<=1.4,"suhu kalibrasi "+M.temp);
     return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
@@ -372,6 +375,16 @@ sc("Tahap 1: data pemain, klasemen saat kickoff, uji klasemen menipu",async()=>{
   const R=tableTest(rows,tb,{gap:5});assert.equal(R.beda.n,200);assert.equal(R.beda.win,25);assert(Math.abs(R.beda.bsd-55)<1e-9);assert(Math.abs(R.beda.gapBsd+30)<1e-9,"BSD terlalu tinggi 30 poin");
   assert.equal(R.sama.n,100);assert.equal(R.semua.n,300);
   const R2=tableTest(rows.map(r=>({...r})),new Map([...tb].map(([k,v])=>[k,{...v,h:[v.h[0],3,v.h[2]]}])),{gap:5,minN:6});assert.equal(R2.semua.n,0,"tim yang baru main < 6 laga tidak dihitung");
+  // Tahap 2: mutu pemain + kekuatan line-up per unit
+  {const {playerQuality,xiRatio,xiFromStats,UNIT}=await import("./players.mjs");const P2={t:{}},t1=Date.parse("2026-10-01T12:00:00Z");
+   const pos=k=>k===0?"G":k<5?"D":k<8?"M":"F",V2={};for(let k=0;k<14;k++)V2[500+k]=[k===10?8e6:1e6,pos(k),0,"P"+k];
+   for(let e=0;e<6;e++)ingest(P2,900+e,t1+e*7*D,Array.from({length:14},(_,k)=>row(500+k,5,k<11?90:k===11?20:0,k===10?8.2:6.8,k===10&&e%2?1:0)));
+   const Q=playerQuality(P2.t[5],V2);assert(Q.get(510).q>Q.get(509).q+.2,"bintang (rating, gol, nilai pasar) lebih bernilai");assert.equal(Q.get(500).pos,"G");
+   const full=xiRatio(Q,Array.from({length:11},(_,k)=>500+k));assert(Math.abs(full.r[0]-1)<.08&&Math.abs(full.r[1]-1)<.08,"susunan biasa ~100%: "+full.r);
+   const noStar=xiRatio(Q,[500,501,502,503,504,505,506,507,508,509,599]);assert(noStar.r[0]<full.r[0]-.05,"tanpa bintang: lini serang turun");assert(Math.abs(noStar.r[1]-full.r[1])<.05,"lini bertahan hampir sama");
+   assert.equal(noStar.miss[0][1],"P10","pemain kunci yang hilang tercatat");
+   const noGk=xiRatio(Q,[599,501,502,503,504,505,506,507,508,509,510]);assert(noGk.r[1]<full.r[1]-.05,"tanpa kiper utama: lini bertahan turun");
+   assert.deepEqual(xiFromStats([{player_id:1,minutes_played:90},{player_id:2,minutes_played:30},{player_id:3,minutes_played:60}]),[1,3]);}
   return "beda unggulan: menang "+R.beda.win+"% vs BSD "+R.beda.bsd+"%";
 });
 let bad=0;

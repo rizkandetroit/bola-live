@@ -34,10 +34,19 @@ export function fitModel(ms,asOf,o={}){
   L.forEach((m,k)=>{H[k]=ti(m.h);A[k]=ti(m.a);LG[k]=li(m.l);NE[k]=m.n?1:0;W[k]=Math.pow(.5,(asOf-m.t)/(P.hl*DAY));const ux=P.xga>0&&m.xh!=null&&m.xa!=null,al=ux?(m.xe?P.xga/2:P.xga):0;YH[k]=ux?al*m.xh+(1-al)*m.gh:m.gh;YA[k]=ux?al*m.xa+(1-al)*m.ga:m.ga;   // xG perkiraan BSD: bobot setengah
     SH[k]=(rest.get(m.id+":"+m.h)??99)<=P.rest?1:0;SA[k]=(rest.get(m.id+":"+m.a)??99)<=P.rest?1:0;TL[H[k]].n++;TL[A[k]].n++;LL[LG[k]].n++;sg+=W[k]*(YH[k]+YA[k]);sw+=2*W[k]});
   const tl=TL.map(t=>lix.has(t.lg)?lix.get(t.lg):li(t.lg));   // indeks liga rumah tiap tim
+  // V17: kovariat per laga (besarnya diestimasi dari data, ditarik ke 0 bila datanya sedikit):
+  //  0 gA  kekuatan lini serang sendiri (ln rasio line-up)      1 gD  kekuatan lini bertahan lawan (ln rasio, tanda minus)
+  //  2 bv  selisih nilai skuad (log10)                          3 dby derby: perubahan keunggulan kandang
+  const NC=4,FH=[],FA=[],TH=new Float64Array(NC),TAU=[P.tauG??2,P.tauG??2,P.tauV??10,P.tauDby??10];for(let j=0;j<NC;j++){FH.push(new Float64Array(N));FA.push(new Float64Array(N))}
+  let nXr=0,nZv=0;
+  L.forEach((m,k)=>{const x=m.xr;if(x&&x.every(v=>v>0)){FH[0][k]=Math.log(x[0]);FA[0][k]=Math.log(x[2]);FH[1][k]=-Math.log(x[3]);FA[1][k]=-Math.log(x[1]);nXr++}
+    if(m.zv&&m.zv[0]!=null&&m.zv[1]!=null){FH[2][k]=m.zv[0]-m.zv[1];FA[2][k]=m.zv[1]-m.zv[0];nZv++}
+    if(m.dby&&!m.n)FH[3][k]=1});
   let mu=Math.log(Math.max(.3,sg/Math.max(sw,1e-9))),hfa=.25,bo=0,bd=0;   // bo: istirahat pendek -> serang sendiri; bd: -> kebobolan
   const lh=new Float64Array(N),la=new Float64Array(N);
   const eta=()=>{for(let k=0;k<N;k++){const h=TL[H[k]],a=TL[A[k]],Lh=LL[tl[H[k]]],La=LL[tl[A[k]]],hf=NE[k]?0:hfa+LL[LG[k]].h;
-    lh[k]=Math.exp(mu+hf+Lh.A+h.a-La.D-a.d+bo*SH[k]+bd*SA[k]);la[k]=Math.exp(mu+La.A+a.a-Lh.D-h.d+bo*SA[k]+bd*SH[k])}};
+    let ch=0,ca=0;for(let j=0;j<NC;j++){if(TH[j]){ch+=TH[j]*FH[j][k];ca+=TH[j]*FA[j][k]}}
+    lh[k]=Math.exp(mu+hf+Lh.A+h.a-La.D-a.d+bo*SH[k]+bd*SA[k]+ch);la[k]=Math.exp(mu+La.A+a.a-Lh.D-h.d+bo*SA[k]+bd*SH[k]+ca)}};
   // indeks laga per tim & per liga
   const byT=TL.map(()=>[]),byL=LL.map(()=>[]);for(let k=0;k<N;k++){byT[H[k]].push(k);byT[A[k]].push(k);byL[LG[k]].push(k)}
   const byTL=LL.map(()=>[]);TL.forEach((t,i)=>byTL[tl[i]].push(i));
@@ -51,6 +60,8 @@ export function fitModel(ms,asOf,o={}){
     eta();
     {let g=0,h=0;for(let k=0;k<N;k++){if(SA[k]){g+=W[k]*(YH[k]-lh[k]);h+=W[k]*lh[k]}if(SH[k]){g+=W[k]*(YA[k]-la[k]);h+=W[k]*la[k]}}bd+=step(g,h,20,bd)}
     eta();
+    {let ch=false;for(let j=0;j<NC;j++){if(j<2&&!nXr||j===2&&!nZv)continue;let g=0,h=0;for(let k=0;k<N;k++){const a=FH[j][k],b=FA[j][k];if(!a&&!b)continue;g+=W[k]*((YH[k]-lh[k])*a+(YA[k]-la[k])*b);h+=W[k]*(lh[k]*a*a+la[k]*b*b)}
+      const d=step(g,h,TAU[j],TH[j]);if(d){TH[j]+=d;ch=true}}if(ch)eta()}
     // liga: keunggulan kandang, level serang/tahan
     LL.forEach((q,j)=>{let g=0,h=0;for(const k of byL[j])if(!NE[k]){g+=W[k]*(YH[k]-lh[k]);h+=W[k]*lh[k]}q.h+=step(g,h,P.tauH,q.h)});
     eta();
@@ -65,7 +76,7 @@ export function fitModel(ms,asOf,o={}){
       const d=step(g,h,P.tauT,t.d);t.d+=d;if(d)for(const k of byT[i]){if(H[k]===i)la[k]*=Math.exp(-d);else lh[k]*=Math.exp(-d)}});
   }
   const team=new Map(TL.map((t,i)=>[t.id,{a:t.a,d:t.d,n:t.n,lg:t.lg,li:tl[i]}])),lg=new Map(LL.map(q=>[q.id,{A:q.A,D:q.D,h:q.h,n:q.n}]));
-  return{P,mu,hfa,bo,bd,team,lg,times,n:N,asOf};
+  return{P,mu,hfa,bo,bd,team,lg,times,n:N,asOf,cov:{gA:TH[0],gD:TH[1],bv:TH[2],dby:TH[3],nXr,nZv}};
 }
 
 // Kekuatan tim untuk prediksi. Tim tanpa data: level liga laga ini (atau 0).
@@ -81,7 +92,10 @@ export function predictModel(M,x){
   const H=str(M,x.h,x.l),A=str(M,x.a,x.l),Lg=M.lg.get(x.l)||{h:0},hf=x.n?0:M.hfa+(Lg.h||0);
   const rh=shortRest(M,x.h,x.t),ra=shortRest(M,x.a,x.t);
   const ah=(x.adj&&x.adj.h)||1,aa=(x.adj&&x.adj.a)||1;
-  const lh=Math.min(6,Math.max(.05,Math.exp(M.mu+hf+H.a-A.d+M.bo*rh+M.bd*ra)*ah)),la=Math.min(6,Math.max(.05,Math.exp(M.mu+A.a-H.d+M.bo*ra+M.bd*rh)*aa));
+  const cv=M.cov||{},x2=x.xr&&x.xr.every(v=>v>0)?x.xr:null,zv=x.zv&&x.zv[0]!=null&&x.zv[1]!=null?x.zv:null;
+  const ch=(x2?(cv.gA||0)*Math.log(x2[0])-(cv.gD||0)*Math.log(x2[3]):0)+(zv?(cv.bv||0)*(zv[0]-zv[1]):0)+(x.dby&&!x.n?(cv.dby||0):0);
+  const ca=(x2?(cv.gA||0)*Math.log(x2[2])-(cv.gD||0)*Math.log(x2[1]):0)+(zv?(cv.bv||0)*(zv[1]-zv[0]):0);
+  const lh=Math.min(6,Math.max(.05,Math.exp(M.mu+hf+H.a-A.d+M.bo*rh+M.bd*ra+ch)*ah)),la=Math.min(6,Math.max(.05,Math.exp(M.mu+A.a-H.d+M.bo*ra+M.bd*rh+ca)*aa));
   const ph=pois(lh),pa=pois(la),rho=M.P.rho;let h=0,d=0,a=0,ov=0,bt=0,best=[0,0,0];
   for(let i=0;i<=MAXG;i++)for(let j=0;j<=MAXG;j++){let p=ph[i]*pa[j];
     if(i===0&&j===0)p*=1-lh*la*rho;else if(i===0&&j===1)p*=1+lh*rho;else if(i===1&&j===0)p*=1+la*rho;else if(i===1&&j===1)p*=1-rho;
