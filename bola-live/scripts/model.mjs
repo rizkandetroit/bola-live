@@ -31,7 +31,7 @@ export function fitModel(ms,asOf,o={}){
   const N=L.length,H=new Int32Array(N),A=new Int32Array(N),LG=new Int32Array(N),NE=new Uint8Array(N),W=new Float64Array(N),
     YH=new Float64Array(N),YA=new Float64Array(N),SH=new Int8Array(N),SA=new Int8Array(N);
   let sg=0,sw=0;
-  L.forEach((m,k)=>{H[k]=ti(m.h);A[k]=ti(m.a);LG[k]=li(m.l);NE[k]=m.n?1:0;W[k]=Math.pow(.5,(asOf-m.t)/(P.hl*DAY));const ux=P.xga>0&&m.xh!=null&&m.xa!=null;YH[k]=ux?P.xga*m.xh+(1-P.xga)*m.gh:m.gh;YA[k]=ux?P.xga*m.xa+(1-P.xga)*m.ga:m.ga;
+  L.forEach((m,k)=>{H[k]=ti(m.h);A[k]=ti(m.a);LG[k]=li(m.l);NE[k]=m.n?1:0;W[k]=Math.pow(.5,(asOf-m.t)/(P.hl*DAY));const ux=P.xga>0&&m.xh!=null&&m.xa!=null,al=ux?(m.xe?P.xga/2:P.xga):0;YH[k]=ux?al*m.xh+(1-al)*m.gh:m.gh;YA[k]=ux?al*m.xa+(1-al)*m.ga:m.ga;   // xG perkiraan BSD: bobot setengah
     SH[k]=(rest.get(m.id+":"+m.h)??99)<=P.rest?1:0;SA[k]=(rest.get(m.id+":"+m.a)??99)<=P.rest?1:0;TL[H[k]].n++;TL[A[k]].n++;LL[LG[k]].n++;sg+=W[k]*(YH[k]+YA[k]);sw+=2*W[k]});
   const tl=TL.map(t=>lix.has(t.lg)?lix.get(t.lg):li(t.lg));   // indeks liga rumah tiap tim
   let mu=Math.log(Math.max(.3,sg/Math.max(sw,1e-9))),hfa=.25,bo=0,bd=0;   // bo: istirahat pendek -> serang sendiri; bd: -> kebobolan

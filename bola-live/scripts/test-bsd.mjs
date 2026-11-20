@@ -307,10 +307,11 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     const res2=JSON.parse(readFileSync(join(r2.out,"results.json"),"utf8")),M=JSON.parse(readFileSync(join(r2.out,"model-bl.json"),"utf8"));
     assert(res2.rows.length>res1.rows.length,"isi mundur berlanjut");
     const X=JSON.parse(readFileSync(join(r2.out,"xg.json"),"utf8")).e,xv=Object.values(X);assert(xv.filter(v=>v&&v.length).length>=300,"xG terisi bertahap: "+xv.length);
-    assert(xv.some(v=>v===0),"laga tanpa xG ditandai 0 (tidak diminta ulang)");assert(M.xgCov>=20,"cakupan xG "+M.xgCov);
-    const A2=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")).bsd;assert(A2.xgSkip>0,"laga tanpa xG dilewati tanpa permintaan: "+A2.xgSkip);
-    const ck=JSON.parse(readFileSync(join(r2.out,"xg.json"),"utf8")).chk;assert(ck&&ck.n>0&&ck.hit===0,"sampel 10% laga bertanda tanpa xG memang kosong: "+JSON.stringify(ck));
-    const stH=hits.filter(h=>/\/stats\//.test(h)).map(h=>+h.split("/")[4]),bad=stH.filter(i=>i%7===0&&i%10!==0);assert.equal(bad.length,0,"tidak meminta xG laga bertanda tanpa xG (kecuali sampel)");assert.equal(M.partial,false,"span "+M.span);
+    assert(xv.every(v=>v===0||(Array.isArray(v)&&v.length===3)),"tiap laga yang sudah dicek tercatat (xG atau 0)");assert(M.xgCov>=20,"cakupan xG "+M.xgCov);
+    // laga bertanda punya xG didahulukan: selama masih ada yang bertanda 1 dan belum diambil, laga bertanda 0 belum diminta
+    const XJ=JSON.parse(readFileSync(join(r2.out,"xg.json"),"utf8")),RW=JSON.parse(readFileSync(join(r2.out,"results.json"),"utf8")).rows;assert.equal(XJ.v,2);
+    const pend1=RW.filter(r=>r[8]===1&&XJ.e[r[0]]==null).length,got0=RW.filter(r=>r[8]===0&&XJ.e[r[0]]!=null).length;
+    assert(pend1===0||got0===0,"bertanda punya xG didahulukan: sisa "+pend1+", bertanda tidak sudah diambil "+got0);assert.equal(M.partial,false,"span "+M.span);
     assert(M.bt&&M.bt.joined>=150,"uji mundur tergabung dengan BSD: "+(M.bt&&M.bt.joined));
     assert(M.bt.modelJ.ll<1.1&&M.bt.bsd.ll<1.1,"log loss wajar");assert(M.hfa>.1&&M.hfa<.45,"keunggulan kandang "+M.hfa);
     assert(M.bt.holdout&&M.bt.holdout.blend.ll<=M.bt.holdout.bsd.ll+.01,"gabungan tidak lebih buruk dari BSD");

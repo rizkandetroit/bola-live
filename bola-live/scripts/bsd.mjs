@@ -421,21 +421,22 @@ async function main(){
         for(const w of [...wk].slice(0,Number(process.env.BL_FLAG_WEEKS??8))){if(overDeadline())break;const f=w*7*DAY-WITA;
           for(const e of await safe("tanda xG",()=>pages(`/events/?status=finished&date_from=${wday(f)}&date_to=${wday(f+6*DAY)}&limit=200`,60,{soft:true})))put(e);deep.xgScan=(deep.xgScan||0)+1}
         rows=[...R.values()].filter(r=>r[1]*1000>now-(RD+35)*DAY).sort((a,b)=>a[1]-b[1])}
-      // tanpa xG menurut BSD -> tandai 0 tanpa meminta; 10% tetap dicek sebagai sampel untuk memastikan tanda itu bisa dipercaya
-      const skip=r=>r[8]===0&&r[0]%10!==0&&process.env.BL_XG_FLAG!=="0";let sk=0;for(const r of rows)if(xg.e[r[0]]==null&&skip(r)){xg.e[r[0]]=0;sk++}deep.xgSkip=sk;
-      const want=rows.filter(r=>xg.e[r[0]]==null).sort((a,b)=>b[1]-a[1]).slice(0,Number(process.env.BL_XG_PER_RUN??200));
+      // V15.3: sampel 20 Nov menunjukkan ~30% laga bertanda has_xg=false tetap punya xG PERKIRAAN BSD. Jadi laga itu tidak dilewati,
+      // hanya didahulukan belakangan: bertanda punya xG lebih dulu (terbaru dulu), sisanya menyusul.
+      if((xg.v||1)<2){let back=0;for(const r of rows)if(r[8]===0&&xg.e[r[0]]===0&&r[0]%10!==0){delete xg.e[r[0]];back++}xg.v=2;deep.xgBack=back}   // kembalikan yang sempat dilewati
+      const want=rows.filter(r=>xg.e[r[0]]==null).sort((a,b)=>(b[8]===1)-(a[8]===1)||b[1]-a[1]).slice(0,Number(process.env.BL_XG_PER_RUN??200));
       const chk=xg.chk||{n:0,hit:0,yes:0,yesHit:0};
       await pool(want,async r=>{const o=await get(`${BASE}/events/${r[0]}/stats/`,{soft:true});deep.xg=(deep.xg||0)+1;const v=xgOf(o);xg.e[r[0]]=v||0;
         if(r[8]===0){chk.n++;if(v)chk.hit++}else if(r[8]===1){chk.yes++;if(v)chk.yesHit++}});
       xg.chk=chk;deep.xgCheck=chk;}
     {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(xg.e))if(!keep.has(k))delete xg.e[k]}
     const xgN=Object.values(xg.e).filter(v=>v&&v.length).length;deep.xgHave=xgN;
-    writeFileSync(dir+"xg.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),chk:xg.chk||null,e:xg.e}));
+    writeFileSync(dir+"xg.json",JSON.stringify({v:xg.v||1,updated:new Date(now).toISOString(),chk:xg.chk||null,e:xg.e}));
     writeFileSync(dir+"results.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),from:new Date(from).toISOString(),rows}));
     // latih + uji mundur + bobot gabungan (sekali sehari), atau bawa hasil sebelumnya
     let MB=prevM;
     if(needModel&&DEEP&&!LIGHT&&btEnt&&btEnt.length&&rows.length>=500&&!overDeadline()){
-      const ms=rows.map(r=>{const x=xg.e[r[0]];return{id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7],xh:x?x[0]:null,xa:x?x[1]:null}});
+      const ms=rows.map(r=>{const x=xg.e[r[0]];return{id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7],xh:x?x[0]:null,xa:x?x[1]:null,xe:x?x[2]:0}});
       const xgCov=ms.filter(m=>m.t>now-180*DAY&&m.xh!=null).length/Math.max(1,ms.filter(m=>m.t>now-180*DAY).length);
       const span=(now-ms[0].t)/DAY,bfrom=now-Number(process.env.BL_BT_DAYS??90)*DAY;
       const cfgs=span>=200&&process.env.BL_TUNE!=="0"?[{},{hl:120},{hl:300},{tauT:2},{tauT:8},{rho:-.12}].concat(xgCov>=.2?[{xga:.5},{xga:.7},{xga:.7,hl:120},{xga:.85,tauT:6}]:[]):[{}];
