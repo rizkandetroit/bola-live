@@ -332,6 +332,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     const TJ=JSON.parse(readFileSync(join(r2.out,"teams.json"),"utf8")).t,tu=TJ[U.home_team_id];assert(tu&&tu.sr>=1&&tu.sr<=14,"peringkat kekuatan");
     assert(tu.luck&&tu.luck.n>0,"keberuntungan musim ini");assert(tu.ps&&tu.ps.key.length===5&&tu.ps.key[0][1],"pemain kunci + nama");
     assert(M.bt&&M.tbl&&M.tbl.g5&&M.tbl.g5.semua.n>0,"uji klasemen menipu berjalan: "+JSON.stringify(M.tbl&&M.tbl.g5));
+    assert(M.fac&&M.fac.cov&&M.fac.formPanas&&M.fac.formPanas.n>0,"uji faktor tambahan berjalan: "+JSON.stringify(M.fac&&Object.keys(M.fac)));
     const XJ2=JSON.parse(readFileSync(join(r2.out,"xi.json"),"utf8")).e;assert(Object.keys(XJ2).length>=100,"kekuatan line-up per laga tercatat: "+Object.keys(XJ2).length);
     assert(M.cov&&M.cov.nXr>0&&Number.isFinite(M.cov.gA),"model mengukur efek line-up: "+JSON.stringify(M.cov));
     assert(mU.bl.lu&&mU.bl.lu[1]<.98,"3 pemain belakang absen: lini bertahan tuan rumah turun "+JSON.stringify(mU.bl.lu));
@@ -386,6 +387,30 @@ sc("Tahap 1: data pemain, klasemen saat kickoff, uji klasemen menipu",async()=>{
    const noGk=xiRatio(Q,[599,501,502,503,504,505,506,507,508,509,510]);assert(noGk.r[1]<full.r[1]-.05,"tanpa kiper utama: lini bertahan turun");
    assert.deepEqual(xiFromStats([{player_id:1,minutes_played:90},{player_id:2,minutes_played:30},{player_id:3,minutes_played:60}]),[1,3]);}
   return "beda unggulan: menang "+R.beda.win+"% vs BSD "+R.beda.bsd+"%";
+});
+// V18 (Tahap 3): uji faktor tambahan dihitung hanya dari data sebelum laga
+sc("Tahap 3: faktor form, H2H, derby, habis laga Eropa, perjalanan jauh, pelatih baru",async()=>{
+  const {factorTests}=await import("./factors.mjs"),D=864e5,t0=Date.parse("2026-06-01T12:00:00Z"),ms=[],J=[];let id=1;
+  const add=(t,l,h,a,gh,ga,x={})=>{const m={id:id++,t,l,h,a,gh,ga,hc:x.hc??null,ac:x.ac??null,tr:x.tr??null,dby:x.dby||0};ms.push(m);if(x.j)J.push({id:m.id,o:gh>ga?0:gh===ga?1:2,b:x.b||[45,27,28],p:x.p||[44,28,28]});return m};
+  // tim 1 menang 5 laga beruntun -> laga ke-6 tercatat "form panas" untuk tim 1
+  for(let k=0;k<5;k++)add(t0+k*7*D,1,1,10+k,2,0,{hc:100});
+  add(t0+35*D,1,1,20,0,1,{hc:100,j:1});
+  // tim 2 pelatih baru (200 -> 201) di laga ke-3 dan ke-4
+  add(t0,1,2,30,1,1,{hc:200});add(t0+7*D,1,2,31,1,1,{hc:200});add(t0+14*D,1,2,32,3,0,{hc:201,j:1});add(t0+21*D,1,2,33,0,0,{hc:201,j:1});
+  // tim 3 main di Eropa (liga 99) lalu 3 hari kemudian di liga domestik
+  add(t0,99,3,40,1,0);add(t0+3*D,1,3,41,0,2,{j:1});
+  // H2H: tim 4 mengalahkan tim 5 dua kali, laga ketiga tercatat "H2H dominan"
+  add(t0,1,4,5,2,0);add(t0+60*D,1,5,4,0,1);add(t0+120*D,1,4,5,1,1,{j:1});
+  // derby dan tamu jauh
+  add(t0+130*D,1,6,7,1,1,{dby:1,j:1,b:[40,30,30]});add(t0+131*D,1,8,9,2,1,{tr:2400,j:1});
+  const F=factorTests(ms,J,new Set([99]));
+  assert.equal(F.formPanas.n,1);assert.equal(F.formPanas.win,0);assert(Math.abs(F.formPanas.bsd-45)<1e-9);
+  assert.equal(F.pelatihBaru.n,2,"2 laga pertama pelatih baru");assert.equal(F.pelatihBaru.win,50);
+  assert.equal(F.habisEropa.n,1);assert.equal(F.habisEropa.win,0);
+  assert.equal(F.h2hDominan.n,1);assert.equal(F.h2hDominan.win,0,"tim 4 tidak menang di pertemuan ketiga");
+  assert.equal(F.derbySeri.n,1);assert.equal(F.derbySeri.win,100);assert(Math.abs(F.derbySeri.bsd-30)<1e-9);
+  assert.equal(F.tamuJauh.n,1);assert.equal(F.tamuJauh.win,0);
+  return Object.keys(F).join(", ");
 });
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}

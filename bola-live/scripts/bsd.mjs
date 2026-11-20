@@ -2,6 +2,7 @@ import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn,siteBase} from "./net.mjs";
 import {fitModel,predictModel,rollingBacktest,score,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks} from "./model.mjs";
+import {factorTests,EU_RE} from "./factors.mjs";
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats} from "./players.mjs";
 import {level,r1} from "./lib.mjs";
 
@@ -386,7 +387,7 @@ async function main(){
     const RD=Number(process.env.BL_DAYS??365),CH=Number(process.env.BL_BACKFILL_WEEKS??26);
     let res=await pullS("results.json"),st=await pullS("starters.json");res=res&&res.rows?res:{rows:[],from:null};st=st&&st.t?st:{t:{}};
     const row=e=>e&&String(e.status).toLowerCase()==="finished"&&num(e.home_score)!=null&&num(e.away_score)!=null&&e.home_team_id!=null&&e.away_team_id!=null?
-      [e.id,Math.round(Date.parse(e.event_date)/1000),e.league_id,e.home_team_id,e.away_team_id,num(e.home_score),num(e.away_score),e.is_neutral_ground?1:0,e.has_xg===true?1:e.has_xg===false?0:null,e.season_id??null,(e.is_local_derby?1:0)|(e.previous_leg_event_id?2:0),e.travel_distance_km!=null?Math.round(e.travel_distance_km):null,e.home_coach_id??null,e.away_coach_id??null]:null;
+      [e.id,Math.round(Date.parse(e.event_date)/1000),e.league_id,e.home_team_id,e.away_team_id,num(e.home_score),num(e.away_score),e.is_neutral_ground?1:0,e.has_xg===true?1:e.has_xg===false?0:null,e.season_id??null,(e.is_local_derby?1:0)|(e.previous_leg_event_id?2:0),e.travel_distance_km!=null?Math.round(e.travel_distance_km):null,e.home_coach_id??null,e.away_coach_id??null,e.referee_id??null]:null;
     const R=new Map(res.rows.map(r=>[r[0],r]));let added=0;const put=e=>{const r=row(e);if(r&&!R.has(r[0])){R.set(r[0],r);added++}else if(r)R.set(r[0],r)};
     for(const e of btE)put(e);for(const e of events)put(e);
     let from=res.from?Date.parse(res.from):(btE.length?now-90*DAY:now);
@@ -417,7 +418,8 @@ async function main(){
     if(DEEP&&!LIGHT&&!overDeadline()){
       // V15.2: tanda has_xg dari daftar laga (1 halaman = 200 laga) jauh lebih murah dari 1 permintaan per laga.
       // Baris lama tanpa tanda: pindai ulang daftar laga per minggu (terbaru dulu), paling banyak BL_FLAG_WEEKS minggu per run.
-      const unk=rows.filter(r=>r[8]==null&&xg.e[r[0]]==null);
+      // V18: baris lama yang belum punya kolom baru (tanda xG, musim, derby, jarak, pelatih, wasit) ikut dipindai ulang
+      const unk=rows.filter(r=>r.length<15||(r[8]==null&&xg.e[r[0]]==null));
       if(unk.length&&process.env.BL_XG_FLAG!=="0"){const wk=new Set();for(const r of unk.sort((a,b)=>b[1]-a[1]))wk.add(Math.floor((r[1]*1000+WITA)/(7*DAY)));
         for(const w of [...wk].slice(0,Number(process.env.BL_FLAG_WEEKS??8))){if(overDeadline())break;const f=w*7*DAY-WITA;
           for(const e of await safe("tanda xG",()=>pages(`/events/?status=finished&date_from=${wday(f)}&date_to=${wday(f+6*DAY)}&limit=200`,60,{soft:true})))put(e);deep.xgScan=(deep.xgScan||0)+1}
@@ -466,7 +468,7 @@ async function main(){
     let MB=prevM,teamsDone=false;
     if(needModel&&DEEP&&!LIGHT&&btEnt&&btEnt.length&&rows.length>=500&&!overDeadline()){
       const ms=rows.map(r=>{const x=xg.e[r[0]];const xr=XR.e[r[0]];return{id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7],xh:x?x[0]:null,xa:x?x[1]:null,xe:x?x[2]:0,se:r[9]??null,
-        xr:xr||null,zv:ZV.has(r[3])&&ZV.has(r[4])?[ZV.get(r[3]),ZV.get(r[4])]:null,dby:r[10]&1?1:0}});
+        xr:xr||null,zv:ZV.has(r[3])&&ZV.has(r[4])?[ZV.get(r[3]),ZV.get(r[4])]:null,dby:r[10]&1?1:0,tr:r[11]??null,hc:r[12]??null,ac:r[13]??null}});
       const xgCov=ms.filter(m=>m.t>now-180*DAY&&m.xh!=null).length/Math.max(1,ms.filter(m=>m.t>now-180*DAY).length);
       const span=(now-ms[0].t)/DAY,bfrom=now-Number(process.env.BL_BT_DAYS??90)*DAY;
       const cfgs=(span>=200&&process.env.BL_TUNE!=="0"?[{},{hl:120},{hl:300},{tauT:8},{rho:-.12}].concat(xgCov>=.2?[{xga:.5},{xga:.7},{xga:.7,hl:120}]:[]):[{}]).map(c=>({sweeps:25,...c}));
@@ -482,13 +484,16 @@ async function main(){
       const cal=best?[[0,40],[40,50],[50,60],[60,70],[70,101]].map(([lo,hi])=>{const b=best.rb.filter(r=>{const m=Math.max(...r.p);return m>=lo&&m<hi});let s=0,h=0;for(const r of b){const m=Math.max(...r.p);s+=m;if(r.p.indexOf(m)===r.o)h++}return{lo,hi,n:b.length,avg:b.length?s/b.length:null,hit:b.length?h/b.length*100:null}}):[];
       // V16: uji "klasemen menipu" (klasemen saat kickoff vs kekuatan asli vs BSD), hanya laga yang punya prediksi BSD
       let tbl=null;try{const tab=tablesAt(ms);tbl={g5:tableTest(J,tab,{gap:5}),g8:tableTest(J,tab,{gap:8}),g3:tableTest(J,tab,{gap:3})}}catch(e){errors.push("uji klasemen: "+e.message)}
+      // V18 (Tahap 3): uji faktor tambahan (form, H2H, derby, habis laga Eropa, perjalanan jauh, pelatih baru)
+      let fac=null;try{const eu=new Set((leagues||[]).filter(l=>EU_RE.test(l.name||"")).map(l=>l.id));fac=factorTests(ms,J,eu);
+        fac.cov={coach:Math.round(rows.filter(r=>r[12]!=null).length/rows.length*100),travel:Math.round(rows.filter(r=>r[11]!=null).length/rows.length*100),eu:eu.size}}catch(e){errors.push("uji faktor: "+e.message)}
       const M=fitModel(ms,now,{...(best?best.c:{}),sweeps:40});addTimes(M,every.filter(m=>m.hid!=null&&m.aid!=null).map(m=>({h:m.hid,a:m.aid,t:Date.parse(m.utc)})));
       const pred={};for(const m of every){if(m.status!=="NS"||m.hid==null||m.aid==null||m.lid==null)continue;const a=M.team.get(m.hid),b=M.team.get(m.aid);if(!a||!b||a.n<4||b.n<4)continue;
         const ev=EV.get(m.eid)||{};const q=predictModel(M,{h:m.hid,a:m.aid,l:m.lid,n:ev.is_neutral_ground?1:0,t:Date.parse(m.utc),zv:ZV.has(m.hid)&&ZV.has(m.aid)?[ZV.get(m.hid),ZV.get(m.aid)]:null,dby:ev.is_local_derby?1:0});
         pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,n:q.n}}
       MB={updated:new Date(now).toISOString(),temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
-        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,tbl,pred};
+        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,tbl,fac,pred};
       // ringkasan per tim untuk tampilan (Tahap 4): peringkat kekuatan, keberuntungan musim ini, data pemain
       try{const lk=luckOf(ms,now),TS={};const lgs=new Set(every.map(m=>m.lid).filter(x=>x!=null));
         for(const [id,t] of M.team){if(!lgs.has(t.lg)||t.n<4)continue;const R=strengthRanks(M,t.lg),L=lk[id],S=teamSummary(PS.t[id],VA.p),Lg=M.lg.get(t.lg)||{A:0,D:0};
