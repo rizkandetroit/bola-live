@@ -834,7 +834,7 @@ function absLine(x){var b=x.ab;if(!b||x.status==="FT"||!(b.nh+b.na))return"";
 function riskOf(x){if(!x.p||x.np||x.status==="FT")return[];var p=[x.p.h,x.p.d,x.p.a],mx=Math.max.apply(null,p),pk=p.indexOf(mx),r=[];
   if(mx<40)r.push("peluang ketiga hasil hampir sama");
   var mk=mkP(x);if(mk&&mk.indexOf(Math.max.apply(null,mk))!==pk)r.push("pasar mengunggulkan "+["tuan rumah","seri","tim tamu"][mk.indexOf(Math.max.apply(null,mk))]);
-  var lu=x.bl&&x.bl.lu,k=x.bl&&x.bl.k;if(lu){var wk=[[lu[0],lu[1],x.home.name],[lu[2],lu[3],x.away.name]].filter(function(z){return Math.min(z[0],z[1])<.9});if(wk.length)r.push("line-up "+wk.map(function(z){return esc(z[2])}).join(" & ")+" melemah")}
+  var lu=x.bl&&x.bl.lu,k=x.bl&&x.bl.k;if(lu){var wk=[[lu[0],lu[1],x.home.name],[lu[2],lu[3],x.away.name]].filter(function(z){return Math.min(z[0],z[1])<.85});if(wk.length)r.push("line-up "+wk.map(function(z){return esc(z[2])}).join(" & ")+" melemah")}
   else if(k&&(k[0]!=null||k[1]!=null)){if(Math.max(k[0]||0,k[1]||0)>=2)r.push("pemain inti absen")}else{var b=x.ab;if(b&&(b.nh+b.na>=5||Math.max(b.nh,b.na)>=4))r.push("banyak pemain absen")}
   if(x.bl&&!x.bg){var q2=[x.bl.h,x.bl.d,x.bl.a];if(q2.indexOf(Math.max.apply(null,q2))!==pk&&Math.abs(Math.max.apply(null,q2)-q2[pk])>=5)r.push("Model BL mengunggulkan "+["tuan rumah","seri","tim tamu"][q2.indexOf(Math.max.apply(null,q2))])}
   var q=x.src==="BSD"&&btLg(x.league);if(q&&q.acc<45)r.push("BSD sering meleset di liga ini");
@@ -855,7 +855,7 @@ function rkHtml(R){
 var MBL=null;
 function blLine(x){var b=x.bl;if(!b||x.status!=="NS")return"";var g=x.bg,nm=[x.home.name,x.away.name],why=[];
   /* V17: kekuatan line-up per lini (serang/bertahan) bila tersedia; kalau tidak, jumlah pemain inti yang tidak main */
-  if(b.lu){var sd=function(i,j){var a=b.lu[j],d=b.lu[j+1];if(a>=.95&&d>=.95)return;var ms=b.mi&&b.mi[i]&&b.mi[i].length?" (tanpa "+b.mi[i].map(esc).join(", ")+")":"";
+  if(b.lu){var sd=function(i,j){var a=b.lu[j],d=b.lu[j+1];if(a>=.9&&d>=.9)return;var ms=b.mi&&b.mi[i]&&b.mi[i].length?" (tanpa "+b.mi[i].map(esc).join(", ")+")":"";
       why.push("Line-up "+esc(nm[i])+": serang "+Math.round(a*100)+"%, bertahan "+Math.round(d*100)+"%"+ms)};sd(0,0);sd(1,2)}
   else if(b.k){if(b.k[0])why.push(b.k[0]+" pemain inti "+esc(nm[0])+" tidak main");if(b.k[1])why.push(b.k[1]+" pemain inti "+esc(nm[1])+" tidak main")}
   if(b.r){if(b.r[0])why.push(esc(nm[0])+" baru main ≤3 hari lalu");if(b.r[1])why.push(esc(nm[1])+" baru main ≤3 hari lalu")}
