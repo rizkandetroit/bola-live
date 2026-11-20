@@ -175,6 +175,7 @@ h2 small{font-size:12px;color:var(--mut);font-weight:400}
 .jmain .kpi{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media (max-width:600px){.jmain .kpi{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}.jmain .kpi .k{padding:10px 12px}.jmain .kpi .k b{font-size:22px}.jmain .kpi .k span{font-size:11px;line-height:1.3}}
 .lc{font-size:.85em;color:var(--mut);font-weight:400;opacity:.9}
+.acl.rsk{color:var(--A);font-weight:600}.acl.rsk:not(.hi){opacity:.85}.acl.mix b{color:var(--ink)}
 .acl.pmv b.up{color:var(--ok)}.acl.pmv b.dn{color:var(--A)}
 .acl{font-size:11.5px;color:var(--mut);margin-top:6px}.acl b{color:var(--ink)}.acl.good b{color:var(--ok)}.acl.warn b{color:var(--A)}
 #v-s,#v-k,#v-e{max-width:1180px;margin-left:auto;margin-right:auto}
@@ -730,7 +731,7 @@ function card(x,rank){
     +(x.src==="BSD"?' <span class="tag l2" title="Peluang dari model BSD (machine learning)">BSD</span>':x.src==="HL"?' <span class="tag l3" title="'+(x.p&&x.p.engine==="poisson"?"Prediksi model Poisson + Elo Bola Live":"Data dan prediksi dari Highlightly")+'">'+(x.p&&x.p.engine==="poisson"?"Model BL":"Highlightly")+'</span>':x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
     +'<span class="tme">'+stt(x)+'</span></div>'
     +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+'</div><div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+cr(x.away.crest)+'</div><div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"")+'</div></div></div>'
-    +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+pinLine(x)+btLine(x)
+    +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+riskLine(x)+mixLine(x)+pinLine(x)+absLine(x)+btLine(x)
     +(x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"")
     +valTag(x)+'</div>'
 }
@@ -778,7 +779,7 @@ function bsdEvalHtml(e){
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
 function loadEval(){var gj=function(f){return fetch(f+"?"+Date.now()).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
-  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json")]).then(function(a){if(a[0]){BT=a[0];draw()}$("#v-e").innerHTML=btHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)})}
+  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];$("#v-e").innerHTML=btHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
 /* V13.4: pergerakan harga Pinnacle (buka -> terkini/tutup) */
 function dvg(o){if(!o||o.length!==3||!o.every(function(x){return x>1}))return null;var q=o.map(function(x){return 1/x}),t=q[0]+q[1]+q[2];return q.map(function(x){return x/t*100})}
 function pinMove(x){var a=x&&x.pin&&dvg(x.pin.o),b=x&&x.pin&&dvg(x.pin.c);if(!a||!b)return null;var d=b.map(function(v,i){return v-a[i]}),k=0;
@@ -790,10 +791,35 @@ function mvHtml(v){
   if(!v)return"";var h='<div class="evs"><h2>Pergerakan harga pasar <small>Pinnacle · harga buka vs harga menjelang kickoff</small></h2>';
   if(!v.n||v.n<30)return h+'<p class="cap">Data masih dikumpulkan: '+(v.n||0)+' laga sudah dinilai, '+(v.pending||0)+' laga menunggu hasil. Penilaian ditampilkan setelah 30 laga, dan baru cukup bisa dipercaya sekitar 300 laga.</p></div>';
   var r=function(t,q){return q?'<tr><td style="text-align:left">'+t+'</td><td>'+q.n+'</td><td>'+pc(q.acc)+'</td><td>'+f3(q.brier)+'</td></tr>':""};
-  h+='<div class="ov"><table class="ev"><tr><th style="text-align:left">Sumber</th><th>Laga</th><th>Favorit tepat</th><th>Brier</th></tr>'+r("Harga buka",v.open)+r("Harga tutup",v.close)+r("Prediksi BSD",v.bsd)+'</table></div>';
+  h+='<div class="ov"><table class="ev"><tr><th style="text-align:left">Sumber</th><th>Laga</th><th>Favorit tepat</th><th>Brier</th></tr>'+r("Harga buka",v.open)+r("Harga tutup",v.close)+r("Prediksi BSD",v.bsd)+(v.mix?r("Gabungan 50/50",v.mix.half)+r("Gabungan terbaik (BSD "+Math.round(v.mix.w*100)+"%)",v.mix.best):"")+'</table></div>'+(v.mix?'<p class="'+(v.mix.ok?"good":"cap")+'">'+(v.mix.ok?'Gabungan terbukti lebih tepat dari BSD sendirian, jadi angkanya ditampilkan di kartu laga.':'Gabungan belum ditampilkan di kartu: perlu minimal 300 laga dan harus lebih tepat dari BSD sendirian.')+'</p>':"");
   var m=v.moved;if(m&&m.n)h+='<p>Pada '+m.n+' laga yang harganya bergeser '+m.minMove+' poin atau lebih, hasil yang "dibeli" pasar terjadi <b>'+pc(m.hit)+'</b>. Pasar menilainya '+pc(m.openImp)+' saat buka dan '+pc(m.closeImp)+' menjelang kickoff'+(m.hit>m.closeImp+3?', jadi pergerakan ini lebih kuat dari yang tersirat di harga.':m.hit<m.openImp-3?', jadi pasar cenderung berlebihan.':', jadi harga tutup sudah cukup pas.')+'</p>';
   return h+'<p class="cap">Brier makin kecil makin baik. Kalau harga tutup lebih baik dari harga buka, kabar menjelang laga (cedera, susunan pemain) memang berguna. '+(v.pending||0)+' laga lagi menunggu hasil.</p></div>'
 }
+/* V13.5: pemain absen, indikator risiko, prediksi gabungan BSD + pasar */
+var EV=null;
+function mkP(x){var m=x&&x.pin&&dvg(x.pin.c);if(m)return m;var o=x&&x.odds;return o&&o.h&&o.d&&o.a?dvg([o.h.o,o.d.o,o.a.o]):null}
+function absLine(x){var b=x.ab;if(!b||x.status==="FT"||!(b.nh+b.na))return"";
+  var sd=function(L,n,t){if(!n)return"";var nm=L.slice(0,2).map(function(q){return esc(q[0])+(q[1]==="d"?" (ragu)":q[1]==="s"?" (skors)":"")}).join(", ");return'<b>'+esc(t)+'</b> '+n+(nm?' ('+nm+(n>2?", …":"")+')':"")};
+  var all=b.h.concat(b.a).map(function(q){return q[0]+(q[1]==="d"?" (diragukan)":q[1]==="s"?" (skors)":" (cedera)")}).join(", ");
+  return'<div class="acl abs" title="Pemain absen menurut BSD: '+esc(all)+'">Absen: '+[sd(b.h,b.nh,x.home.name),sd(b.a,b.na,x.away.name)].filter(Boolean).join(" · ")+'</div>'}
+function riskOf(x){if(!x.p||x.np||x.status==="FT")return[];var p=[x.p.h,x.p.d,x.p.a],mx=Math.max.apply(null,p),pk=p.indexOf(mx),r=[];
+  if(mx<40)r.push("peluang ketiga hasil hampir sama");
+  var mk=mkP(x);if(mk&&mk.indexOf(Math.max.apply(null,mk))!==pk)r.push("pasar mengunggulkan "+["tuan rumah","seri","tim tamu"][mk.indexOf(Math.max.apply(null,mk))]);
+  var b=x.ab;if(b&&(b.nh+b.na>=5||Math.max(b.nh,b.na)>=4))r.push("banyak pemain absen");
+  var q=x.src==="BSD"&&btLg(x.league);if(q&&q.acc<45)r.push("BSD sering meleset di liga ini");
+  return r}
+function riskLine(x){var r=riskOf(x);if(!r.length)return"";return'<div class="acl rsk'+(r.length>1?" hi":"")+'">'+(r.length>1?"⚠ Rawan meleset":"⚠ Waspada")+': '+r.join(", ")+'</div>'}
+function mixLine(x){var m=EV&&EV.move&&EV.move.mix;if(!m||!m.ok||x.status!=="NS"||!x.p||x.np)return"";var mk=x.pin&&dvg(x.pin.c);if(!mk)return"";
+  var w=m.w,q=[x.p.h,x.p.d,x.p.a].map(function(v,i){return w*v+(1-w)*mk[i]}),t=q[0]+q[1]+q[2];q=q.map(function(v){return Math.round(v/t*100)});
+  return'<div class="acl mix" title="Gabungan BSD '+Math.round(w*100)+'% + pasar Pinnacle '+Math.round((1-w)*100)+'%, bobot dipilih dari '+m.n+' laga yang sudah selesai">Gabungan BSD+pasar: <b>'+q[0]+'</b> / '+q[1]+' / <b>'+q[2]+'</b></div>'}
+function rkHtml(R){
+  var c0=BT&&BT.calib&&BT.calib.filter(function(c){return c.lo===0&&c.n})[0];
+  var h='<div class="evs"><h2>Indikator risiko <small>seberapa sering BSD tepat pada laga yang ditandai</small></h2>'+(c0?'<p>Dari uji mundur '+BT.n.toLocaleString("id-ID")+' laga: saat peluang tertinggi BSD di bawah 40% (tanda "hampir sama"), tebakannya hanya tepat <b>'+pc(c0.hit)+'</b>, dibanding '+pc(BT.acc)+' untuk semua laga.</p>':"");
+  if(!R||!R.semua)return c0?h+'</div>':"";
+  if(R.semua.n<30)return h+'<p class="cap">Data masih dikumpulkan ('+R.semua.n+' laga sudah dinilai).</p></div>';
+  var row=function(k,t){var q=R[k];return q?'<tr><td style="text-align:left">'+t+'</td><td>'+q.n+'</td><td class="'+(q.acc<R.semua.acc-5?"warn":q.acc>R.semua.acc+5?"good":"")+'">'+pc(q.acc)+'</td></tr>':'<tr><td style="text-align:left">'+t+'</td><td>0</td><td>-</td></tr>'};
+  h+='<div class="ov"><table class="ev"><tr><th style="text-align:left">Kelompok laga</th><th>Laga</th><th>BSD tepat</th></tr>'+row("semua","Semua laga")+row("aman","Tanpa tanda risiko")+row("tipis","Peluang ketiga hasil hampir sama")+row("beda","BSD dan pasar beda unggulan")+row("absen","Banyak pemain absen")+row("ganda","Dua tanda risiko atau lebih")+'</table></div>';
+  return h+'<p class="cap">Kalau angka kelompok bertanda jauh di bawah "Semua laga", tandanya memang berguna. Merah: lebih dari 5 poin di bawah rata-rata. Tanda "liga sering meleset" dinilai di tabel per liga uji mundur di atas.</p></div>'}
 /* V13.3: uji mundur 90 hari dari riwayat BSD */
 var BT=null;
 function btLg(name){var q=BT&&BT.byLeague&&BT.byLeague[name];return q&&q.n>=20?q:null}
@@ -1168,7 +1194,7 @@ document.addEventListener("click",function(e){
 document.addEventListener("change",function(e){if(e.target.id==="sl-lig"){SLF.lg=e.target.value;renderLive()}if(e.target.id==="kl-sel"){var v=e.target.value;showKl(/^\d+$/.test(v)?Number(v):v)}});
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&MC.id&&!MC.panel)closeMC();var c=e.target.closest&&e.target.closest(".cc[data-mc]");if(c&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openMC(c.dataset.mc)}});
 
-nav("j");load(); fetch("bsd-backtest.json?"+Date.now()).then(function(r){return r.ok?r.json():null}).then(function(j){if(j&&j.n){BT=j;draw()}}).catch(function(){}); setInterval(function(){if(!document.hidden)load()},60000); setInterval(function(){if(!document.hidden&&VIEW==="s")load()},30000); setInterval(function(){if(!document.hidden&&VIEW==="p"){PITCH=null;loadPitch()}},300000); setInterval(function(){if(!document.hidden&&MC.id&&(MC.panel||!$("#mc").hidden))openMC(MC.id,true)},60000);
+nav("j");load(); fetch("bsd-eval.json?"+Date.now()).then(function(r){return r.ok?r.json():null}).then(function(j){if(j){EV=j;draw()}}).catch(function(){}); fetch("bsd-backtest.json?"+Date.now()).then(function(r){return r.ok?r.json():null}).then(function(j){if(j&&j.n){BT=j;draw()}}).catch(function(){}); setInterval(function(){if(!document.hidden)load()},60000); setInterval(function(){if(!document.hidden&&VIEW==="s")load()},30000); setInterval(function(){if(!document.hidden&&VIEW==="p"){PITCH=null;loadPitch()}},300000); setInterval(function(){if(!document.hidden&&MC.id&&(MC.panel||!$("#mc").hidden))openMC(MC.id,true)},60000);
 </script>
 </body>
 </html>
