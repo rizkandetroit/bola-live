@@ -808,7 +808,7 @@ function bsdEvalHtml(e){
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
 function loadEval(){var gj=function(f){return fetch(f+"?"+Date.now()).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
-  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
+  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+facHtml(a[2])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
 /* V13.4: pergerakan harga Pinnacle (buka -> terkini/tutup) */
 function dvg(o){if(!o||o.length!==3||!o.every(function(x){return x>1}))return null;var q=o.map(function(x){return 1/x}),t=q[0]+q[1]+q[2];return q.map(function(x){return x/t*100})}
 function pinMove(x){var a=x&&x.pin&&dvg(x.pin.o),b=x&&x.pin&&dvg(x.pin.c);if(!a||!b)return null;var d=b.map(function(v,i){return v-a[i]}),k=0;
@@ -889,6 +889,17 @@ function tblHtml(M){
   if(q&&q.n>=30)h+='<p class="'+(q.gapBsd<-2*q.se?"good":"cap")+'">'+(q.gapBsd<-2*q.se?'Celah nyata: saat klasemen dan kekuatan asli berbeda, tim unggulan klasemen menang '+Math.abs(q.gapBsd).toFixed(1).replace(".",",")+' poin lebih jarang dari perkiraan BSD. BSD ikut tertipu klasemen.':q.gapBsd>2*q.se?'Kebalikannya: tim unggulan klasemen justru menang lebih sering dari perkiraan BSD.':'BSD tidak terbukti tertipu klasemen: selisihnya masih dalam batas kebetulan (± '+(2*q.se).toFixed(1).replace(".",",")+' poin).')+'</p>';
   else h+='<p class="cap">Data belum cukup untuk menyimpulkan (perlu minimal 30 laga di kelompok "beda unggulan").</p>';
   if(d.psTeams!=null)h+='<p class="cap">Data pemain terkumpul: '+d.psTeams+' tim, nilai pasar '+(d.psVals||0).toLocaleString("id-ID")+' pemain (diisi bertahap, tim yang akan bermain didahulukan).</p>';
+  return h+'</div>'}
+/* V18 (Tahap 3): uji faktor tambahan */
+function facHtml(M){
+  if(!M||!M.fac)return"";var F=M.fac,c=F.cov||{};
+  var L=[["formPanas","Form panas (≥ 12 poin dari 5 laga)","menang"],["formDingin","Form dingin (≤ 3 poin dari 5 laga)","menang"],["h2hDominan","Selalu menang di H2H (≥ 2 pertemuan)","menang"],
+    ["pelatihBaru","4 laga pertama pelatih baru","menang"],["habisEropa","Main ≤ 4 hari setelah laga Eropa/antarbenua","menang"],["tamuJauh","Tim tamu menempuh ≥ 1.500 km","menang"],["derbySeri","Derby","seri"]];
+  var h='<div class="evs"><h2>Faktor tambahan <small>apakah BSD sudah memperhitungkannya</small></h2><div class="ov"><table class="ev"><tr><th style="text-align:left">Faktor (tim yang terkena)</th><th>Laga</th><th>Nyata</th><th>BSD</th><th>Model BL</th><th>Nyata − BSD</th><th style="text-align:left">Kesimpulan</th></tr>';
+  L.forEach(function(z){var q=F[z[0]];if(!q||!q.n){h+='<tr><td style="text-align:left">'+z[1]+'</td><td>0</td><td colspan="5">belum ada data</td></tr>';return}
+    var lo=q.gapBsd<-2*q.se,hi=q.gapBsd>2*q.se,k=q.n<30?"data masih sedikit":lo?"BSD terlalu tinggi menilai":hi?"BSD terlalu rendah menilai":"sudah diperhitungkan BSD";
+    h+='<tr><td style="text-align:left">'+z[1]+' <small>('+z[2]+')</small></td><td>'+q.n+'</td><td>'+pc(q.win)+'</td><td>'+pc(q.bsd)+'</td><td>'+pc(q.bl)+'</td><td class="'+(q.n>=30&&(lo||hi)?"warn":"")+'">'+(q.gapBsd>=0?"+":"")+q.gapBsd.toFixed(1).replace(".",",")+' ± '+(2*q.se).toFixed(1).replace(".",",")+'</td><td style="text-align:left">'+k+'</td></tr>'});
+  h+='</table></div><p class="cap">"BSD terlalu tinggi/rendah menilai" = selisihnya melebihi batas kebetulan (± 2 kali galat baku) pada minimal 30 laga — itulah celah yang bisa dipakai. Data pelatih tersedia untuk '+(c.coach||0)+'% laga, jarak tempuh '+(c.travel||0)+'% (riwayat lama diisi bertahap).</p>';
   return h+'</div>'}
 /* V13.3: uji mundur 90 hari dari riwayat BSD */
 var BT=null;
