@@ -6,7 +6,7 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import assert from "node:assert";
-import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary} from "./bsd.mjs";
+import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory} from "./bsd.mjs";
 
 const here=fileURLToPath(new URL(".",import.meta.url));
 const S=JSON.parse(readFileSync(join(here,"fixtures/bsd-sample.json"),"utf8"));
@@ -97,6 +97,28 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  assert.equal(bs.ou.n,40);assert(bs.calib.reduce((t,b)=>t+b.n,0)===40);
  console.log("uji mundur ok:",bs.n,"laga, akurasi",bs.acc.toFixed(1)+"%")}
 
+// V13.4: harga buka/tutup Pinnacle
+{const R=(id,o,op,c,live)=>({event_id:id,outcome:o,bookmaker_slug:"pinnacle",opening_decimal_odds:op,decimal_odds:c,is_live:live||false});
+ const P=pinOf([R(1,"HOME",2.0,1.8),R(1,"DRAW",3.4,3.6),R(1,"AWAY",3.8,4.4),
+   R(2,"HOME",2.0,1.9),R(2,"DRAW",3.4,3.4),                         // tidak lengkap -> dibuang
+   {event:{id:3},outcome:"HOME",opening_decimal_odds:2.5,decimal_odds:2.5},{event:{id:3},outcome:"DRAW",opening_decimal_odds:3.2,decimal_odds:3.2},{event:{id:3},outcome:"AWAY",opening_decimal_odds:2.9,decimal_odds:2.9},
+   R(4,"HOME",2,9,true),R(4,"DRAW",3,9,true),R(4,"AWAY",3,9,true)]);   // in-play -> diabaikan
+ assert.deepEqual([...P.keys()].sort(),[1,3]);assert.deepEqual(P.get(1),{o:[2,3.4,3.8],c:[1.8,3.6,4.4]});
+ const dv=devig([2,3.4,3.8]);assert(Math.abs(dv[0]+dv[1]+dv[2]-100)<1e-9&&dv[0]>dv[2]);assert.equal(devig([2,null,3]),null);
+ // riwayat: harga buka disimpan sekali, harga tutup ikut diperbarui sampai kickoff, lalu terkunci
+ const t0=Date.parse("2026-11-20T00:00:00Z"),m={eid:9,league:"L",utc:"2026-11-20T12:00:00Z",status:"NS",home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25},odds:null,score:[null,null]};
+ let H=updateHistory([],[{...m,pin:{o:[2,3.4,3.8],c:[1.9,3.5,4]}}],t0);
+ H=updateHistory(H,[{...m,pin:{o:[2.1,3.3,3.7],c:[1.8,3.6,4.4]}}],t0+36e5);
+ H=updateHistory(H,[{...m}],t0+2*36e5);                                     // run ringan tanpa harga: catatan lama tetap
+ assert.deepEqual(H[0].po,[2,3.4,3.8]);assert.deepEqual(H[0].pc,[1.8,3.6,4.4]);
+ H=updateHistory(H,[{...m,status:"FT",score:[2,0],pin:{o:[9,9,9],c:[9,9,9]}}],t0+15*36e5);
+ assert.deepEqual(H[0].pc,[1.8,3.6,4.4]);assert.deepEqual(H[0].r,[2,0]);   // setelah kickoff tidak berubah lagi
+ // penilaian: pasar bergerak ke tuan rumah dan tuan rumah menang
+ const h=[];for(let i=0;i<10;i++)h.push({r:i<7?[1,0]:[0,1],p:[55,25,20],po:[2.2,3.4,3.3],pc:[1.8,3.7,4.5]});h.push({p:[50,25,25],po:[2,3,4],pc:[2,3,4]});
+ const ev=evalMove(h);assert.equal(ev.n,10);assert.equal(ev.pending,1);assert.equal(ev.moved.n,10);assert.equal(ev.moved.hit,70);
+ assert(ev.close.brier<ev.open.brier,"harga tutup lebih tepat");assert(ev.moved.closeImp>ev.moved.openImp);assert.equal(ev.bsd.n,10);
+ console.log("pinnacle ok: buka",ev.open.brier.toFixed(3),"tutup",ev.close.brier.toFixed(3))}
+
 // ---- e2e: bsd.mjs dijalankan sungguhan ke server tiruan ----
 const cfg={mode:"ok",hits:[]};
 const srv=http.createServer((q,s)=>{
@@ -109,6 +131,8 @@ const srv=http.createServer((q,s)=>{
     const off=Number(u.searchParams.get("offset")||0),a=S.events.slice(0,6),bb=S.events.slice(6);
     return off===0?send(200,{count:S.events.length,next:base+"/api/v2/events/?date_from="+u.searchParams.get("date_from")+"&date_to="+u.searchParams.get("date_to")+"&limit=200&offset=200",results:a}):send(200,{count:S.events.length,next:null,results:bb});
   }
+  if(u.pathname==="/api/v2/odds/"){const e=S.events.find(x=>x.status==="notstarted");cfg.pinQs=u.search;
+    return send(200,{count:3,next:null,results:[["HOME",2.1,1.95],["DRAW",3.3,3.4],["AWAY",3.6,4.0]].map(([o,op,c])=>({event_id:e.id,outcome:o,bookmaker_slug:"pinnacle",opening_decimal_odds:op,decimal_odds:c,is_live:false}))})}
   if(u.pathname==="/api/v2/predictions/")return send(200,{count:S.predictions.length,next:null,results:S.predictions});
   if(u.pathname==="/api/v2/leagues/")return send(200,{count:S.leagues.length,next:null,results:S.leagues});
   // V12 deep
@@ -169,6 +193,13 @@ sc("6. mode lengkap (Unlimited): odds terbaik, klasemen + top skor, Match Center
   // V13.3: uji mundur 90 hari dicoba (13 potongan 7 hari) tanpa galat; data tiruan < 50 laga -> file tidak ditulis
   const bt=cfg.hits.filter(h=>h.path==="/api/v2/events/"&&h.qs.includes("status=finished"));assert(bt.length>=13,"uji mundur laga: "+bt.length);
   assert(!existsSync(r.out+"/bsd-backtest.json"));
+  // V13.4: harga Pinnacle tersimpan ke pin.json, ke laga, dan ke riwayat
+  assert(/bookmaker_slug=pinnacle/.test(cfg.pinQs)&&/market=1x2/.test(cfg.pinQs)&&/updated_after=/.test(cfg.pinQs),cfg.pinQs);
+  const ns=S.events.find(x=>x.status==="notstarted"),pj=JSON.parse(readFileSync(r.out+"/pin.json","utf8"));
+  assert.deepEqual(pj.ev[ns.id],{o:[2.1,3.3,3.6],c:[1.95,3.4,4]});assert.equal(r.all.bsd.pin,1);
+  assert.deepEqual(r.all.matches.find(x=>x.eid===ns.id).pin.c,[1.95,3.4,4]);
+  const hj=JSON.parse(readFileSync(r.out+"/bsd-history.json","utf8")).find(x=>x.id===ns.id);assert(hj&&hj.po&&hj.pc,"riwayat menyimpan harga Pinnacle");
+  assert(JSON.parse(readFileSync(r.out+"/bsd-eval.json","utf8")).move.pending>=1);
   return r.all.bsd.details+" Match Center, "+r.all.bsd.leagues+" liga, "+cfg.hits.length+" permintaan"});
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}

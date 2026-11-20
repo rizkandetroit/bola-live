@@ -136,7 +136,8 @@ export function updateHistory(hist,matches,now){
     if(m.status==="NS"&&t>now&&m.p&&!m.np&&m.p.h!=null){
       const v=bestVal(m);
       H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:[m.p.h,m.p.d,m.p.a],ou:m.p.ou??null,bt:m.p.bt??null,
-        o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:null,v:v,r:e&&e.r||null});
+        o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:(e&&e.o)||null,v:v,r:e&&e.r||null,
+        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null});
     }
     if(e&&!e.r&&m.status==="FT"&&m.score[0]!=null&&m.score[1]!=null)e.r=[m.score[0],m.score[1]];
   }
@@ -144,6 +145,30 @@ export function updateHistory(hist,matches,now){
   return [...H.values()].sort((a,b)=>a.u.localeCompare(b.u)).slice(-6000);
 }
 function bestVal(m){if(!m.odds||!m.p)return null;let b=null;[[0,m.p.h,m.odds.h],[1,m.p.d,m.odds.d],[2,m.p.a,m.odds.a]].forEach(([k,p,o])=>{if(p==null||!o||!o.o||p<20||o.o>5)return;const v=p/100*o.o-1;if(v<.02)return;if(!b||v>b[1])b=[k,Math.round(v*1000)/1000,o.o]});return b}
+// V13.4: harga 1X2 Pinnacle (bandar paling tajam) dari /odds/: harga buka (opening_decimal_odds, dicatat BSD sejak pertama terlihat)
+// dan harga pra-laga terakhir. Baris in-play (is_live) diabaikan. Hasil: Map(event_id -> {o:[h,d,a], c:[h,d,a]}).
+export function pinOf(rows){
+  const M=new Map(),K={HOME:0,DRAW:1,AWAY:2};
+  for(const r of rows||[]){const id=r.event_id??(r.event&&typeof r.event==="object"?r.event.id:r.event);const k=K[String(r.outcome||"").toUpperCase()];
+    if(id==null||k==null||r.is_live===true)continue;const o=num(r.opening_decimal_odds),c=num(r.decimal_odds);
+    const x=M.get(id)||{o:[null,null,null],c:[null,null,null]};if(o>1)x.o[k]=o;if(c>1)x.c[k]=c;M.set(id,x)}
+  for(const [id,x] of M)if(!x.o.every(v=>v>1)||!x.c.every(v=>v>1))M.delete(id);
+  return M;
+}
+export const devig=o=>{if(!o||!o.every(x=>x>1))return null;const q=o.map(x=>1/x),t=q[0]+q[1]+q[2];return q.map(x=>x/t*100)};
+// Penilaian pergerakan harga: apakah harga tutup lebih tepat dari harga buka, dan apakah arah pergerakan memberi sinyal.
+export function evalMove(hist,minMove=3){
+  const R=(hist||[]).filter(e=>e.r&&e.po&&e.pc),z=()=>({n:0,hit:0,br:0});
+  const add=(s,p,o)=>{s.n++;if(p.indexOf(Math.max(...p))===o)s.hit++;s.br+=p.reduce((a,x,i)=>a+(x/100-(i===o?1:0))**2,0)};
+  const op=z(),cl=z(),bs=z(),mv={n:0,hit:0,imp:0,impO:0},big=[];
+  for(const e of R){const a=devig(e.po),b=devig(e.pc);if(!a||!b)continue;const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2;
+    add(op,a,o);add(cl,b,o);if(e.p)add(bs,e.p,o);
+    const d=b.map((x,i)=>x-a[i]),k=d.indexOf(Math.max(...d));           // hasil yang paling "dibeli" pasar
+    if(d[k]>=minMove){mv.n++;if(k===o)mv.hit++;mv.imp+=b[k];mv.impO+=a[k]}}
+  const f=s=>s.n?{n:s.n,acc:s.hit/s.n*100,brier:s.br/s.n}:null;
+  return{n:op.n,open:f(op),close:f(cl),bsd:f(bs),moved:mv.n?{n:mv.n,minMove,hit:mv.hit/mv.n*100,closeImp:mv.imp/mv.n,openImp:mv.impO/mv.n}:{n:0,minMove},
+    pending:(hist||[]).filter(e=>!e.r&&e.po).length};
+}
 export function evalHistory(hist){
   const R=(hist||[]).filter(e=>e.r&&e.p),z=()=>({n:0,hit:0,br:0,ll:0,home:0,ouN:0,ouHit:0,btN:0,btHit:0,bets:0,profit:0,mkN:0,mkHit:0,mkBr:0});
   const add=(s,e)=>{const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e.p.map(x=>x/100),pk=p.indexOf(Math.max(...p));
@@ -244,6 +269,14 @@ async function main(){
     for(const m of every){const o=B.get(m.eid);if(o&&Object.keys(o).length){m.odds=o;deep.odds++}}
     const site=siteBase();
     const pull=async f=>{if(!site)return null;try{const r=await tfetch(site+f+"?t="+now);return r.ok?await r.json():null}catch(e){return null}};
+    // V13.4: harga buka + terkini Pinnacle (heavy, ±1 jam sekali); run ringan membawa pin.json dari situs
+    {let pin=null;const want=new Set(every.filter(m=>m.status==="NS").map(m=>m.eid));
+      if(!LIGHT&&process.env.BSD_PIN!=="0"){
+        const rows=await safe("odds pinnacle",()=>pages(`/odds/?market=1x2&bookmaker_slug=pinnacle&updated_after=${new Date(now-3*36e5).toISOString().slice(0,19)}Z&limit=200`,Number(process.env.BSD_PIN_PAGES||60),{soft:true}));
+        const P=pinOf(rows);pin={};for(const [id,x] of P)if(want.has(id))pin[id]=x;deep.pin=Object.keys(pin).length;
+        const prevPin=await pull("pin.json");if(prevPin&&prevPin.ev)for(const id in prevPin.ev)if(!pin[id]&&want.has(+id))pin[id]=prevPin.ev[id];   // laga yang tidak terbaca kali ini: pakai catatan lama
+      }else{const prevPin=await pull("pin.json");if(prevPin&&prevPin.ev){pin={};for(const id in prevPin.ev)if(want.has(+id))pin[id]=prevPin.ev[id]}}
+      if(pin){writeFileSync(dir+"pin.json",JSON.stringify({updated:new Date(now).toISOString(),ev:pin}));for(const m of every)if(pin[m.eid])m.pin=pin[m.eid]}}
 
     // 2) liga: klasemen + papan skor pemain (heavy); light = bawa dari situs tayang
     const lids=[...new Set(matches.map(m=>m.lid).filter(x=>x!=null))];
@@ -298,7 +331,7 @@ async function main(){
   // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
   let hist=[];{const site=siteBase();if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
     else if(site){try{const r=await tfetch(site+"bsd-history.json?t="+now);if(r.ok)hist=await r.json()}catch(e){}}}
-  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist)}))}
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist)}))}
   // V13.3: uji mundur 90 hari -> bsd-backtest.json (heavy, paling sering sekali per ~20 jam; selain itu dibawa dari situs)
   {const site=siteBase(),BTD=Number(process.env.BSD_BACKTEST_DAYS??90);let prev=null;
     if(site){try{const r=await tfetch(site+"bsd-backtest.json?t="+now);if(r.ok)prev=await r.json()}catch(e){}}
