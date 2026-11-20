@@ -1,6 +1,7 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn,siteBase} from "./net.mjs";
+import {fitModel,predictModel,rollingBacktest,score,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF} from "./model.mjs";
 import {level,r1} from "./lib.mjs";
 
 // SUMBER UTAMA SEMUA LIGA: BSD (sports.bzzoiro.com, Football API paket gratis, 7.500 permintaan/hari).
@@ -137,7 +138,7 @@ export function updateHistory(hist,matches,now){
       const v=bestVal(m);
       H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:[m.p.h,m.p.d,m.p.a],ou:m.p.ou??null,bt:m.p.bt??null,
         o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:(e&&e.o)||null,v:v,r:e&&e.r||null,
-        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null});
+        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null});
     }
     if(e&&!e.r&&m.status==="FT"&&m.score[0]!=null&&m.score[1]!=null)e.r=[m.score[0],m.score[1]];
   }
@@ -173,6 +174,8 @@ export function evalMove(hist,minMove=3){
 }
 // V13.5: pemain absen dari /events/{id}/lineups/ (unavailable_players) -> ringkas untuk kartu: {h:[[nama,status]],a:[...]}
 // status: i = cedera, d = diragukan, s = skors. Hanya nama pendek, paling banyak 6 per tim.
+export function absIds(lu){const u=lu&&lu.unavailable_players,f=a=>new Set((Array.isArray(a)?a:[]).filter(p=>p&&p.id!=null&&p.status!=="doubtful").map(p=>p.id));return{h:f(u&&u.home),a:f(u&&u.away)}}
+const r2=x=>Math.round(x*100)/100;
 export function absOf(lu){
   const u=lu&&lu.unavailable_players;if(!u)return null;const S={injured:"i",doubtful:"d",suspended:"s"};
   const side=a=>(Array.isArray(a)?a:[]).filter(p=>p&&(p.short_name||p.name)).map(p=>[p.short_name||p.name,S[p.status]||"i"]).slice(0,6);
@@ -195,6 +198,10 @@ export function evalRisk(hist){
   for(const e of R){const f=riskFlags(e);add("semua",e);if(!f.length)add("aman",e);for(const k of f)add(k,e);if(f.length>=2)add("ganda",e);if(e.ab)add("adaAbsen",e)}
   const out={};for(const k in G)out[k]={n:G[k].n,acc:G[k].hit/G[k].n*100};return out;
 }
+// V15: penilaian langsung Model BL vs BSD pada laga yang sudah selesai (prediksi tercatat sebelum kickoff)
+export function evalBL(hist){const R=(hist||[]).filter(e=>e.r&&e.p&&e.bl);if(!R.length)return{n:0};
+  const sc=k=>{let a=0,b=0,l=0;for(const e of R){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e[k].map(x=>x/100);if(p.indexOf(Math.max(...p))===o)a++;b+=p.reduce((s,x,i)=>s+(x-(i===o?1:0))**2,0);l-=Math.log(Math.max(p[o],1e-6))}return{acc:a/R.length*100,brier:b/R.length,ll:l/R.length}};
+  return{n:R.length,model:sc("bl"),bsd:sc("p")}}
 export function evalHistory(hist){
   const R=(hist||[]).filter(e=>e.r&&e.p),z=()=>({n:0,hit:0,br:0,ll:0,home:0,ouN:0,ouHit:0,btN:0,btHit:0,bets:0,profit:0,mkN:0,mkHit:0,mkBr:0});
   const add=(s,e)=>{const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e.p.map(x=>x/100),pk=p.indexOf(Math.max(...p));
@@ -353,27 +360,95 @@ async function main(){
     writeFileSync(dir+"m/index.json",JSON.stringify({updated:new Date(now).toISOString(),ids:[...have]}));
   }
 
-  const T={2:matches.filter(x=>x.tier===2).length,3:0,4:0};
-  // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
-  let hist=[];{const site=siteBase();if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
-    else if(site){try{const r=await tfetch(site+"bsd-history.json?t="+now);if(r.ok)hist=await r.json()}catch(e){}}}
-  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist)}))}
   // V13.3: uji mundur 90 hari -> bsd-backtest.json (heavy, paling sering sekali per ~20 jam; selain itu dibawa dari situs)
-  {const site=siteBase(),BTD=Number(process.env.BSD_BACKTEST_DAYS??90);let prev=null;
-    if(site){try{const r=await tfetch(site+"bsd-backtest.json?t="+now);if(r.ok)prev=await r.json()}catch(e){}}
+  // V15: Model BL ikut memakai riwayat ini (prediksi BSD per laga) untuk menilai dan memilih bobot gabungan.
+  const pullS=async f=>{const site=siteBase();if(process.env.BL_STATE_DIR){try{return JSON.parse(readFileSync(process.env.BL_STATE_DIR+"/"+f,"utf8"))}catch(e){return null}}if(!site)return null;try{const r=await tfetch(site+f+"?t="+now);return r.ok?await r.json():null}catch(e){return null}};
+  const prevM=process.env.BL!=="0"?await pullS("model-bl.json"):null;
+  const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial);
+  let btEnt=null,btE=[];
+  {const BTD=Number(process.env.BSD_BACKTEST_DAYS??90);let prev=await pullS("bsd-backtest.json");
     const fresh=prev&&prev.n&&now-Date.parse(prev.updated)<20*36e5;
-    if(process.env.BSD_BACKTEST!=="0"&&DEEP&&!LIGHT&&!fatal&&!fresh&&!overDeadline()){
+    if(process.env.BSD_BACKTEST!=="0"&&DEEP&&!LIGHT&&!fatal&&(!fresh||needModel)&&!overDeadline()){
       const P2=[],E2=[];
       for(let k=BTD;k>0&&!fatal&&!overDeadline();k-=7){
         const f=wday(now-k*DAY),t=wday(now-Math.max(1,k-6)*DAY);
         P2.push(...await safe("uji mundur prediksi",()=>pages(`/predictions/?date_from=${f}&date_to=${t}&limit=200`,40,{soft:true})));
         E2.push(...await safe("uji mundur laga",()=>pages(`/events/?status=finished&date_from=${f}&date_to=${t}&limit=200`,60,{soft:true})));
       }
-      const ent=backtestEntries(P2,E2,leagues);
+      const ent=backtestEntries(P2,E2,leagues);btEnt=ent;btE=E2;
       if(ent.length>=50){writeFileSync(dir+"bsd-backtest.json",JSON.stringify(backtestSummary(ent,now,BTD)));deep.backtest=ent.length}
       else if(prev)writeFileSync(dir+"bsd-backtest.json",JSON.stringify(prev));
     }else if(prev)writeFileSync(dir+"bsd-backtest.json",JSON.stringify(prev));
   }
+  // V15: Model BL — lihat model.mjs. Riwayat hasil (results.json) dan line-up resmi (starters.json) disimpan di situs dan diperbarui sedikit demi sedikit.
+  if(process.env.BL!=="0"&&!fatal){
+    const RD=Number(process.env.BL_DAYS??365),CH=Number(process.env.BL_BACKFILL_WEEKS??26);
+    let res=await pullS("results.json"),st=await pullS("starters.json");res=res&&res.rows?res:{rows:[],from:null};st=st&&st.t?st:{t:{}};
+    const row=e=>e&&String(e.status).toLowerCase()==="finished"&&num(e.home_score)!=null&&num(e.away_score)!=null&&e.home_team_id!=null&&e.away_team_id!=null?
+      [e.id,Math.round(Date.parse(e.event_date)/1000),e.league_id,e.home_team_id,e.away_team_id,num(e.home_score),num(e.away_score),e.is_neutral_ground?1:0]:null;
+    const R=new Map(res.rows.map(r=>[r[0],r]));let added=0;const put=e=>{const r=row(e);if(r&&!R.has(r[0])){R.set(r[0],r);added++}else if(r)R.set(r[0],r)};
+    for(const e of btE)put(e);for(const e of events)put(e);
+    let from=res.from?Date.parse(res.from):(btE.length?now-90*DAY:now);
+    if(needModel&&DEEP&&!LIGHT&&!overDeadline()){
+      if(!btE.length)for(let k=10;k>0&&!fatal&&!overDeadline();k-=7){const f=wday(now-k*DAY),t=wday(now-Math.max(1,k-6)*DAY);for(const e of await safe("model laga terbaru",()=>pages(`/events/?status=finished&date_from=${f}&date_to=${t}&limit=200`,60,{soft:true})))put(e)}
+      for(let w=0;w<CH&&from>now-RD*DAY&&!fatal&&!overDeadline();w++){const t=from-DAY,f=t-6*DAY;
+        const got=await safe("model riwayat",()=>pages(`/events/?status=finished&date_from=${wday(f)}&date_to=${wday(t)}&limit=200`,60,{soft:true}));for(const e of got)put(e);from=f}
+    }
+    const rows=[...R.values()].filter(r=>r[1]*1000>now-(RD+35)*DAY).sort((a,b)=>a[1]-b[1]);
+    writeFileSync(dir+"results.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),from:new Date(from).toISOString(),rows}));
+    // line-up resmi: dari Match Center run ini (laga live/selesai) + isi mundur untuk tim yang akan bermain dalam 48 jam
+    const xiOf=(lu,side)=>{const L=lu&&lu.lineups&&lu.lineups[side];return L&&Array.isArray(L.players)&&L.players.length>=11?L.players.map(p=>p.id).filter(x=>x!=null):null};
+    const rec=(team,t,ids)=>{if(team==null||!ids)return;const a=st.t[team]=st.t[team]||[];if(!a.some(x=>x[0]===t)){a.push([t,ids]);a.sort((x,y)=>x[0]-y[0]);if(a.length>10)a.splice(0,a.length-10)}};
+    for(const m of every){if(!m.dx||m.status==="NS")continue;let o=null;try{o=JSON.parse(readFileSync(dir+"m/"+m.eid+".json","utf8"))}catch(e){}
+      const lu=o&&o.lineups;if(lu&&lu.lineup_status==="confirmed"){const t=Math.round(Date.parse(m.utc)/1000);rec(m.hid,t,xiOf(lu,"home"));rec(m.aid,t,xiOf(lu,"away"))}}
+    if(DEEP&&!LIGHT&&!overDeadline()){
+      const soon=every.filter(m=>m.status==="NS"&&Date.parse(m.utc)-now<48*36e5&&Date.parse(m.utc)>now),need=new Set();
+      for(const m of soon)for(const id of [m.hid,m.aid])if(id!=null&&(st.t[id]||[]).length<4)need.add(id);
+      const last=new Map();for(let k=rows.length-1;k>=0;k--){const r=rows[k];for(const [id,side] of [[r[3],"home"],[r[4],"away"]])if(need.has(id)){const a=last.get(id)||[];if(a.length<5&&!(st.t[id]||[]).some(x=>x[0]===r[1])){a.push([r[0],r[1],side]);last.set(id,a)}}}
+      const jobs=[];for(const [id,a] of last)for(const x of a)jobs.push([id,...x]);const MAXL=Number(process.env.BL_MAX_LINEUPS??150);
+      await pool(jobs.slice(0,MAXL),async([team,ev,t,side])=>{const lu=await get(`${BASE}/events/${ev}/lineups/`,{soft:true});deep.xi=(deep.xi||0)+1;if(lu&&lu.lineup_status==="confirmed")rec(team,t,xiOf(lu,side))});
+    }
+    for(const k of Object.keys(st.t))if(!st.t[k].length||st.t[k][st.t[k].length-1][0]*1000<now-120*DAY)delete st.t[k];
+    writeFileSync(dir+"starters.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),t:st.t}));
+    // latih + uji mundur + bobot gabungan (sekali sehari), atau bawa hasil sebelumnya
+    let MB=prevM;
+    if(needModel&&rows.length>=500&&!overDeadline()){
+      const ms=rows.map(r=>({id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7]}));
+      const span=(now-ms[0].t)/DAY,bfrom=now-Number(process.env.BL_BT_DAYS??90)*DAY;
+      const cfgs=span>=200&&process.env.BL_TUNE!=="0"?[{},{hl:120},{hl:300},{tauT:2},{tauT:8}]:[{}];
+      let best=null;for(const c of cfgs){if(overDeadline())break;const rb=rollingBacktest(ms,bfrom,now,c);const sc=score(rb);if(sc&&(!best||sc.ll<best.sc.ll))best={c,rb,sc}}
+      const bsdP=new Map((btEnt||[]).map(e=>[e.id,e.p]));
+      const J=best?best.rb.filter(r=>bsdP.has(r.id)).map(r=>({...r,b:bsdP.get(r.id)})):[];
+      const half=J.length?J.map(r=>r.t).sort((a,b)=>a-b)[J.length>>1]:0,J1=J.filter(r=>r.t<half),J2=J.filter(r=>r.t>=half);
+      const w1=bestBlend(J1,"b","p"),wa=bestBlend(J,"b","p");   // w = bobot BSD
+      const mixS=(R,w)=>score(R.map(r=>({o:r.o,q:r.b.map((x,i)=>w*x+(1-w)*r.p[i])})),"q");
+      const hold=w1&&J2.length?{w:w1.w,bsd:score(J2,"b"),model:score(J2,"p"),blend:mixS(J2,w1.w)}:null;
+      const useful=!!(hold&&wa&&hold.blend.ll<hold.bsd.ll-.002&&wa.w<.95&&J.length>=300);
+      const cal=best?[[0,40],[40,50],[50,60],[60,70],[70,101]].map(([lo,hi])=>{const b=best.rb.filter(r=>{const m=Math.max(...r.p);return m>=lo&&m<hi});let s=0,h=0;for(const r of b){const m=Math.max(...r.p);s+=m;if(r.p.indexOf(m)===r.o)h++}return{lo,hi,n:b.length,avg:b.length?s/b.length:null,hit:b.length?h/b.length*100:null}}):[];
+      const M=fitModel(ms,now,best?best.c:{});addTimes(M,every.filter(m=>m.hid!=null&&m.aid!=null).map(m=>({h:m.hid,a:m.aid,t:Date.parse(m.utc)})));
+      const pred={};for(const m of every){if(m.status!=="NS"||m.hid==null||m.aid==null||m.lid==null)continue;const a=M.team.get(m.hid),b=M.team.get(m.aid);if(!a||!b||a.n<4||b.n<4)continue;
+        const q=predictModel(M,{h:m.hid,a:m.aid,l:m.lid,n:EV.get(m.eid)&&EV.get(m.eid).is_neutral_ground?1:0,t:Date.parse(m.utc)});pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,n:q.n}}
+      MB={updated:new Date(now).toISOString(),partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
+        bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
+        useful,w:wa?wa.w:1,core:CORE,pred};
+      deep.model=Object.keys(pred).length;
+    }
+    if(MB){writeFileSync(dir+"model-bl.json",JSON.stringify(MB));
+      // tempel ke laga (tiap run): laju gol dasar + koreksi pemain inti yang tidak main
+      for(const m of every){const q=MB.pred&&MB.pred[m.eid];if(!q||m.status!=="NS")continue;
+        let o=null;if(m.dx){try{o=JSON.parse(readFileSync(dir+"m/"+m.eid+".json","utf8"))}catch(e){}}
+        const lu=o&&o.lineups,conf=lu&&lu.lineup_status==="confirmed",ab=absIds(lu);
+        const kh=missingCore(regulars(st.t[m.hid]),conf?xiOf(lu,"home"):null,ab.h),ka=missingCore(regulars(st.t[m.aid]),conf?xiOf(lu,"away"):null,ab.a);
+        const [lh,la]=adjustL(q.x[0],q.x[1],kh,ka),pr=probs(lh,la,MB.cfg&&MB.cfg.rho);
+        m.bl={h:r1(pr.p[0]),d:r1(pr.p[1]),a:r1(pr.p[2]),ou:r1(pr.ou),bt:r1(pr.bt),xg:[r2(lh),r2(la)],ms:pr.ms,r:q.r,k:[kh,ka],src:conf?"xi":"abs"};
+        if(MB.useful&&m.p&&!m.np&&m.p.h!=null){const w=MB.w,g=[m.p.h,m.p.d,m.p.a].map((x,i)=>w*x+(1-w)*pr.p[i]),t=g[0]+g[1]+g[2];m.bg={h:r1(g[0]/t*100),d:r1(g[1]/t*100),a:r1(g[2]/t*100),w}}}
+    }
+  }
+  const T={2:matches.filter(x=>x.tier===2).length,3:0,4:0};
+  // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
+  let hist=[];{const site=siteBase();if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
+    else if(site){try{const r=await tfetch(site+"bsd-history.json?t="+now);if(r.ok)hist=await r.json()}catch(e){}}}
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist)}))}
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,
     heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,ghost,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};

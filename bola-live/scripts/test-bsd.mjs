@@ -261,6 +261,64 @@ sc("Highlightly: liga tambahan ikut tampil, Indonesia diprioritaskan, musim tahu
     return all.matches.length+" laga, "+hits.length+" permintaan saat kuota dihemat";
   }finally{H.close()}
 });
+// V15: Model BL ujung ke ujung — setahun laga simulasi lewat server BSD tiruan: unduh riwayat (bertahap), latih, uji mundur,
+// pilih bobot gabungan, tempel ke laga, catat line-up resmi, dan koreksi pemain inti absen.
+sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain inti",async()=>{
+  let seed=11;const rnd=()=>{seed=(seed*1103515245+12345)%2147483648;return seed/2147483648};
+  const gs=()=>{let u=0;while(!u)u=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rnd())};
+  const pz=l=>{let L=Math.exp(-l),k=0,q=1;do{k++;q*=rnd()}while(q>L);return k-1};
+  const NOW=Date.parse("2026-11-20T02:00:00Z"),DAYm=864e5,T=[];for(const l of [1,2])for(let i=0;i<14;i++)T.push({id:l*1000+i,l,a:gs()*.3,d:gs()*.3});
+  const E=[],P=[];let id=1;const PO=l=>{const a=[Math.exp(-l)];for(let i=1;i<=10;i++)a.push(a[i-1]*l/i);return a};
+  for(let d=380;d>-3;d-=3.5)for(const l of [1,2]){const X=T.filter(t=>t.l===l).sort(()=>rnd()-.5);for(let i=0;i<X.length;i+=2){const h=X[i],a=X[i+1],t=NOW-d*DAYm+rnd()*36e5*6;
+    const lh=Math.exp(.15+.25+h.a-a.d),la=Math.exp(.15+a.a-h.d),fin=t<NOW-3*36e5;const e={id:id++,league_id:l,league_name:"L"+l,season_id:1,home_team_id:h.id,home_team:"T"+h.id,away_team_id:a.id,away_team:"T"+a.id,
+      event_date:new Date(t).toISOString(),status:fin?"finished":"notstarted",home_score:fin?pz(lh):null,away_score:fin?pz(la):null,is_neutral_ground:false};E.push(e);
+    const ph=PO(lh),pa=PO(la),q=[0,0,0];for(let x=0;x<=10;x++)for(let y=0;y<=10;y++)q[x>y?0:x===y?1:2]+=ph[x]*pa[y];const nz=q.map(v=>Math.max(.01,v*Math.exp(gs()*.35))),s=nz[0]+nz[1]+nz[2];
+    P.push({event:{id:e.id},markets:{match_result:{prob_home:nz[0]/s*100,prob_draw:nz[1]/s*100,prob_away:nz[2]/s*100,predicted:nz[0]>=nz[2]?"H":"A"},over_under:{prob_over_25:50},btts:{prob_yes:50}}})}}
+  const up=E.filter(e=>e.status==="notstarted");const U=up[0];
+  const hits=[],base=()=>"http://127.0.0.1:"+H.address().port+"/api/v2";
+  const H=http.createServer((q,r)=>{const u=new URL(q.url,"http://x"),send=o=>{r.writeHead(200,{"content-type":"application/json"});r.end(JSON.stringify(o))};hits.push(u.pathname+u.search);
+    const f=u.searchParams.get("date_from"),t=u.searchParams.get("date_to"),inR=e=>{const d=new Date(Date.parse(e.event_date)+8*36e5).toISOString().slice(0,10);return(!f||d>=f)&&(!t||d<=t)};
+    const pg=(L,path)=>{const off=+(u.searchParams.get("offset")||0),lim=+(u.searchParams.get("limit")||200),sl=L.slice(off,off+lim);const nx=off+lim<L.length?base()+path+"?"+(()=>{const s2=new URLSearchParams(u.search);s2.set("offset",off+lim);return s2})():null;return send({count:L.length,next:nx,results:sl})};
+    if(u.pathname==="/api/v2/events/"){let L=E.filter(inR);if(u.searchParams.get("status")==="finished")L=L.filter(e=>e.status==="finished");return pg(L,"/events/")}
+    if(u.pathname==="/api/v2/predictions/")return pg(P.filter(p=>inR(E[p.event.id-1])),"/predictions/");
+    if(u.pathname==="/api/v2/leagues/")return send({count:2,next:null,results:[{id:1,name:"L1",country:{name:"A"}},{id:2,name:"L2",country:{name:"B"}}]});
+    let mm;if((mm=u.pathname.match(/^\/api\/v2\/events\/(\d+)\/lineups\/$/))){const e=E[+mm[1]-1],xi=tid=>({team_id:tid,players:Array.from({length:11},(_,k)=>({id:tid*100+k})),substitutes:[]});
+      if(e.status==="finished")return send({event_id:e.id,lineup_status:"confirmed",lineups:{home:xi(e.home_team_id),away:xi(e.away_team_id)},unavailable_players:{home:[],away:[]}});
+      return send({event_id:e.id,lineup_status:"predicted",lineups:{home:xi(e.home_team_id),away:xi(e.away_team_id)},unavailable_players:{home:e.id===U.id?[0,1,2].map(k=>({id:e.home_team_id*100+k,short_name:"P"+k,status:"injured"})):[],away:[]}})}
+    if(/^\/api\/v2\/events\/\d+\/\w/.test(u.pathname)||/^\/api\/v2\/(teams|leagues)\//.test(u.pathname)||u.pathname.startsWith("/api/v2/odds/"))return send({});
+    r.writeHead(404);r.end("{}")});
+  await new Promise(z=>H.listen(0,"127.0.0.1",z));
+  const st=mkdtempSync(join(tmpdir(),"bls-"));
+  const go=()=>new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",GAP_MS:"0",RETRY_MS:"0",
+    BSD_NOW:new Date(NOW).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json"),BL_BACKFILL_WEEKS:"30",BSD_PIN:"0",BSD_CONCURRENCY:"4"}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
+  const cp=(o,f)=>{try{writeFileSync(join(st,f),readFileSync(join(o,f)))}catch(e){}};
+  try{
+    // run 1: riwayat baru sebagian (90 hari + 30 minggu) -> model ditandai "partial"
+    const r1=await go();assert.equal(r1.c,0,r1.e);for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json"])cp(r1.out,f);
+    const res1=JSON.parse(readFileSync(join(r1.out,"results.json"),"utf8"));assert(res1.rows.length>900,"riwayat: "+res1.rows.length);
+    const m1=JSON.parse(readFileSync(join(r1.out,"model-bl.json"),"utf8"));assert.equal(m1.partial,true);
+    // run 2: lanjut isi mundur sampai setahun -> model lengkap
+    const r2=await go();assert.equal(r2.c,0,r2.e);
+    const res2=JSON.parse(readFileSync(join(r2.out,"results.json"),"utf8")),M=JSON.parse(readFileSync(join(r2.out,"model-bl.json"),"utf8"));
+    assert(res2.rows.length>res1.rows.length,"isi mundur berlanjut");assert.equal(M.partial,false,"span "+M.span);
+    assert(M.bt&&M.bt.joined>=150,"uji mundur tergabung dengan BSD: "+(M.bt&&M.bt.joined));
+    assert(M.bt.modelJ.ll<1.1&&M.bt.bsd.ll<1.1,"log loss wajar");assert(M.hfa>.1&&M.hfa<.45,"keunggulan kandang "+M.hfa);
+    assert(M.bt.holdout&&M.bt.holdout.blend.ll<=M.bt.holdout.bsd.ll+.01,"gabungan tidak lebih buruk dari BSD");
+    const all=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")),mU=all.matches.find(x=>x.eid===U.id);
+    assert(mU&&mU.bl&&Math.abs(mU.bl.h+mU.bl.d+mU.bl.a-100)<.5,"prediksi Model BL di laga");
+    const S=JSON.parse(readFileSync(join(r2.out,"starters.json"),"utf8"));assert((S.t[U.home_team_id]||[]).length>=3,"line-up resmi tercatat");
+    assert.equal(mU.bl.k[0],3,"3 pemain inti tuan rumah absen: "+JSON.stringify(mU.bl));assert.equal(mU.bl.k[1],0);
+    const q=M.pred[U.id];assert(mU.bl.xg[0]<q.x[0]&&mU.bl.xg[1]>q.x[1],"koreksi menurunkan serangan tuan rumah");
+    if(M.useful)assert(mU.bg&&Math.abs(mU.bg.h+mU.bg.d+mU.bg.a-100)<.5);else assert(!mU.bg);
+    const h2=JSON.parse(readFileSync(join(r2.out,"bsd-history.json"),"utf8")).find(e=>e.id===U.id);assert(h2&&h2.bl,"riwayat menyimpan prediksi Model BL");
+    // run 3 (ringan): model dibawa, tidak dilatih ulang, prediksi tetap menempel
+    for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json"])cp(r2.out,f);hits.length=0;
+    const r3=await new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",BSD_MODE:"light",GAP_MS:"0",RETRY_MS:"0",BSD_NOW:new Date(NOW+36e5).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json")}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
+    assert.equal(r3.c,0,r3.e);assert(!hits.some(h=>/status=finished/.test(h)),"run ringan tidak mengunduh riwayat");
+    const a3=JSON.parse(readFileSync(join(r3.out,"all.json"),"utf8"));assert(a3.matches.find(x=>x.eid===U.id).bl,"prediksi dibawa di run ringan");
+    return `${res2.rows.length} laga, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
+  }finally{H.close()}
+});
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}
 srv.close();console.log(bad?`\n${bad} GAGAL`:"\ntest-bsd ok");process.exit(bad?1:0);

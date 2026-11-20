@@ -7,7 +7,7 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {tfetch,cleanKey,outDir,siteBase,ghWarn,sleep} from "./net.mjs";
 import {fit,predictM,level,r1} from "./lib.mjs";
-import {updateHistory,evalHistory,evalMove,evalRisk} from "./bsd.mjs";
+import {updateHistory,evalHistory,evalMove,evalRisk,evalBL} from "./bsd.mjs";
 
 // V14.1 (20 Nov 2026): + 2 liga yang tidak ada di BSD (dicek di paket gratis: laga, prediksi, klasemen tersedia).
 // Liga tambahan (extra) memakai sisa kuota: disegarkan lebih jarang dan berhenti bila pemakaian hari ini sudah >= HL_EXTRA_CAP,
@@ -173,7 +173,7 @@ async function main(){
   mi.ids=(mi.ids||[]).filter(i=>!String(i).startsWith("hl")).concat(out.filter(m=>m.dx).map(m=>m.eid));writeFileSync(dir+"m/index.json",JSON.stringify(mi));
   // evaluasi: catat juga prediksi liga Indonesia
   try{let hist=[];try{hist=JSON.parse(readFileSync(dir+"bsd-history.json","utf8"))}catch(e){}
-    hist=updateHistory(hist,out,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist)}))}catch(e){errors.push("evaluasi: "+e.message)}
+    hist=updateHistory(hist,out,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist)}))}catch(e){errors.push("evaluasi: "+e.message)}
   // simpan status (tanpa data mentah yang besar)
   writeFileSync(dir+"hl.json",JSON.stringify(S));
   if(errors.length)ghWarn("highlightly: "+errors.join(" ; "));
