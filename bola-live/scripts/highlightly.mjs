@@ -7,7 +7,7 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {tfetch,cleanKey,outDir,siteBase,ghWarn,sleep} from "./net.mjs";
 import {fit,predictM,level,r1} from "./lib.mjs";
-import {updateHistory,evalHistory} from "./bsd.mjs";
+import {updateHistory,evalHistory,evalMove} from "./bsd.mjs";
 
 export const HL_LEAGUES=[{id:233958,name:"Liga 1 Indonesia",short:"Liga 1"},{id:234809,name:"Liga 2 Indonesia",short:"Liga 2",noTable:true}];
 const H=36e5,DAY=864e5,WITA=8*H;
@@ -162,7 +162,7 @@ async function main(){
   mi.ids=(mi.ids||[]).filter(i=>!String(i).startsWith("hl")).concat(out.filter(m=>m.dx).map(m=>m.eid));writeFileSync(dir+"m/index.json",JSON.stringify(mi));
   // evaluasi: catat juga prediksi liga Indonesia
   try{let hist=[];try{hist=JSON.parse(readFileSync(dir+"bsd-history.json","utf8"))}catch(e){}
-    hist=updateHistory(hist,out,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist)}))}catch(e){errors.push("evaluasi: "+e.message)}
+    hist=updateHistory(hist,out,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist)}))}catch(e){errors.push("evaluasi: "+e.message)}
   // simpan status (tanpa data mentah yang besar)
   writeFileSync(dir+"hl.json",JSON.stringify(S));
   if(errors.length)ghWarn("highlightly: "+errors.join(" ; "));
