@@ -285,6 +285,10 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     let mm;if((mm=u.pathname.match(/^\/api\/v2\/events\/(\d+)\/lineups\/$/))){const e=E[+mm[1]-1],xi=tid=>({team_id:tid,players:Array.from({length:11},(_,k)=>({id:tid*100+k})),substitutes:[]});
       if(e.status==="finished")return send({event_id:e.id,lineup_status:"confirmed",lineups:{home:xi(e.home_team_id),away:xi(e.away_team_id)},unavailable_players:{home:[],away:[]}});
       return send({event_id:e.id,lineup_status:"predicted",lineups:{home:xi(e.home_team_id),away:xi(e.away_team_id)},unavailable_players:{home:e.id===U.id?[0,1,2].map(k=>({id:e.home_team_id*100+k,short_name:"P"+k,status:"injured"})):[],away:[]}})}
+    if((mm=u.pathname.match(/^\/api\/v2\/events\/(\d+)\/player-stats\/$/))){const e=E[+mm[1]-1];if(e.status!=="finished")return send({event_id:e.id,count:0,player_stats:[]});
+      const pr=tid=>Array.from({length:14},(_,k)=>({player_id:tid*100+k,team_id:tid,minutes_played:k<11?90:k===11?20:0,rating:k<12?6.5+(k%3)*.4:null,goals:k===9&&e.id%3===0?1:0,goal_assist:0,expected_goals:k>=8&&k<11?.3:0,expected_assists:.1,key_pass:1,big_chance_created:0,goals_prevented:k===0?.2:null,saves:k===0?3:0}));
+      return send({event_id:e.id,count:28,player_stats:pr(e.home_team_id).concat(pr(e.away_team_id))})}
+    if((mm=u.pathname.match(/^\/api\/v2\/players\/(\d+)\/$/))){const pid=+mm[1];return send({id:pid,short_name:"P"+pid,position:pid%100===0?"G":pid%100<5?"D":pid%100<8?"M":"F",market_value_eur:(pid%100<11?1e6:2e5)*(1+(Math.floor(pid/100)%5))})}
     if((mm=u.pathname.match(/^\/api\/v2\/events\/(\d+)\/stats\/$/))){const e=E[+mm[1]-1];if(e.status!=="finished"||e.id%7===0)return send({event_id:e.id,stats:null});
       return send({event_id:e.id,xg_estimated:false,stats:{home:{expected_goals:Math.round((e.home_score*.6+1.4*.4+gs()*.2)*100)/100},away:{expected_goals:Math.round((e.away_score*.6+1.1*.4+gs()*.2)*100)/100}}})}
     if(/^\/api\/v2\/events\/\d+\/\w/.test(u.pathname)||/^\/api\/v2\/(teams|leagues)\//.test(u.pathname)||u.pathname.startsWith("/api/v2/odds/"))return send({});
@@ -296,7 +300,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
   const cp=(o,f)=>{try{writeFileSync(join(st,f),readFileSync(join(o,f)))}catch(e){}};
   try{
     // run 1: riwayat baru sebagian (90 hari + 30 minggu) -> model ditandai "partial"
-    const r1=await go();assert.equal(r1.c,0,r1.e);for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json"])cp(r1.out,f);
+    const r1=await go();assert.equal(r1.c,0,r1.e);for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json"])cp(r1.out,f);
     const res1=JSON.parse(readFileSync(join(r1.out,"results.json"),"utf8"));assert(res1.rows.length>900,"riwayat: "+res1.rows.length);
     const m1=JSON.parse(readFileSync(join(r1.out,"model-bl.json"),"utf8"));assert.equal(m1.partial,true);
     // run 2: lanjut isi mundur sampai setahun -> model lengkap
@@ -321,15 +325,54 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     assert.equal(mU.bl.k[0],3,"3 pemain inti tuan rumah absen: "+JSON.stringify(mU.bl));assert.equal(mU.bl.k[1],0);
     const q=M.pred[U.id];assert(mU.bl.xg[0]<q.x[0]&&mU.bl.xg[1]>q.x[1],"koreksi menurunkan serangan tuan rumah");
     if(M.useful)assert(mU.bg&&Math.abs(mU.bg.h+mU.bg.d+mU.bg.a-100)<.5);else assert(!mU.bg);
+    // Tahap 1: data pemain, nilai pasar, ringkasan tim, uji klasemen
+    const PJ=JSON.parse(readFileSync(join(r2.out,"players.json"),"utf8")).t,VJ=JSON.parse(readFileSync(join(r2.out,"values.json"),"utf8")).p;
+    assert(PJ[U.home_team_id]&&PJ[U.home_team_id].ev.length>=3,"statistik pemain tim yang akan main terkumpul");
+    const vv=Object.values(VJ).filter(v=>v[0]!=null);assert(vv.length>=50,"nilai pasar terkumpul: "+vv.length);assert(vv.some(v=>v[1]==="G"));
+    const TJ=JSON.parse(readFileSync(join(r2.out,"teams.json"),"utf8")).t,tu=TJ[U.home_team_id];assert(tu&&tu.sr>=1&&tu.sr<=14,"peringkat kekuatan");
+    assert(tu.luck&&tu.luck.n>0,"keberuntungan musim ini");assert(tu.ps&&tu.ps.key.length===5&&tu.ps.key[0][1],"pemain kunci + nama");
+    assert(M.bt&&M.tbl&&M.tbl.g5&&M.tbl.g5.semua.n>0,"uji klasemen menipu berjalan: "+JSON.stringify(M.tbl&&M.tbl.g5));
     const h2=JSON.parse(readFileSync(join(r2.out,"bsd-history.json"),"utf8")).find(e=>e.id===U.id);assert(h2&&h2.bl,"riwayat menyimpan prediksi Model BL");
     // run 3 (ringan): model dibawa, tidak dilatih ulang, prediksi tetap menempel
-    for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json"])cp(r2.out,f);hits.length=0;
+    for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json"])cp(r2.out,f);hits.length=0;
     const r3=await new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",BSD_MODE:"light",GAP_MS:"0",RETRY_MS:"0",BSD_NOW:new Date(NOW+36e5).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json")}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
-    assert.equal(r3.c,0,r3.e);assert(!hits.some(h=>/status=finished|\/stats\//.test(h)),"run ringan tidak mengunduh riwayat / xG");
+    assert.equal(r3.c,0,r3.e);assert(!hits.some(h=>/status=finished|\/stats\/|player-stats|\/players\//.test(h)),"run ringan tidak mengunduh riwayat / xG / data pemain");
+    for(const f of ["players.json","values.json","teams.json"])assert(existsSync(join(r3.out,f)),"run ringan membawa "+f);
     const a3=JSON.parse(readFileSync(join(r3.out,"all.json"),"utf8"));assert(a3.matches.find(x=>x.eid===U.id).bl,"prediksi dibawa di run ringan");
     const M3=JSON.parse(readFileSync(join(r3.out,"model-bl.json"),"utf8"));assert.equal(M3.updated,M.updated,"run ringan tidak melatih ulang");assert(M.temp>=.8&&M.temp<=1.4,"suhu kalibrasi "+M.temp);
     return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
   }finally{H.close()}
+});
+// V16 (Tahap 1): ringkasan statistik pemain, klasemen saat kickoff, uji klasemen menipu
+sc("Tahap 1: data pemain, klasemen saat kickoff, uji klasemen menipu",async()=>{
+  const {ingest,compact,teamSummary,valueOf,C}=await import("./players.mjs"),{tablesAt,tableTest,seasonKeys}=await import("./model.mjs");
+  const P={t:{}},row=(pid,team,min,rt,g=0,a=0)=>({player_id:pid,team_id:team,minutes_played:min,rating:rt,goals:g,goal_assist:a,expected_goals:null,expected_assists:null,key_pass:1,big_chance_created:0,goals_prevented:null,saves:0});
+  const D=864e5,t0=Date.parse("2026-10-01T12:00:00Z");
+  // tim 1: pemain 10 main penuh tiap laga, pemain 11 hanya 2 laga terakhir, pemain 12 cadangan tak dipakai (0 menit)
+  for(let k=0;k<5;k++)ingest(P,100+k,t0+k*7*D,[row(10,1,90,7.5,k%2),row(11,1,k>=3?90:0,6.5),row(12,1,0,null),row(20,2,90,6.8)]);
+  assert.equal(ingest(P,104,t0+4*7*D,[row(10,1,90,7.5)]),0,"laga yang sama tidak dihitung dua kali");
+  const T=P.t[1];assert.equal(T.ev.length,5);assert(!T.p[12],"pemain 0 menit tidak dicatat");
+  assert(Math.abs(T.p[10][C.min]/T.mt-1)<1e-9,"porsi menit pemain inti = 100%");assert(T.p[11][C.min]/T.mt<.5&&T.p[11][C.min]/T.mt>.3,"pemain baru: porsi naik dari laga terbaru");
+  // laga lama yang baru diambil belakangan diberi bobot kecil, bobot laga terbaru tidak turun
+  const before=T.mt;ingest(P,99,t0-7*D,[row(10,1,90,7.5)]);assert(T.mt>before&&T.mt-before<90*.6,"laga lama berbobot kecil");
+  const S=teamSummary(T,{10:[2e6,"F",0,"A. Star"],11:[5e5,"M",0,"B. Muda"]});assert.equal(S.players[0].pid,10);assert.equal(S.players[0].nm,"A. Star");assert(S.squad===25e5,"nilai skuad pemain reguler");
+  assert(Math.abs(S.avgRt-((7.5*1+6.5*(T.p[11][C.min]/T.mt))/(1+T.p[11][C.min]/T.mt)))<1e-6);
+  compact(P,t0+30*D);assert(P.t[1]);compact(P,t0+400*D);assert(!P.t[1],"tim lama dibuang");
+  assert.deepEqual(valueOf({id:5,market_value_eur:640000,position:"F",short_name:"B. B"},1e12),[640000,"F",1e9,"B. B"]);assert.equal(valueOf(null,1),null);
+  // klasemen: liga 4 tim, musim dipisah oleh libur panjang; peringkat dihitung SEBELUM laga
+  const ms=[];let id=1;const add=(t,h,a,gh,ga,se)=>ms.push({id:id++,t,l:7,h,a,gh,ga,se});
+  add(t0,1,2,3,0);add(t0,3,4,1,1);add(t0+7*D,1,3,2,0);add(t0+7*D,2,4,0,1);add(t0+14*D,4,1,0,0);
+  add(t0+120*D,1,2,0,1);                                   // musim baru (libur > 40 hari) -> klasemen kosong lagi
+  const tab=tablesAt(ms);assert.deepEqual(tab.get(1).h,[null,0,0],"laga pertama: belum ada klasemen");
+  assert.deepEqual(tab.get(3).h,[1,1,3],"tim 1 memimpin setelah laga 1");assert.deepEqual(tab.get(5).a,[1,2,6],"tim 1: 2 laga, 6 poin, peringkat 1");
+  assert.deepEqual(tab.get(6).h,[null,0,0],"musim baru mulai dari nol");const sk=seasonKeys(ms);assert.notEqual(sk.get(1),sk.get(6));
+  // uji: klasemen unggulkan tuan rumah, kekuatan asli unggulkan tamu; tuan rumah jarang menang padahal BSD memberi 55%
+  const rows=[],tb=new Map();for(let k=0;k<200;k++){rows.push({id:k,o:k%4===0?0:2,p:[30,25,45],b:[55,25,20],sr:[9,2,18]});tb.set(k,{h:[2,10,25],a:[12,10,10],n:18})}
+  for(let k=200;k<300;k++){rows.push({id:k,o:0,p:[60,25,15],b:[60,25,15],sr:[1,10,18]});tb.set(k,{h:[1,10,25],a:[10,10,10],n:18})}
+  const R=tableTest(rows,tb,{gap:5});assert.equal(R.beda.n,200);assert.equal(R.beda.win,25);assert(Math.abs(R.beda.bsd-55)<1e-9);assert(Math.abs(R.beda.gapBsd+30)<1e-9,"BSD terlalu tinggi 30 poin");
+  assert.equal(R.sama.n,100);assert.equal(R.semua.n,300);
+  const R2=tableTest(rows.map(r=>({...r})),new Map([...tb].map(([k,v])=>[k,{...v,h:[v.h[0],3,v.h[2]]}])),{gap:5,minN:6});assert.equal(R2.semua.n,0,"tim yang baru main < 6 laga tidak dihitung");
+  return "beda unggulan: menang "+R.beda.win+"% vs BSD "+R.beda.bsd+"%";
 });
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}

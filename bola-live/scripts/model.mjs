@@ -96,7 +96,9 @@ export function rollingBacktest(ms,from,to,o={},stepD=7){
   const P={...DEF,...o},out=[];
   for(let t=from;t<to;t+=stepD*DAY){const M=fitModel(ms,t,P);
     for(const m of ms){if(m.t<t||m.t>=Math.min(to,t+stepD*DAY))continue;const a=M.team.get(m.h),b=M.team.get(m.a);if(!a||!b||a.n<P.minGames||b.n<P.minGames)continue;
-      const q=predictModel(M,m);out.push({id:m.id,t:m.t,l:m.l,o:m.gh>m.ga?0:m.gh===m.ga?1:2,p:q.p,ou:q.ou,bt:q.bt,g:m.gh+m.ga,b2:m.gh>0&&m.ga>0})}}
+      const q=predictModel(M,m),R=o.ranks?strengthRanks(M,m.l):null;
+      out.push({id:m.id,t:m.t,l:m.l,h:m.h,a:m.a,o:m.gh>m.ga?0:m.gh===m.ga?1:2,p:q.p,ou:q.ou,bt:q.bt,g:m.gh+m.ga,b2:m.gh>0&&m.ga>0,
+        sr:R?[R.get(m.h)??null,R.get(m.a)??null,R.size]:null})}}
   return out;
 }
 
@@ -132,3 +134,45 @@ export function adjustL(lh,la,kh,ka){kh=kh||0;ka=ka||0;return[lh*Math.exp(-CORE.
 // Kalibrasi suhu: p_i^(1/T) dinormalkan. T > 1 = kurangi keyakinan, T < 1 = tambah. T dipilih dari uji mundur (log loss).
 export function temper(p,T){if(!T||T===1)return p;const q=p.map(x=>Math.pow(Math.max(x,1e-6),1/T)),s=q[0]+q[1]+q[2];return q.map(x=>x/s*100)}
 export function bestTemp(rows){let b=null;for(let T=.8;T<=1.401;T+=.025){const s=score(rows.map(r=>({o:r.o,q:temper(r.p,T)})),"q");if(s&&(!b||s.ll<b.ll-1e-12))b={T:Math.round(T*1000)/1000,ll:s.ll}}return b?b.T:1}
+
+// Peringkat kekuatan asli (serang + tahan, sudah dikoreksi kekuatan lawan) di antara tim yang liga rumahnya = liga ini. 1 = terkuat.
+const RK=new WeakMap();
+export function strengthRanks(M,l){let c=RK.get(M);if(!c){c=new Map();RK.set(M,c)}if(c.has(l))return c.get(l);
+  const L=M.lg.get(l)||{A:0,D:0},T=[];for(const [id,t] of M.team)if(t.lg===l&&t.n>=4)T.push([id,L.A+t.a+L.D+t.d]);
+  T.sort((x,y)=>y[1]-x[1]);const R=new Map(T.map(([id],i)=>[id,i+1]));c.set(l,R);return R}
+
+// Musim: pakai id musim BSD bila ada; kalau tidak, musim baru dimulai saat liga itu libur > 40 hari.
+export function seasonKeys(ms){const by=new Map();for(const m of ms)(by.get(m.l)||by.set(m.l,[]).get(m.l)).push(m);const key=new Map();
+  for(const [l,L] of by){L.sort((a,b)=>a.t-b.t);let s=0,prev=null;for(const m of L){if(m.se!=null)key.set(m.id,l+":"+m.se);else{if(prev!=null&&m.t-prev>40*864e5)s++;key.set(m.id,l+":g"+s)}prev=m.t}}
+  return key}
+// Klasemen tepat sebelum tiap laga (poin, selisih gol, gol). Mengembalikan Map(id laga -> {h:[peringkat,main,poin], a:[...], n:jumlah tim}).
+export function tablesAt(ms){
+  const sk=seasonKeys(ms),by=new Map();for(const m of ms){const k=sk.get(m.id);(by.get(k)||by.set(k,[]).get(k)).push(m)}
+  const out=new Map();
+  for(const L of by.values()){L.sort((a,b)=>a.t-b.t);const T=new Map(),row=id=>T.get(id)||T.set(id,{p:0,gd:0,gf:0,n:0}).get(id);
+    let i=0;while(i<L.length){let j=i;while(j<L.length&&L[j].t===L[i].t)j++;   // laga di jam yang sama: klasemen sebelum semuanya
+      const order=[...T.entries()].sort((x,y)=>y[1].p-x[1].p||y[1].gd-x[1].gd||y[1].gf-x[1].gf),rk=new Map(order.map(([id],k)=>[id,k+1]));
+      for(let k=i;k<j;k++){const m=L[k],h=T.get(m.h),a=T.get(m.a);out.set(m.id,{h:h?[rk.get(m.h),h.n,h.p]:[null,0,0],a:a?[rk.get(m.a),a.n,a.p]:[null,0,0],n:T.size})}
+      for(let k=i;k<j;k++){const m=L[k],h=row(m.h),a=row(m.a);h.n++;a.n++;h.gf+=m.gh;a.gf+=m.ga;h.gd+=m.gh-m.ga;a.gd+=m.ga-m.gh;if(m.gh>m.ga)h.p+=3;else if(m.gh<m.ga)a.p+=3;else{h.p++;a.p++}}
+      i=j}}
+  return out}
+// Uji "klasemen menipu": laga di mana klasemen mengunggulkan satu tim (selisih peringkat >= gap) tapi kekuatan asli mengunggulkan lawannya.
+// Untuk tim unggulan klasemen: berapa kali benar-benar menang vs peluang menang menurut BSD dan Model BL.
+export function tableTest(rows,tab,o={}){
+  const gap=o.gap??5,minN=o.minN??6,G={beda:[],sama:[],semua:[]};
+  for(const r of rows){const T=tab.get(r.id);if(!T||!r.sr||r.sr[0]==null||r.sr[1]==null||!r.b)continue;const [th,nh]=T.h,[ta,na]=T.a;if(th==null||ta==null||nh<minN||na<minN)continue;
+    const d=ta-th;if(Math.abs(d)<gap)continue;const fav=d>0?0:2;            // 0 = tuan rumah unggulan klasemen, 2 = tamu
+    const rFav=r.sr[0]<r.sr[1]?0:2,x={win:r.o===fav?1:0,bsd:r.b[fav]/100,bl:r.p[fav]/100,gapT:Math.abs(d),gapR:Math.abs(r.sr[0]-r.sr[1])};
+    G.semua.push(x);(rFav===fav?G.sama:G.beda).push(x)}
+  const sum=L=>{if(!L.length)return{n:0};const n=L.length,w=L.reduce((s,x)=>s+x.win,0)/n,b=L.reduce((s,x)=>s+x.bsd,0)/n,m=L.reduce((s,x)=>s+x.bl,0)/n,se=Math.sqrt(Math.max(w*(1-w),.05)/n);
+    return{n,win:w*100,bsd:b*100,bl:m*100,se:se*100,gapBsd:(w-b)*100}};
+  return{gap,minN,beda:sum(G.beda),sama:sum(G.sama),semua:sum(G.semua)};
+}
+// Keberuntungan per tim (musim berjalan): poin vs poin harapan dari xG, gol vs xG.
+export function luckOf(ms,now,days=200){
+  const sk=seasonKeys(ms),cur=new Map();for(const m of ms){const k=sk.get(m.id);const c=cur.get(m.l);if(!c||m.t>c.t)cur.set(m.l,{t:m.t,k})}
+  const T={},pp=(lh,la)=>{const P=l=>{const a=[Math.exp(-l)];for(let i=1;i<=10;i++)a.push(a[i-1]*l/i);return a},a=P(Math.max(lh,.05)),b=P(Math.max(la,.05));let h=0,d=0;for(let i=0;i<=10;i++)for(let j=0;j<=10;j++){const q=a[i]*b[j];if(i>j)h+=q;else if(i===j)d+=q}return[3*h+d,3*(1-h-d)+d]};
+  for(const m of ms){const c=cur.get(m.l);if(!c||sk.get(m.id)!==c.k||m.t<now-days*864e5)continue;
+    for(const [id,gf,ga,xf,xa,side] of [[m.h,m.gh,m.ga,m.xh,m.xa,0],[m.a,m.ga,m.gh,m.xa,m.xh,1]]){const t=T[id]=T[id]||{l:m.l,n:0,pts:0,gf:0,ga:0,xn:0,xgf:0,xga:0,xpts:0,xpN:0};
+      t.n++;t.gf+=gf;t.ga+=ga;t.pts+=gf>ga?3:gf===ga?1:0;if(xf!=null&&xa!=null){t.xn++;t.xgf+=xf;t.xga+=xa;const e=pp(m.xh,m.xa)[side];t.xpts+=e;t.xpN+=gf>ga?3:gf===ga?1:0}}}
+  return T}
