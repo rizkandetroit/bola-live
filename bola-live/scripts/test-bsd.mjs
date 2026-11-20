@@ -6,7 +6,7 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import assert from "node:assert";
-import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup} from "./bsd.mjs";
+import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary} from "./bsd.mjs";
 
 const here=fileURLToPath(new URL(".",import.meta.url));
 const S=JSON.parse(readFileSync(join(here,"fixtures/bsd-sample.json"),"utf8"));
@@ -77,6 +77,26 @@ const g2=buildAll({events:[ev(654421,"notstarted","2026-11-19T16:00:00Z",31,484,
 assert.equal(g2.ghost,1);assert.deepEqual(g2.matches.map(m=>m.eid),[1]);   // basi > 3 jam dibuang, baru lewat 2 jam tetap
 console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
 
+// V13.3: uji mundur dari riwayat BSD
+{const lg=[{id:1,name:"Premier League",country:{name:"England"}},{id:2,name:"Liga 1",country:"Peru"}];
+ const E=[],P=[];let k=0;
+ const add=(lid,st,h,a,ph,pd,pa,ou,bt)=>{k++;E.push({id:k,league_id:lid,status:st,home_score:h,away_score:a,event_date:new Date(Date.UTC(2026,9,1)+k*36e5).toISOString()});
+   P.push({event:{id:k},markets:{match_result:{prob_home:ph,prob_draw:pd,prob_away:pa},over_under:{prob_over_25:ou},btts:{prob_yes:bt}}})};
+ for(let i=0;i<30;i++)add(1,"finished",i%3===2?0:2,i%3===2?1:0,60,25,15,60,40);   // tuan rumah favorit, 20 dari 30 benar
+ for(let i=0;i<10;i++)add(2,"finished",1,1,30,40,30,30,70);                       // seri favorit, semua benar
+ add(1,"notstarted",null,null,50,25,25,50,50);                                     // belum selesai -> dilewati
+ add(1,"finished",1,0,null,25,25,50,50);                                           // prediksi rusak -> dilewati
+ P.push(P[0]);                                                                     // prediksi dobel -> sekali saja
+ const ent=backtestEntries(P,E,lg);
+ assert.equal(ent.length,40);
+ const bs=backtestSummary(ent,Date.parse("2026-11-20T02:00:00Z"),90);
+ assert.equal(bs.n,40);assert.equal(Math.round(bs.acc),75);              // 20 + 10 benar dari 40
+ assert.equal(Math.round(bs.byLeague["Premier League"].acc),67);assert.equal(bs.byLeague["Liga 1"].acc,100);
+ assert.equal(bs.countries["Liga 1"],"Peru");assert.equal(bs.countries["Premier League"],"England");
+ assert.equal(bs.pending,0);assert.equal(bs.days,90);assert(bs.from&&bs.to&&bs.from<bs.to);
+ assert.equal(bs.ou.n,40);assert(bs.calib.reduce((t,b)=>t+b.n,0)===40);
+ console.log("uji mundur ok:",bs.n,"laga, akurasi",bs.acc.toFixed(1)+"%")}
+
 // ---- e2e: bsd.mjs dijalankan sungguhan ke server tiruan ----
 const cfg={mode:"ok",hits:[]};
 const srv=http.createServer((q,s)=>{
@@ -146,6 +166,9 @@ sc("6. mode lengkap (Unlimited): odds terbaik, klasemen + top skor, Match Center
   const live=r.all.matches.find(x=>x.status==="LIVE");assert(live.dx===1,"laga live wajib punya Match Center");
   const d=JSON.parse(readFileSync(r.out+"/m/"+live.eid+".json","utf8"));assert(d.stats&&d.incidents.length===1&&d.commentary.length===1&&d.player_stats.length===1);
   assert(cfg.hits.every(h=>h.auth==="Token k"));
+  // V13.3: uji mundur 90 hari dicoba (13 potongan 7 hari) tanpa galat; data tiruan < 50 laga -> file tidak ditulis
+  const bt=cfg.hits.filter(h=>h.path==="/api/v2/events/"&&h.qs.includes("status=finished"));assert(bt.length>=13,"uji mundur laga: "+bt.length);
+  assert(!existsSync(r.out+"/bsd-backtest.json"));
   return r.all.bsd.details+" Match Center, "+r.all.bsd.leagues+" liga, "+cfg.hits.length+" permintaan"});
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}

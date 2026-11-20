@@ -35,7 +35,7 @@ export function toRecord(e,pred,leagues){
   const lg=(leagues&&leagues.get(e.league_id))||{};
   const name=e.league_name||lg.name||("Liga "+e.league_id);
   const base={
-    id:"b"+e.id,league:name,lgc:IMG+"/league/"+e.league_id+"/",utc:new Date(t).toISOString(),status:st,
+    id:"b"+e.id,league:name,lgc:IMG+"/league/"+e.league_id+"/",lc:(lg.country&&(lg.country.name||lg.country))||undefined,utc:new Date(t).toISOString(),status:st,
     score:st==="NS"?[null,null]:[num(e.home_score),num(e.away_score)],
     home:{name:e.home_team,crest:IMG+"/team/"+e.home_team_id+"/"},
     away:{name:e.away_team,crest:IMG+"/team/"+e.away_team_id+"/"},
@@ -161,6 +161,26 @@ export function evalHistory(hist){
   return{...fin(all),byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
 }
 
+// V13.3: uji mundur dari riwayat BSD (prediksi + hasil laga yang sudah selesai). Dicek 20 Nov 2026: angka prediksi BSD
+// tidak berubah setelah kickoff (cek-bsd-riwayat: AMAN), jadi riwayat 90 hari layak dinilai.
+// Diubah ke bentuk catatan evaluasi biasa supaya bisa dinilai dengan evalHistory yang sama.
+export function backtestEntries(preds,events,leagues){
+  const L=leagues instanceof Map?leagues:new Map((leagues||[]).map(l=>[l.id,l])),E=new Map((events||[]).map(e=>[e.id,e])),out=[],seen=new Set();
+  for(const p of preds||[]){const id=p&&p.event&&p.event.id;if(id==null||seen.has(id))continue;const e=E.get(id);if(!e||String(e.status).toLowerCase()!=="finished")continue;
+    const h=num(e.home_score),a=num(e.away_score);if(h==null||a==null)continue;
+    const mr=(p.markets&&p.markets.match_result)||{},P=[num(mr.prob_home),num(mr.prob_draw),num(mr.prob_away)];if(P.some(x=>x==null)||P[0]+P[1]+P[2]<=0)continue;
+    const s=P[0]+P[1]+P[2],lg=L.get(e.league_id)||{};seen.add(id);
+    out.push({id,u:e.event_date,lg:e.league_name||lg.name||("Liga "+e.league_id),c:lg.country&&(lg.country.name||lg.country)||null,
+      p:P.map(x=>Math.round(x/s*1000)/10),r:[h,a],ou:num((p.markets.over_under||{}).prob_over_25),bt:num((p.markets.btts||{}).prob_yes),o:null,v:null})}
+  return out;
+}
+export function backtestSummary(entries,now,days){
+  const ev=evalHistory(entries),c={};for(const e of entries)if(e.c&&!c[e.lg])c[e.lg]=e.c;
+  const u=entries.map(e=>e.u).sort();
+  return{updated:new Date(now).toISOString(),days,from:u[0]||null,to:u[u.length-1]||null,...ev,pending:0,countries:c,
+    note:"Riwayat prediksi BSD vs hasil asli. Dicek: angka BSD tidak berubah setelah kickoff."};
+}
+
 async function main(){
   const KEY=cleanKey(process.env.BSD_API_KEY);
   if(!KEY){console.log("BSD_API_KEY kosong: langkah BSD dilewati.");return}
@@ -279,6 +299,22 @@ async function main(){
   let hist=[];{const site=siteBase();if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
     else if(site){try{const r=await tfetch(site+"bsd-history.json?t="+now);if(r.ok)hist=await r.json()}catch(e){}}}
   if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist)}))}
+  // V13.3: uji mundur 90 hari -> bsd-backtest.json (heavy, paling sering sekali per ~20 jam; selain itu dibawa dari situs)
+  {const site=siteBase(),BTD=Number(process.env.BSD_BACKTEST_DAYS??90);let prev=null;
+    if(site){try{const r=await tfetch(site+"bsd-backtest.json?t="+now);if(r.ok)prev=await r.json()}catch(e){}}
+    const fresh=prev&&prev.n&&now-Date.parse(prev.updated)<20*36e5;
+    if(process.env.BSD_BACKTEST!=="0"&&DEEP&&!LIGHT&&!fatal&&!fresh&&!overDeadline()){
+      const P2=[],E2=[];
+      for(let k=BTD;k>0&&!fatal&&!overDeadline();k-=7){
+        const f=wday(now-k*DAY),t=wday(now-Math.max(1,k-6)*DAY);
+        P2.push(...await safe("uji mundur prediksi",()=>pages(`/predictions/?date_from=${f}&date_to=${t}&limit=200`,40,{soft:true})));
+        E2.push(...await safe("uji mundur laga",()=>pages(`/events/?status=finished&date_from=${f}&date_to=${t}&limit=200`,60,{soft:true})));
+      }
+      const ent=backtestEntries(P2,E2,leagues);
+      if(ent.length>=50){writeFileSync(dir+"bsd-backtest.json",JSON.stringify(backtestSummary(ent,now,BTD)));deep.backtest=ent.length}
+      else if(prev)writeFileSync(dir+"bsd-backtest.json",JSON.stringify(prev));
+    }else if(prev)writeFileSync(dir+"bsd-backtest.json",JSON.stringify(prev));
+  }
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,
     heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,ghost,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};
