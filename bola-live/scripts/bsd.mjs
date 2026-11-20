@@ -1,7 +1,7 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn,siteBase} from "./net.mjs";
-import {fitModel,predictModel,rollingBacktest,score,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF} from "./model.mjs";
+import {fitModel,predictModel,rollingBacktest,score,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp} from "./model.mjs";
 import {level,r1} from "./lib.mjs";
 
 // SUMBER UTAMA SEMUA LIGA: BSD (sports.bzzoiro.com, Football API paket gratis, 7.500 permintaan/hari).
@@ -412,11 +412,12 @@ async function main(){
     writeFileSync(dir+"starters.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),t:st.t}));
     // latih + uji mundur + bobot gabungan (sekali sehari), atau bawa hasil sebelumnya
     let MB=prevM;
-    if(needModel&&rows.length>=500&&!overDeadline()){
+    if(needModel&&DEEP&&!LIGHT&&btEnt&&btEnt.length&&rows.length>=500&&!overDeadline()){
       const ms=rows.map(r=>({id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7]}));
       const span=(now-ms[0].t)/DAY,bfrom=now-Number(process.env.BL_BT_DAYS??90)*DAY;
-      const cfgs=span>=200&&process.env.BL_TUNE!=="0"?[{},{hl:120},{hl:300},{tauT:2},{tauT:8}]:[{}];
+      const cfgs=span>=200&&process.env.BL_TUNE!=="0"?[{},{hl:120},{hl:300},{tauT:2},{tauT:8},{hl:240,tauT:6},{rho:-.12},{rho:0}]:[{}];
       let best=null;for(const c of cfgs){if(overDeadline())break;const rb=rollingBacktest(ms,bfrom,now,c);const sc=score(rb);if(sc&&(!best||sc.ll<best.sc.ll))best={c,rb,sc}}
+      const TT=best?bestTemp(best.rb):1;if(best)for(const r of best.rb)r.p=temper(r.p,TT);   // kalibrasi suhu dari uji mundur
       const bsdP=new Map((btEnt||[]).map(e=>[e.id,e.p]));
       const J=best?best.rb.filter(r=>bsdP.has(r.id)).map(r=>({...r,b:bsdP.get(r.id)})):[];
       const half=J.length?J.map(r=>r.t).sort((a,b)=>a-b)[J.length>>1]:0,J1=J.filter(r=>r.t<half),J2=J.filter(r=>r.t>=half);
@@ -428,7 +429,7 @@ async function main(){
       const M=fitModel(ms,now,best?best.c:{});addTimes(M,every.filter(m=>m.hid!=null&&m.aid!=null).map(m=>({h:m.hid,a:m.aid,t:Date.parse(m.utc)})));
       const pred={};for(const m of every){if(m.status!=="NS"||m.hid==null||m.aid==null||m.lid==null)continue;const a=M.team.get(m.hid),b=M.team.get(m.aid);if(!a||!b||a.n<4||b.n<4)continue;
         const q=predictModel(M,{h:m.hid,a:m.aid,l:m.lid,n:EV.get(m.eid)&&EV.get(m.eid).is_neutral_ground?1:0,t:Date.parse(m.utc)});pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,n:q.n}}
-      MB={updated:new Date(now).toISOString(),partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
+      MB={updated:new Date(now).toISOString(),temp:TT,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
         useful,w:wa?wa.w:1,core:CORE,pred};
       deep.model=Object.keys(pred).length;
@@ -439,7 +440,7 @@ async function main(){
         let o=null;if(m.dx){try{o=JSON.parse(readFileSync(dir+"m/"+m.eid+".json","utf8"))}catch(e){}}
         const lu=o&&o.lineups,conf=lu&&lu.lineup_status==="confirmed",ab=absIds(lu);
         const kh=missingCore(regulars(st.t[m.hid]),conf?xiOf(lu,"home"):null,ab.h),ka=missingCore(regulars(st.t[m.aid]),conf?xiOf(lu,"away"):null,ab.a);
-        const [lh,la]=adjustL(q.x[0],q.x[1],kh,ka),pr=probs(lh,la,MB.cfg&&MB.cfg.rho);
+        const [lh,la]=adjustL(q.x[0],q.x[1],kh,ka),pr=probs(lh,la,MB.cfg&&MB.cfg.rho);pr.p=temper(pr.p,MB.temp||1);
         m.bl={h:r1(pr.p[0]),d:r1(pr.p[1]),a:r1(pr.p[2]),ou:r1(pr.ou),bt:r1(pr.bt),xg:[r2(lh),r2(la)],ms:pr.ms,r:q.r,k:[kh,ka],src:conf?"xi":"abs"};
         if(MB.useful&&m.p&&!m.np&&m.p.h!=null){const w=MB.w,g=[m.p.h,m.p.d,m.p.a].map((x,i)=>w*x+(1-w)*pr.p[i]),t=g[0]+g[1]+g[2];m.bg={h:r1(g[0]/t*100),d:r1(g[1]/t*100),a:r1(g[2]/t*100),w}}}
     }

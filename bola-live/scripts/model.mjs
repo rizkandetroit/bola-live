@@ -127,3 +127,7 @@ export function missingCore(reg,xi,absent){if(!reg)return null;const k=xi&&xi.le
 // Koreksi laju gol per pemain inti yang hilang (nilai awal yang konservatif; akan dinilai dari riwayat).
 export const CORE={own:.035,opp:.025};
 export function adjustL(lh,la,kh,ka){kh=kh||0;ka=ka||0;return[lh*Math.exp(-CORE.own*kh+CORE.opp*ka),la*Math.exp(-CORE.own*ka+CORE.opp*kh)]}
+
+// Kalibrasi suhu: p_i^(1/T) dinormalkan. T > 1 = kurangi keyakinan, T < 1 = tambah. T dipilih dari uji mundur (log loss).
+export function temper(p,T){if(!T||T===1)return p;const q=p.map(x=>Math.pow(Math.max(x,1e-6),1/T)),s=q[0]+q[1]+q[2];return q.map(x=>x/s*100)}
+export function bestTemp(rows){let b=null;for(let T=.8;T<=1.401;T+=.025){const s=score(rows.map(r=>({o:r.o,q:temper(r.p,T)})),"q");if(s&&(!b||s.ll<b.ll-1e-12))b={T:Math.round(T*1000)/1000,ll:s.ll}}return b?b.T:1}
