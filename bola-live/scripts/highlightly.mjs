@@ -5,7 +5,7 @@
 // Tidak pernah menggagalkan deploy.
 import {readFileSync,writeFileSync,mkdirSync,existsSync} from "node:fs";
 import {pathToFileURL} from "node:url";
-import {tfetch,cleanKey,outDir,siteBase,ghWarn,sleep} from "./net.mjs";
+import {tfetch,cleanKey,outDir,siteBase,ghWarn,sleep,readPrev,readState,writeState,stateDir} from "./net.mjs";
 import {fit,predictM,level,r1} from "./lib.mjs";
 import {updateHistory,evalHistory,evalMove,evalRisk,evalBL} from "./bsd.mjs";
 
@@ -99,8 +99,9 @@ async function main(){
   const BASE=(process.env.HL_API||"https://sports.highlightly.net").replace(/\/+$/,"");
   const dir=outDir(import.meta.url),site=siteBase(),now=Date.now(),MIN_LEFT=Number(process.env.HL_MIN_LEFT??8);
   mkdirSync(dir+"m",{recursive:true});mkdirSync(dir+"lg",{recursive:true});
-  const pull=async f=>{if(process.env.HL_STATE_FILE&&f==="hl.json"){try{return JSON.parse(readFileSync(process.env.HL_STATE_FILE,"utf8"))}catch(e){return null}}if(!site)return null;try{const r=await tfetch(site+f+"?t="+now);return r.ok?await r.json():null}catch(e){return null}};
-  const S=(await pull("hl.json"))||{};S.season=S.season||{};S.stand=S.stand||{};S.det=S.det||{};S.matches=S.matches||{};S.tables=S.tables||{};S.calls=S.calls||{};S.today=S.today||{};
+  // V19: status Highlightly = data internal (STATE_DIR, tidak tayang); file tayang lain dari keluaran run sebelumnya
+  const pull=async f=>{if(process.env.HL_STATE_FILE&&f==="hl.json"){try{return JSON.parse(readFileSync(process.env.HL_STATE_FILE,"utf8"))}catch(e){return null}}return f==="hl.json"?readState(f):readPrev(f)};
+  const S0=await pull("hl.json"),S=S0||{};S.season=S.season||{};S.stand=S.stand||{};S.det=S.det||{};S.matches=S.matches||{};S.tables=S.tables||{};S.calls=S.calls||{};S.today=S.today||{};
   const today=new Date(now+WITA).toISOString().slice(0,10);if(S.calls.day!==today)S.calls={day:today,n:0};
   let left=null,calls=0;const errors=[];
   async function get(path){
@@ -172,10 +173,14 @@ async function main(){
   let mi={ids:[]};try{mi=JSON.parse(readFileSync(dir+"m/index.json","utf8"))}catch(e){}
   mi.ids=(mi.ids||[]).filter(i=>!String(i).startsWith("hl")).concat(out.filter(m=>m.dx).map(m=>m.eid));writeFileSync(dir+"m/index.json",JSON.stringify(mi));
   // evaluasi: catat juga prediksi liga Indonesia
-  try{let hist=[];try{hist=JSON.parse(readFileSync(dir+"bsd-history.json","utf8"))}catch(e){}
-    hist=updateHistory(hist,out,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist)}))}catch(e){errors.push("evaluasi: "+e.message)}
+  try{let hist=null;const SD=stateDir();try{hist=JSON.parse(readFileSync((SD||dir)+"bsd-history.json","utf8"))}catch(e){}
+    if(!Array.isArray(hist)){const h=await readState("bsd-history.json");hist=Array.isArray(h)?h:null}   // V19: jangan mulai dari kosong bila skrip BSD gagal lebih dulu
+    if(!hist)throw new Error("riwayat prediksi tidak terbaca; dilewati supaya riwayat lama tidak tertimpa");
+    hist=updateHistory(hist,out,now);writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist)}))}catch(e){errors.push("evaluasi: "+e.message)}
   // simpan status (tanpa data mentah yang besar)
-  writeFileSync(dir+"hl.json",JSON.stringify(S));
+  // V19 (audit): status lama yang gagal dibaca tidak ditimpa status kosong (penyebab hl.json hilang 20 Nov: baca gagal + kuota habis)
+  if(!S0&&!Object.keys(S.matches).length)errors.push("status hl.json tidak terbaca dan tidak ada data baru; status lama tidak ditimpa");
+  else if(process.env.HL_STATE_FILE||!stateDir())writeFileSync(dir+"hl.json",JSON.stringify(S));else writeState("hl.json",S,{dir});
   if(errors.length)ghWarn("highlightly: "+errors.join(" ; "));
   console.log("OK highlightly:",out.length,"laga Indonesia,",all.hl.withPred,"berprediksi;",calls,"permintaan run ini; sisa kuota",left,"; hari ini",S.calls.n,"; error",errors.length);
 }

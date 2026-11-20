@@ -106,4 +106,16 @@ assert(ev.includes("V10-ringkas")&&ev.includes("Hanya laga saat xG aktif (9 laga
 ev=v10Comparison({n:9,versions:{v9:m(9,55,.35,.9),lite:m(9,57,.33,.87)},xgSubset:{n:0,minGames:3}});assert(ev.includes("Komponen xG belum aktif"));
 ev=v10Comparison({n:9,versions:{v9:m(9,55,.35,.9)}});assert(ev.includes("belum aktif"),"tanpa xgSubset: aman");
 console.log("OK F. Evaluasi: baris ringkas, subset xG, peringatan sampel kecil");
+// V19 (audit): tabel bookmaker membaca format ringkas & format mentah BSD; mode netral; link cuplikan hanya http(s)
+{const F=new Function(pre+";return {cmpTable,valTag,valBox,setN:function(v){NEUTRAL=v}}")();
+ const t1=F.cmpTable({"1X2":{betano:{"Tuan rumah":2.1,"Seri":3.3,"Tamu":3.6},bwin:{"Tuan rumah":2.05}}});
+ assert(t1.includes("betano")&&t1.includes("bwin")&&t1.includes("Tuan rumah")&&t1.includes("2.10")||t1.includes("2,10"),t1.slice(0,300));
+ assert(t1.indexOf("Tuan rumah")<t1.indexOf("Seri")&&t1.indexOf("Seri")<t1.indexOf("Tamu"),"urutan kolom 1-X-2");
+ const t2=F.cmpTable({btts:{yes:{outcome:"yes",outcome_name:"Yes",best_odds:1.67,bookmakers:{betano:{decimal_odds:1.6,movement:"X"},unibet:{decimal_odds:1.58}}},no:{outcome_name:"No",bookmakers:{betano:{decimal_odds:2.2}}}}});
+ assert(t2.includes("betano")&&t2.includes("unibet")&&!t2.includes("best_odds"),"format mentah: baris = bookmaker, bukan best_odds");
+ const x={p:{h:60,d:25,a:15},odds:{h:{o:2.2,b:"bk"}},home:{name:"A"},away:{name:"B"}};
+ assert(F.valTag(x).includes("Value")&&F.valBox(x).includes("Value"));F.setN(1);assert.equal(F.valTag(x),"");assert.equal(F.valBox(x),"")}
+assert(!/fetch\([^)]*Date\.now\(\)/.test(js),"tidak ada lagi unduhan dengan ?Date.now() (pakai revalidasi 304)");
+assert(html.includes('http-equiv="Content-Security-Policy"'));
+console.log("OK G. Bookmaker, mode netral, unduhan hemat, CSP");
 console.log("render ok");

@@ -1,6 +1,6 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
-import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn,siteBase} from "./net.mjs";
+import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir} from "./net.mjs";
 import {fitModel,predictModel,rollingBacktest,score,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats} from "./players.mjs";
@@ -123,9 +123,23 @@ export function focusOf(matches,now,light,aheadH=Number(process.env.BSD_FOCUS_H?
     return m.status==="NS"?t-now<aheadH*H:now-t<20*H;
   });
 }
-const trimCmp=c=>{ if(!c||!c.markets)return null; // grid bookmaker: simpan pasar utama saja agar berkas kecil
-  const keep={};for(const [k,v] of Object.entries(c.markets))if(/^(1x2|match_result|over_under_25|btts|double_chance|asian_handicap|draw_no_bet)/i.test(k))keep[k]=v;
-  return{bookmakers_count:c.bookmakers_count,main_lines:c.main_lines||null,markets:keep}};
+// V19 (audit): grid bookmaker diringkas ke bentuk {pasar:{bookmaker:{hasil:odds}}} yang langsung dibaca tabel Match Center.
+// Sebelumnya pasar mentah (semua garis Asian handicap, waktu & arah gerak tiap bookmaker) ~23KB per laga, padahal yang tampil 3 pasar.
+const CMP_LAB={HOME:"Tuan rumah",DRAW:"Seri",AWAY:"Tamu",yes:"Ya",no:"Tidak",over:"Over",under:"Under"};
+export const trimCmp=c=>{ if(!c||!c.markets)return null;
+  const ml=c.main_lines||{},ah=ml.asian_handicap,out={};
+  const conv=(k,name,filter)=>{const v=c.markets[k];if(!v||typeof v!=="object"||Array.isArray(v))return;const rows={};let nb=0;
+    for(const [ok,o] of Object.entries(v)){if(!o||typeof o!=="object"||(filter&&!filter(o)))continue;
+      let lab=CMP_LAB[o.outcome]||o.outcome_name||ok;if(k==="asian_handicap"){const sg=String(o.outcome_name||"").match(/[+-]?\d+(\.\d+)?$/);if(sg)lab+=" "+sg[0]}
+      for(const [b,q] of Object.entries(o.bookmakers||{})){const d=q&&(q.decimal_odds??q.odds);if(typeof d==="number"&&d>1){(rows[b]=rows[b]||{})[lab]=d;nb++}}}
+    if(nb)out[name]=rows};
+  conv("1x2","1X2");conv("over_under_25","Over/Under 2,5");conv("btts","Kedua tim cetak gol");
+  if(ah!=null)conv("asian_handicap","Asian handicap",o=>o.line!=null&&Number(o.line)===Number(ah));
+  return Object.keys(out).length?{bookmakers_count:c.bookmakers_count,main_lines:{asian_handicap:ah??null,over_under_25:ml.over_under_25??null},markets:out}:null};
+// V19 (audit): form tim diringkas ke angka yang ditampilkan (sebelumnya ~25KB statistik mentah per laga)
+const fSec=o=>o&&typeof o==="object"?{matches:o.matches,won:o.won,drawn:o.drawn,lost:o.lost,goals_for:o.goals_for,goals_against:o.goals_against,form:o.form,points_per_match:o.points_per_match,
+  stats:o.stats?{ball_possession:o.stats.ball_possession?{average:o.stats.ball_possession.average}:undefined,expected_goals:o.stats.expected_goals?{average:o.stats.expected_goals.average}:undefined}:undefined}:null;
+export const slimForm=f=>f&&f.overall?{team_id:f.team_id,team_name:f.team_name,overall:fSec(f.overall),home:fSec(f.home),away:fSec(f.away),vs_stronger:fSec(f.vs_stronger),vs_weaker:fSec(f.vs_weaker)}:null;
 const slimPS=ps=>(ps&&ps.player_stats||[]).filter(p=>p.minutes_played>0).map(p=>({pid:p.player_id,tid:p.team_id,min:p.minutes_played,r:p.rating,g:p.goals,as:p.goal_assist,xg:p.expected_goals,xa:p.expected_assists,sh:p.total_shots,sot:p.shots_on_target,kp:p.key_pass,pa:p.total_pass,acc:p.accurate_pass,tk:p.won_tackle,int:p.interception,sv:p.saves,yc:p.yellow_card,rc:p.red_card}));
 
 // Value hanya dihitung bila peluang model >= 20%, odds <= 5 dan value >= 2% (tim yang sangat tidak diunggulkan terlalu peka terhadap galat model).
@@ -247,6 +261,7 @@ async function main(){
   const BASE=(process.env.BSD_API||"https://sports.bzzoiro.com/api/v2").replace(/\/+$/,"");
   const GAP=Number(process.env.GAP_MS??500),RETRY=Number(process.env.RETRY_MS??20000);
   const DEEP=process.env.BSD_DEEP!=="0",LIGHT=process.env.BSD_MODE==="light";
+  const NEUTRAL=process.env.BL_NEUTRAL==="1";   // V19: tampilan netral (tanpa tabel perbandingan bookmaker), diatur lewat variabel repo
   const MAXD=Number(process.env.BSD_MAX_DETAIL??400),CONC=Number(process.env.BSD_CONCURRENCY??6);
   const WITA=8*3600e3,DAY=864e5,now=Date.parse(process.env.BSD_NOW||"")||Date.now(),wday=t=>new Date(t+WITA).toISOString().slice(0,10);
   const from=wday(now-2*DAY),to=wday(now+7*DAY);
@@ -295,6 +310,7 @@ async function main(){
   const every=matches.concat(linked);
   const L=new Map((leagues||[]).map(l=>[l.id,l])),P=new Map((preds||[]).map(p=>[p.event&&p.event.id,p])),EV=new Map((events||[]).map(e=>[e.id,e]));
   const deep={odds:0,details:0,carried:0,leagues:0};
+  const T0=Date.now(),lap=n=>{(deep.tm=deep.tm||{})[n]=Math.round((Date.now()-T0)/1000)};   // V19 (audit): detik sejak mulai, per tahap (tampil di all.json bsd.tm)
 
   if(DEEP&&!fatal){
     // 1) harga terbaik per bookmaker untuk semua laga
@@ -303,16 +319,17 @@ async function main(){
     const B=pickBest(best);
     for(const m of every){const o=B.get(m.eid);if(o&&Object.keys(o).length){m.odds=o;deep.odds++}}
     const site=siteBase();
-    const pull=async f=>{if(!site)return null;try{const r=await tfetch(site+f+"?t="+now);return r.ok?await r.json():null}catch(e){return null}};
+    const pull=f=>readPrev(f);   // V19: keluaran run sebelumnya (cache Actions), cadangan: situs tayang
     // V13.4: harga buka + terkini Pinnacle (heavy, ±1 jam sekali); run ringan membawa pin.json dari situs
     {let pin=null;const want=new Set(every.filter(m=>m.status==="NS").map(m=>m.eid));
       if(!LIGHT&&process.env.BSD_PIN!=="0"){
         const rows=await safe("odds pinnacle",()=>pages(`/odds/?market=1x2&bookmaker_slug=pinnacle&updated_after=${new Date(now-3*36e5).toISOString().slice(0,19)}Z&limit=200`,Number(process.env.BSD_PIN_PAGES||60),{soft:true}));
         const P=pinOf(rows);pin={};for(const [id,x] of P)if(want.has(id))pin[id]=x;deep.pin=Object.keys(pin).length;
-        const prevPin=await pull("pin.json");if(prevPin&&prevPin.ev)for(const id in prevPin.ev)if(!pin[id]&&want.has(+id))pin[id]=prevPin.ev[id];   // laga yang tidak terbaca kali ini: pakai catatan lama
-      }else{const prevPin=await pull("pin.json");if(prevPin&&prevPin.ev){pin={};for(const id in prevPin.ev)if(want.has(+id))pin[id]=prevPin.ev[id]}}
-      if(pin){writeFileSync(dir+"pin.json",JSON.stringify({updated:new Date(now).toISOString(),ev:pin}));for(const m of every)if(pin[m.eid])m.pin=pin[m.eid]}}
+        const prevPin=await readState("pin.json");if(prevPin&&prevPin.ev)for(const id in prevPin.ev)if(!pin[id]&&want.has(+id))pin[id]=prevPin.ev[id];   // laga yang tidak terbaca kali ini: pakai catatan lama
+      }else{const prevPin=await readState("pin.json");if(prevPin&&prevPin.ev){pin={};for(const id in prevPin.ev)if(want.has(+id))pin[id]=prevPin.ev[id]}}
+      if(pin){writeState("pin.json",{updated:new Date(now).toISOString(),ev:pin},{dir});for(const m of every)if(pin[m.eid])m.pin=pin[m.eid]}}
 
+    lap("liga");
     // 2) liga: klasemen + papan skor pemain (heavy); light = bawa dari situs tayang
     const lids=[...new Set(matches.map(m=>m.lid).filter(x=>x!=null))];
     mkdirSync(dir+"lg",{recursive:true});
@@ -336,6 +353,7 @@ async function main(){
     lgIndex.sort((a,b)=>(a.country+a.name).localeCompare(b.country+b.name));
     writeFileSync(dir+"leagues.json",JSON.stringify({updated:new Date(now).toISOString(),leagues:lgIndex}));
 
+    lap("match_center");
     // 3) Match Center per laga
     mkdirSync(dir+"m",{recursive:true});
     const hot=focusOf(every,now,LIGHT).sort((a,b)=>(a.status==="LIVE"?0:1)-(b.status==="LIVE"?0:1)||Math.abs(Date.parse(a.utc)-now)-Math.abs(Date.parse(b.utc)-now)).slice(0,MAXD);
@@ -346,12 +364,12 @@ async function main(){
       const [com,ps,odds,cmp]=await Promise.all([isNS?null:g("commentary/?order=desc"),m.status==="FT"||m.status==="LIVE"?g("player-stats/"):null,g("odds/"),isNS?g("odds/comparison/"):null]);
       const [poly,meta,tv]=await Promise.all([isNS?g("polymarket/"):null,g("metadata/"),g("broadcasts/")]);
       let form=null;
-      if(isNS&&m.hid&&m.aid){const [fh,fa]=await Promise.all([get(`${BASE}/teams/${m.hid}/form/?last=10`,{soft:true}),get(`${BASE}/teams/${m.aid}/form/?last=10`,{soft:true})]);form={home:fh,away:fa}}
+      if(isNS&&m.hid&&m.aid){const [fh,fa]=await Promise.all([get(`${BASE}/teams/${m.hid}/form/?last=10`,{soft:true}),get(`${BASE}/teams/${m.aid}/form/?last=10`,{soft:true})]);form={home:slimForm(fh),away:slimForm(fa)}}
       const out={id,updated:new Date(now).toISOString(),status:m.status,
         info:{venue_id:e.venue_id,referee_id:e.referee_id,home_coach_id:e.home_coach_id,away_coach_id:e.away_coach_id,weather:e.weather||null,attendance:e.attendance,pitch:e.pitch_condition,derby:e.is_local_derby,neutral:e.is_neutral_ground,travel:e.travel_distance_km,highlights:e.highlights||null,round:e.round_label||null,prev_leg:e.previous_leg_event_id||null},
         h2h:e.head_to_head||null,pred:P.get(id)||null,stats,lineups,incidents:inc&&inc.incidents||null,
         commentary:com&&com.commentary?com.commentary.slice(0,120):null,player_stats:ps?slimPS(ps):null,
-        odds:odds||null,odds_cmp:trimCmp(cmp),polymarket:poly,meta,tv:tv&&tv.results||null,form};
+        odds:odds||null,odds_cmp:NEUTRAL?null:trimCmp(cmp),polymarket:poly,meta,tv:tv&&tv.results||null,form};
       writeFileSync(dir+"m/"+id+".json",JSON.stringify(out));have.add(id);deep.details++;{const ab=absOf(lineups);if(ab)m.ab=ab}
     });
     if(LIGHT){ // laga fokus heavy yang tidak disegarkan: bawa dari situs tayang (supaya Match Center tetap lengkap)
@@ -362,9 +380,10 @@ async function main(){
     writeFileSync(dir+"m/index.json",JSON.stringify({updated:new Date(now).toISOString(),ids:[...have]}));
   }
 
+  lap("uji_mundur");
   // V13.3: uji mundur 90 hari -> bsd-backtest.json (heavy, paling sering sekali per ~20 jam; selain itu dibawa dari situs)
   // V15: Model BL ikut memakai riwayat ini (prediksi BSD per laga) untuk menilai dan memilih bobot gabungan.
-  const pullS=async f=>{const site=siteBase();if(process.env.BL_STATE_DIR){try{return JSON.parse(readFileSync(process.env.BL_STATE_DIR+"/"+f,"utf8"))}catch(e){return null}}if(!site)return null;try{const r=await tfetch(site+f+"?t="+now);return r.ok?await r.json():null}catch(e){return null}};
+  const pullS=f=>readState(f);   // V19: data internal (STATE_DIR), cadangan: situs tayang (migrasi)
   const prevM=process.env.BL!=="0"?await pullS("model-bl.json"):null;
   const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial);
   let btEnt=null,btE=[];
@@ -378,10 +397,11 @@ async function main(){
         E2.push(...await safe("uji mundur laga",()=>pages(`/events/?status=finished&date_from=${f}&date_to=${t}&limit=200`,60,{soft:true})));
       }
       const ent=backtestEntries(P2,E2,leagues);btEnt=ent;btE=E2;
-      if(ent.length>=50){writeFileSync(dir+"bsd-backtest.json",JSON.stringify(backtestSummary(ent,now,BTD)));deep.backtest=ent.length}
-      else if(prev)writeFileSync(dir+"bsd-backtest.json",JSON.stringify(prev));
-    }else if(prev)writeFileSync(dir+"bsd-backtest.json",JSON.stringify(prev));
+      if(ent.length>=50){writeState("bsd-backtest.json",backtestSummary(ent,now,BTD),{pub:true,dir});deep.backtest=ent.length}
+      else if(prev)writeState("bsd-backtest.json",prev,{pub:true,dir});
+    }else if(prev)writeState("bsd-backtest.json",prev,{pub:true,dir});
   }
+  lap("model_mulai");
   // V15: Model BL — lihat model.mjs. Riwayat hasil (results.json) dan line-up resmi (starters.json) disimpan di situs dan diperbarui sedikit demi sedikit.
   if(process.env.BL!=="0"&&!fatal){
     const RD=Number(process.env.BL_DAYS??365),CH=Number(process.env.BL_BACKFILL_WEEKS??26);
@@ -410,7 +430,8 @@ async function main(){
       await pool(jobs.slice(0,MAXL),async([team,ev,t,side])=>{const lu=await get(`${BASE}/events/${ev}/lineups/`,{soft:true});deep.xi=(deep.xi||0)+1;if(lu&&lu.lineup_status==="confirmed")rec(team,t,xiOf(lu,side))});
     }
     for(const k of Object.keys(st.t))if(!st.t[k].length||st.t[k][st.t[k].length-1][0]*1000<now-120*DAY)delete st.t[k];
-    writeFileSync(dir+"starters.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),t:st.t}));
+    writeState("starters.json",{v:1,updated:new Date(now).toISOString(),t:st.t},{dir});
+    lap("xg");
     // V15.1: xG per laga selesai (xg.json): dari Match Center run ini + isi mundur bertahap, laga terbaru dulu. 0 = BSD tidak punya xG laga itu.
     let xg=await pullS("xg.json");xg=xg&&xg.e?xg:{e:{}};
     const xgOf=o=>{const S=o&&o.stats&&o.stats.home?o.stats:o&&o.stats&&o.stats.stats;const h=S&&S.home&&num(S.home.expected_goals),a=S&&S.away&&num(S.away.expected_goals);return h!=null&&a!=null?[r2(h),r2(a),o.xg_estimated||(o.stats&&o.stats.xg_estimated)?1:0]:null};
@@ -434,8 +455,9 @@ async function main(){
       xg.chk=chk;deep.xgCheck=chk;}
     {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(xg.e))if(!keep.has(k))delete xg.e[k]}
     const xgN=Object.values(xg.e).filter(v=>v&&v.length).length;deep.xgHave=xgN;
-    writeFileSync(dir+"xg.json",JSON.stringify({v:xg.v||1,updated:new Date(now).toISOString(),chk:xg.chk||null,e:xg.e}));
-    writeFileSync(dir+"results.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),from:new Date(from).toISOString(),rows}));
+    writeState("xg.json",{v:xg.v||1,updated:new Date(now).toISOString(),chk:xg.chk||null,e:xg.e},{dir});
+    writeState("results.json",{v:1,updated:new Date(now).toISOString(),from:new Date(from).toISOString(),rows},{dir});
+    lap("pemain");
     // V16 (Tahap 1): data pemain. players.json = ringkasan statistik pemain per tim; values.json = nilai pasar + posisi pemain.
     let PS=await pullS("players.json"),VA=await pullS("values.json"),XR=await pullS("xi.json");PS=PS&&PS.t?PS:{t:{}};VA=VA&&VA.p?VA:{p:{}};XR=XR&&XR.e?XR:{e:{}};
     if(DEEP&&!LIGHT&&!overDeadline()&&process.env.BL_PLAYERS!=="0"){
@@ -455,15 +477,16 @@ async function main(){
     }
     psCompact(PS,now);for(const k of Object.keys(VA.p))if(now-VA.p[k][2]*1000>120*DAY)delete VA.p[k];
     deep.psTeams=Object.keys(PS.t).length;deep.psVals=Object.values(VA.p).filter(v=>v[0]!=null).length;
-    writeFileSync(dir+"players.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),t:PS.t}));
-    writeFileSync(dir+"values.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),p:VA.p}));
+    writeState("players.json",{v:1,updated:new Date(now).toISOString(),t:PS.t},{dir});
+    writeState("values.json",{v:1,updated:new Date(now).toISOString(),p:VA.p},{dir});
     {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(XR.e))if(!keep.has(k))delete XR.e[k]}deep.xiN=Object.keys(XR.e).length;
-    writeFileSync(dir+"xi.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),e:XR.e}));
+    writeState("xi.json",{v:1,updated:new Date(now).toISOString(),e:XR.e},{dir});
     // nilai skuad (log10) relatif median liga, hanya tim yang nilai pasar pemain regulernya >= 60% terisi
     const ZV=new Map();{const tl=new Map();for(const r of rows){if(!tl.has(r[3]))tl.set(r[3],r[2]);if(!tl.has(r[4]))tl.set(r[4],r[2])}
       const byL=new Map();for(const [id,T] of Object.entries(PS.t)){const S=teamSummary(T,VA.p);if(!S||!S.squad||S.valCov<.6)continue;const l=tl.get(+id);if(l==null)continue;(byL.get(l)||byL.set(l,[]).get(l)).push([+id,Math.log10(S.squad)])}
       for(const L of byL.values()){if(L.length<4)continue;const v=L.map(x=>x[1]).sort((a,b)=>a-b),md=v[v.length>>1];for(const [id,x] of L)ZV.set(id,x-md)}}
     deep.zv=ZV.size;
+    lap("latih");
     // latih + uji mundur + bobot gabungan (sekali sehari), atau bawa hasil sebelumnya
     let MB=prevM,teamsDone=false;
     if(needModel&&DEEP&&!LIGHT&&btEnt&&btEnt.length&&rows.length>=500&&!overDeadline()){
@@ -500,11 +523,11 @@ async function main(){
           TS[id]={lg:t.lg,sr:R.get(id)??null,sn:R.size,att:r2(Lg.A+t.a),def:r2(Lg.D+t.d),
             luck:L?{n:L.n,pts:L.pts,gf:L.gf,ga:L.ga,xn:L.xn,xgf:r2(L.xgf),xga:r2(L.xga),xpts:r2(L.xpts),xpN:L.xpN}:null,
             ps:S?{n:S.n,reg:S.reg,rt:S.avgRt!=null?r2(S.avgRt):null,sq:S.squad,vc:r2(S.valCov),gp:r2(S.gp),key:S.players.slice(0,5).map(p=>[p.pid,p.nm,r2(p.sh),p.rt!=null?r2(p.rt):null,r2(p.x90||p.ga90),p.val,p.pos])}:null}}
-        writeFileSync(dir+"teams.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),t:TS}));deep.teams=Object.keys(TS).length;teamsDone=true}catch(e){errors.push("ringkasan tim: "+e.message)}
+        writeState("teams.json",{v:1,updated:new Date(now).toISOString(),t:TS},{pub:true,dir});deep.teams=Object.keys(TS).length;teamsDone=true}catch(e){errors.push("ringkasan tim: "+e.message)}
       deep.model=Object.keys(pred).length;
     }
-    if(!teamsDone){const T=await pullS("teams.json");if(T&&T.t)writeFileSync(dir+"teams.json",JSON.stringify(T))}   // dibawa dari situs
-    if(MB){writeFileSync(dir+"model-bl.json",JSON.stringify(MB));
+    if(!teamsDone){const T=await pullS("teams.json");if(T&&T.t)writeState("teams.json",T,{pub:true,dir})}   // dibawa dari run sebelumnya
+    if(MB){writeState("model-bl.json",MB,{pub:true,dir});
       // tempel ke laga (tiap run): laju gol dasar + koreksi pemain inti yang tidak main
       for(const m of every){const q=MB.pred&&MB.pred[m.eid];if(!q||m.status!=="NS")continue;
         let o=null;if(m.dx){try{o=JSON.parse(readFileSync(dir+"m/"+m.eid+".json","utf8"))}catch(e){}}
@@ -525,10 +548,11 @@ async function main(){
     }
   }
   const T={2:matches.filter(x=>x.tier===2).length,3:0,4:0};
+  lap("latih_selesai");
   // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
-  let hist=[];{const site=siteBase();if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
-    else if(site){try{const r=await tfetch(site+"bsd-history.json?t="+now);if(r.ok)hist=await r.json()}catch(e){}}}
-  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist)}))}
+  let hist=[];{if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
+    else{const h=await readState("bsd-history.json");if(Array.isArray(h))hist=h}}
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist)}))}
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,
     heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,ghost,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};

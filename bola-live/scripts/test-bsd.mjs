@@ -301,19 +301,19 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
   try{
     // run 1: riwayat baru sebagian (90 hari + 30 minggu) -> model ditandai "partial"
     const r1=await go();assert.equal(r1.c,0,r1.e);for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json","xi.json"])cp(r1.out,f);
-    const res1=JSON.parse(readFileSync(join(r1.out,"results.json"),"utf8"));assert(res1.rows.length>900,"riwayat: "+res1.rows.length);
+    const res1=JSON.parse(readFileSync(join(st,"results.json"),"utf8"));assert(res1.rows.length>900,"riwayat: "+res1.rows.length);
     const m1=JSON.parse(readFileSync(join(r1.out,"model-bl.json"),"utf8"));assert.equal(m1.partial,true);
     // run 2: lanjut isi mundur sampai setahun -> model lengkap
     {const f=join(st,"results.json"),J=JSON.parse(readFileSync(f,"utf8"));J.rows=J.rows.map(r=>r.slice(0,8));writeFileSync(f,JSON.stringify(J))}   // seperti cache lama di situs: tanpa tanda has_xg
     const r2=await go();assert.equal(r2.c,0,r2.e);
-    {const A=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")).bsd,Rw=JSON.parse(readFileSync(join(r2.out,"results.json"),"utf8")).rows,old=Rw.filter(r=>r[1]*1000<NOW-100*DAYm);
+    {const A=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")).bsd,Rw=JSON.parse(readFileSync(join(st,"results.json"),"utf8")).rows,old=Rw.filter(r=>r[1]*1000<NOW-100*DAYm);
      assert(A.xgScan>0,"pindai ulang tanda xG untuk baris lama");assert(old.some(r=>r[8]!=null),"baris lama mendapat tanda");}
-    const res2=JSON.parse(readFileSync(join(r2.out,"results.json"),"utf8")),M=JSON.parse(readFileSync(join(r2.out,"model-bl.json"),"utf8"));
+    const res2=JSON.parse(readFileSync(join(st,"results.json"),"utf8")),M=JSON.parse(readFileSync(join(r2.out,"model-bl.json"),"utf8"));
     assert(res2.rows.length>res1.rows.length,"isi mundur berlanjut");
-    const X=JSON.parse(readFileSync(join(r2.out,"xg.json"),"utf8")).e,xv=Object.values(X);assert(xv.filter(v=>v&&v.length).length>=300,"xG terisi bertahap: "+xv.length);
+    const X=JSON.parse(readFileSync(join(st,"xg.json"),"utf8")).e,xv=Object.values(X);assert(xv.filter(v=>v&&v.length).length>=300,"xG terisi bertahap: "+xv.length);
     assert(xv.every(v=>v===0||(Array.isArray(v)&&v.length===3)),"tiap laga yang sudah dicek tercatat (xG atau 0)");assert(M.xgCov>=20,"cakupan xG "+M.xgCov);
     // laga bertanda punya xG didahulukan: selama masih ada yang bertanda 1 dan belum diambil, laga bertanda 0 belum diminta
-    const XJ=JSON.parse(readFileSync(join(r2.out,"xg.json"),"utf8")),RW=JSON.parse(readFileSync(join(r2.out,"results.json"),"utf8")).rows;assert.equal(XJ.v,2);
+    const XJ=JSON.parse(readFileSync(join(st,"xg.json"),"utf8")),RW=JSON.parse(readFileSync(join(st,"results.json"),"utf8")).rows;assert.equal(XJ.v,2);
     const pend1=RW.filter(r=>r[8]===1&&XJ.e[r[0]]==null).length,got0=RW.filter(r=>r[8]===0&&XJ.e[r[0]]!=null).length;
     assert(pend1===0||got0===0,"bertanda punya xG didahulukan: sisa "+pend1+", bertanda tidak sudah diambil "+got0);assert.equal(M.partial,false,"span "+M.span);
     assert(M.bt&&M.bt.joined>=150,"uji mundur tergabung dengan BSD: "+(M.bt&&M.bt.joined));
@@ -321,27 +321,30 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     assert(M.bt.holdout&&M.bt.holdout.blend.ll<=M.bt.holdout.bsd.ll+.01,"gabungan tidak lebih buruk dari BSD");
     const all=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")),mU=all.matches.find(x=>x.eid===U.id);
     assert(mU&&mU.bl&&Math.abs(mU.bl.h+mU.bl.d+mU.bl.a-100)<.5,"prediksi Model BL di laga");
-    const S=JSON.parse(readFileSync(join(r2.out,"starters.json"),"utf8"));assert((S.t[U.home_team_id]||[]).length>=3,"line-up resmi tercatat");
+    const S=JSON.parse(readFileSync(join(st,"starters.json"),"utf8"));assert((S.t[U.home_team_id]||[]).length>=3,"line-up resmi tercatat");
     assert.equal(mU.bl.k[0],3,"3 pemain inti tuan rumah absen: "+JSON.stringify(mU.bl));assert.equal(mU.bl.k[1],0);
     const q=M.pred[U.id];assert(mU.bl.xg[0]<q.x[0]&&mU.bl.xg[1]>q.x[1],"koreksi menurunkan serangan tuan rumah");
     if(M.useful)assert(mU.bg&&Math.abs(mU.bg.h+mU.bg.d+mU.bg.a-100)<.5);else assert(!mU.bg);
     // Tahap 1: data pemain, nilai pasar, ringkasan tim, uji klasemen
-    const PJ=JSON.parse(readFileSync(join(r2.out,"players.json"),"utf8")).t,VJ=JSON.parse(readFileSync(join(r2.out,"values.json"),"utf8")).p;
+    const PJ=JSON.parse(readFileSync(join(st,"players.json"),"utf8")).t,VJ=JSON.parse(readFileSync(join(st,"values.json"),"utf8")).p;
     assert(PJ[U.home_team_id]&&PJ[U.home_team_id].ev.length>=3,"statistik pemain tim yang akan main terkumpul");
     const vv=Object.values(VJ).filter(v=>v[0]!=null);assert(vv.length>=50,"nilai pasar terkumpul: "+vv.length);assert(vv.some(v=>v[1]==="G"));
     const TJ=JSON.parse(readFileSync(join(r2.out,"teams.json"),"utf8")).t,tu=TJ[U.home_team_id];assert(tu&&tu.sr>=1&&tu.sr<=14,"peringkat kekuatan");
     assert(tu.luck&&tu.luck.n>0,"keberuntungan musim ini");assert(tu.ps&&tu.ps.key.length===5&&tu.ps.key[0][1],"pemain kunci + nama");
     assert(M.bt&&M.tbl&&M.tbl.g5&&M.tbl.g5.semua.n>0,"uji klasemen menipu berjalan: "+JSON.stringify(M.tbl&&M.tbl.g5));
     assert(M.fac&&M.fac.cov&&M.fac.formPanas&&M.fac.formPanas.n>0,"uji faktor tambahan berjalan: "+JSON.stringify(M.fac&&Object.keys(M.fac)));
-    const XJ2=JSON.parse(readFileSync(join(r2.out,"xi.json"),"utf8")).e;assert(Object.keys(XJ2).length>=100,"kekuatan line-up per laga tercatat: "+Object.keys(XJ2).length);
+    const XJ2=JSON.parse(readFileSync(join(st,"xi.json"),"utf8")).e;assert(Object.keys(XJ2).length>=100,"kekuatan line-up per laga tercatat: "+Object.keys(XJ2).length);
     assert(M.cov&&M.cov.nXr>0&&Number.isFinite(M.cov.gA),"model mengukur efek line-up: "+JSON.stringify(M.cov));
     assert(mU.bl.lu&&mU.bl.lu[1]<.98,"3 pemain belakang absen: lini bertahan tuan rumah turun "+JSON.stringify(mU.bl.lu));
-    const h2=JSON.parse(readFileSync(join(r2.out,"bsd-history.json"),"utf8")).find(e=>e.id===U.id);assert(h2&&h2.bl,"riwayat menyimpan prediksi Model BL");
+    const h2=JSON.parse(readFileSync(join(st,"bsd-history.json"),"utf8")).find(e=>e.id===U.id);assert(h2&&h2.bl,"riwayat menyimpan prediksi Model BL");
     // run 3 (ringan): model dibawa, tidak dilatih ulang, prediksi tetap menempel
     for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json","xi.json"])cp(r2.out,f);hits.length=0;
-    const r3=await new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",BSD_MODE:"light",GAP_MS:"0",RETRY_MS:"0",BSD_NOW:new Date(NOW+36e5).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json")}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
+    const r3=await new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",BSD_MODE:"light",GAP_MS:"0",RETRY_MS:"0",BSD_NOW:new Date(NOW+36e5).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json"),PREV_DIR:r2.out}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
     assert.equal(r3.c,0,r3.e);assert(!hits.some(h=>/status=finished|\/stats\/|player-stats|\/players\//.test(h)),"run ringan tidak mengunduh riwayat / xG / data pemain");
-    for(const f of ["players.json","values.json","teams.json","xi.json"])assert(existsSync(join(r3.out,f)),"run ringan membawa "+f);
+    assert(existsSync(join(r3.out,"teams.json")),"file turunan tetap tayang");
+    {const {readdirSync}=await import("node:fs");const m2=readdirSync(join(r2.out,"m")).length,m3=existsSync(join(r3.out,"m"))?readdirSync(join(r3.out,"m")).length:0;
+     assert(m2>1&&m3>=m2-1,"Match Center dibawa dari salinan run sebelumnya tanpa unduh ulang: "+m2+" -> "+m3)}
+    for(const f of ["results.json","xg.json","players.json","values.json","xi.json","starters.json","bsd-history.json","pin.json"]){assert(!existsSync(join(r3.out,f)),"data internal tidak tayang: "+f);assert(f==="pin.json"||existsSync(join(st,f)),"data internal tersimpan: "+f)}
     const a3=JSON.parse(readFileSync(join(r3.out,"all.json"),"utf8"));assert(a3.matches.find(x=>x.eid===U.id).bl,"prediksi dibawa di run ringan");
     const M3=JSON.parse(readFileSync(join(r3.out,"model-bl.json"),"utf8"));assert.equal(M3.updated,M.updated,"run ringan tidak melatih ulang");assert(M.temp>=.8&&M.temp<=1.4,"suhu kalibrasi "+M.temp);
     return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
@@ -411,6 +414,19 @@ sc("Tahap 3: faktor form, H2H, derby, habis laga Eropa, perjalanan jauh, pelatih
   assert.equal(F.derbySeri.n,1);assert.equal(F.derbySeri.win,100);assert(Math.abs(F.derbySeri.bsd-30)<1e-9);
   assert.equal(F.tamuJauh.n,1);assert.equal(F.tamuJauh.win,0);
   return Object.keys(F).join(", ");
+});
+sc("V19: ringkasan grid bookmaker & form tim",async()=>{
+ const {trimCmp,slimForm}=await import("./bsd.mjs");
+ const raw={bookmakers_count:24,main_lines:{asian_handicap:-0.75,over_under_25:2.5,total_corners:9.5},markets:{
+  "1x2":{HOME:{outcome:"HOME",outcome_name:"FC A",bookmakers:{x:{decimal_odds:2.1,movement:"S",updated_at:"t"}}},DRAW:{outcome:"DRAW",bookmakers:{x:{decimal_odds:3.3}}},AWAY:{outcome:"AWAY",bookmakers:{x:{decimal_odds:3.6}}}},
+  asian_handicap:{"HOME@-0.25":{outcome:"HOME",outcome_name:"FC A -0.25",line:-0.25,bookmakers:{x:{decimal_odds:1.5}}},"HOME@-0.75":{outcome:"HOME",outcome_name:"FC A -0.75",line:-0.75,bookmakers:{x:{decimal_odds:1.9}}},"AWAY@-0.75":{outcome:"AWAY",outcome_name:"FC B +0.75",line:-0.75,bookmakers:{x:{decimal_odds:1.95}}}},
+  draw_no_bet:{HOME:{bookmakers:{x:{decimal_odds:1.4}}}}}};
+ const c=trimCmp(raw);assert.deepEqual(Object.keys(c.markets),["1X2","Asian handicap"]);assert.deepEqual(c.markets["1X2"].x,{"Tuan rumah":2.1,"Seri":3.3,"Tamu":3.6});
+ assert.deepEqual(c.markets["Asian handicap"].x,{"Tuan rumah -0.75":1.9,"Tamu +0.75":1.95},"hanya garis utama");
+ assert.equal(trimCmp(null),null);assert.equal(trimCmp({markets:{}}),null);
+ const f=slimForm({team_id:1,team_name:"A",overall:{matches:10,won:5,drawn:3,lost:2,goals_for:15,goals_against:9,form:"WWDLW",points_per_match:1.8,stats:{ball_possession:{average:55,total:550},expected_goals:{average:1.4},fouls:{average:12}}}});
+ assert.equal(f.overall.won,5);assert.equal(f.overall.stats.ball_possession.average,55);assert.equal(f.overall.stats.fouls,undefined);assert.equal(slimForm({}),null);
+ return Math.round(JSON.stringify(c).length/JSON.stringify(raw).length*100)+"% ukuran";
 });
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}

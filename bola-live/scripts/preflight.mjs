@@ -26,9 +26,19 @@ export function checkBranch(ref,def){
   return{level:"warn",msg:`Dijalankan dari cabang "${ref}", sedangkan cabang utama repositori adalah "${def}". Deploy ke Pages biasanya hanya diizinkan dari cabang utama.`};
 }
 
+// V19 (audit): pengingat masa aktif langganan BSD (Football Unlimited). Tanggal bisa diubah lewat variabel repo BSD_EXPIRES (YYYY-MM-DD).
+export function checkExpiry(exp,now=Date.now()){
+  const t=Date.parse((exp||"2026-12-19")+"T23:59:59+08:00");if(Number.isNaN(t))return{level:"warn",msg:"Variabel BSD_EXPIRES tidak terbaca (format YYYY-MM-DD)."};
+  const d=Math.ceil((t-now)/864e5);
+  if(d<0)return{level:"warn",msg:`Langganan BSD tercatat berakhir ${exp||"2026-12-19"} (${-d} hari lalu). Bila sudah diperpanjang, ubah variabel repo BSD_EXPIRES.`};
+  if(d<=21)return{level:"warn",msg:`Langganan BSD berakhir dalam ${d} hari (${exp||"2026-12-19"}). Perpanjang di sports.bzzoiro.com supaya data tidak berhenti, lalu ubah variabel repo BSD_EXPIRES.`};
+  return{level:"ok",msg:`Langganan BSD aktif sampai ${exp||"2026-12-19"} (${d} hari lagi).`};
+}
+
 async function main(){
   const E=process.env,res=[];
   res.push(["Token BSD",E.BSD_API_KEY&&String(E.BSD_API_KEY).trim()?{level:"ok",msg:"Secret BSD_API_KEY terisi."}:{level:"error",msg:"Secret BSD_API_KEY kosong. Buka Settings > Secrets and variables > Actions dan isi token dari sports.bzzoiro.com/dashboard."}]);
+  res.push(["Langganan BSD",checkExpiry(E.BSD_EXPIRES||null)]);
   const repo=E.GITHUB_REPOSITORY;
   if(repo&&E.GITHUB_TOKEN){
     try{
