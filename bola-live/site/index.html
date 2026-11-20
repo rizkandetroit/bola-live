@@ -175,6 +175,7 @@ h2 small{font-size:12px;color:var(--mut);font-weight:400}
 .jmain .kpi{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media (max-width:600px){.jmain .kpi{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}.jmain .kpi .k{padding:10px 12px}.jmain .kpi .k b{font-size:22px}.jmain .kpi .k span{font-size:11px;line-height:1.3}}
 .lc{font-size:.85em;color:var(--mut);font-weight:400;opacity:.9}
+.acl.pmv b.up{color:var(--ok)}.acl.pmv b.dn{color:var(--A)}
 .acl{font-size:11.5px;color:var(--mut);margin-top:6px}.acl b{color:var(--ink)}.acl.good b{color:var(--ok)}.acl.warn b{color:var(--A)}
 #v-s,#v-k,#v-e{max-width:1180px;margin-left:auto;margin-right:auto}
 .lr .lt{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:15px;line-height:1.5}.lr .lt .ln{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lr .lt b{font-size:16px;min-width:20px;text-align:right;font-variant-numeric:tabular-nums}.lr .lt.lwin .ln,.lr .lt.lwin b{font-weight:700}.lr .lt.llos .ln,.lr .lt.llos b{color:var(--mut)}.lr .s{margin-top:2px}.tr.lr{grid-template-columns:100px minmax(0,420px) minmax(160px,1fr) 110px}.lr .lp:empty,.lr .ld:empty{display:none}
@@ -729,7 +730,7 @@ function card(x,rank){
     +(x.src==="BSD"?' <span class="tag l2" title="Peluang dari model BSD (machine learning)">BSD</span>':x.src==="HL"?' <span class="tag l3" title="'+(x.p&&x.p.engine==="poisson"?"Prediksi model Poisson + Elo Bola Live":"Data dan prediksi dari Highlightly")+'">'+(x.p&&x.p.engine==="poisson"?"Model BL":"Highlightly")+'</span>':x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
     +'<span class="tme">'+stt(x)+'</span></div>'
     +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+'</div><div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+cr(x.away.crest)+'</div><div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"")+'</div></div></div>'
-    +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+btLine(x)
+    +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+pinLine(x)+btLine(x)
     +(x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"")
     +valTag(x)+'</div>'
 }
@@ -777,7 +778,22 @@ function bsdEvalHtml(e){
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
 function loadEval(){var gj=function(f){return fetch(f+"?"+Date.now()).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
-  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json")]).then(function(a){if(a[0]){BT=a[0];draw()}$("#v-e").innerHTML=btHtml(a[0])+bsdEvalHtml(a[1])})}
+  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json")]).then(function(a){if(a[0]){BT=a[0];draw()}$("#v-e").innerHTML=btHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)})}
+/* V13.4: pergerakan harga Pinnacle (buka -> terkini/tutup) */
+function dvg(o){if(!o||o.length!==3||!o.every(function(x){return x>1}))return null;var q=o.map(function(x){return 1/x}),t=q[0]+q[1]+q[2];return q.map(function(x){return x/t*100})}
+function pinMove(x){var a=x&&x.pin&&dvg(x.pin.o),b=x&&x.pin&&dvg(x.pin.c);if(!a||!b)return null;var d=b.map(function(v,i){return v-a[i]}),k=0;
+  for(var i=1;i<3;i++)if(Math.abs(d[i])>Math.abs(d[k]))k=i;return{k:k,a:a[k],b:b[k],d:d[k]}}
+function pinLine(x){if(x.status!=="NS")return"";var m=pinMove(x);if(!m||Math.abs(m.d)<3)return"";
+  var nm=m.k===0?x.home.name:m.k===2?x.away.name:"Seri",up=m.d>0;
+  return'<div class="acl pmv" title="Peluang tersirat dari harga Pinnacle, margin bandar dibuang. Harga buka vs harga terkini.">Pasar '+(up?"makin yakin":"mulai ragu")+' <b>'+esc(nm)+'</b> '+Math.round(m.a)+'% → <b class="'+(up?"up":"dn")+'">'+Math.round(m.b)+'%</b></div>'}
+function mvHtml(v){
+  if(!v)return"";var h='<div class="evs"><h2>Pergerakan harga pasar <small>Pinnacle · harga buka vs harga menjelang kickoff</small></h2>';
+  if(!v.n||v.n<30)return h+'<p class="cap">Data masih dikumpulkan: '+(v.n||0)+' laga sudah dinilai, '+(v.pending||0)+' laga menunggu hasil. Penilaian ditampilkan setelah 30 laga, dan baru cukup bisa dipercaya sekitar 300 laga.</p></div>';
+  var r=function(t,q){return q?'<tr><td style="text-align:left">'+t+'</td><td>'+q.n+'</td><td>'+pc(q.acc)+'</td><td>'+f3(q.brier)+'</td></tr>':""};
+  h+='<div class="ov"><table class="ev"><tr><th style="text-align:left">Sumber</th><th>Laga</th><th>Favorit tepat</th><th>Brier</th></tr>'+r("Harga buka",v.open)+r("Harga tutup",v.close)+r("Prediksi BSD",v.bsd)+'</table></div>';
+  var m=v.moved;if(m&&m.n)h+='<p>Pada '+m.n+' laga yang harganya bergeser '+m.minMove+' poin atau lebih, hasil yang "dibeli" pasar terjadi <b>'+pc(m.hit)+'</b>. Pasar menilainya '+pc(m.openImp)+' saat buka dan '+pc(m.closeImp)+' menjelang kickoff'+(m.hit>m.closeImp+3?', jadi pergerakan ini lebih kuat dari yang tersirat di harga.':m.hit<m.openImp-3?', jadi pasar cenderung berlebihan.':', jadi harga tutup sudah cukup pas.')+'</p>';
+  return h+'<p class="cap">Brier makin kecil makin baik. Kalau harga tutup lebih baik dari harga buka, kabar menjelang laga (cedera, susunan pemain) memang berguna. '+(v.pending||0)+' laga lagi menunggu hasil.</p></div>'
+}
 /* V13.3: uji mundur 90 hari dari riwayat BSD */
 var BT=null;
 function btLg(name){var q=BT&&BT.byLeague&&BT.byLeague[name];return q&&q.n>=20?q:null}
