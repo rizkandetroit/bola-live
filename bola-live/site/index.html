@@ -834,7 +834,8 @@ function absLine(x){var b=x.ab;if(!b||x.status==="FT"||!(b.nh+b.na))return"";
 function riskOf(x){if(!x.p||x.np||x.status==="FT")return[];var p=[x.p.h,x.p.d,x.p.a],mx=Math.max.apply(null,p),pk=p.indexOf(mx),r=[];
   if(mx<40)r.push("peluang ketiga hasil hampir sama");
   var mk=mkP(x);if(mk&&mk.indexOf(Math.max.apply(null,mk))!==pk)r.push("pasar mengunggulkan "+["tuan rumah","seri","tim tamu"][mk.indexOf(Math.max.apply(null,mk))]);
-  var k=x.bl&&x.bl.k;if(k&&(k[0]!=null||k[1]!=null)){if(Math.max(k[0]||0,k[1]||0)>=2)r.push("pemain inti absen")}else{var b=x.ab;if(b&&(b.nh+b.na>=5||Math.max(b.nh,b.na)>=4))r.push("banyak pemain absen")}
+  var lu=x.bl&&x.bl.lu,k=x.bl&&x.bl.k;if(lu){var wk=[[lu[0],lu[1],x.home.name],[lu[2],lu[3],x.away.name]].filter(function(z){return Math.min(z[0],z[1])<.9});if(wk.length)r.push("line-up "+wk.map(function(z){return esc(z[2])}).join(" & ")+" melemah")}
+  else if(k&&(k[0]!=null||k[1]!=null)){if(Math.max(k[0]||0,k[1]||0)>=2)r.push("pemain inti absen")}else{var b=x.ab;if(b&&(b.nh+b.na>=5||Math.max(b.nh,b.na)>=4))r.push("banyak pemain absen")}
   if(x.bl&&!x.bg){var q2=[x.bl.h,x.bl.d,x.bl.a];if(q2.indexOf(Math.max.apply(null,q2))!==pk&&Math.abs(Math.max.apply(null,q2)-q2[pk])>=5)r.push("Model BL mengunggulkan "+["tuan rumah","seri","tim tamu"][q2.indexOf(Math.max.apply(null,q2))])}
   var q=x.src==="BSD"&&btLg(x.league);if(q&&q.acc<45)r.push("BSD sering meleset di liga ini");
   return r}
@@ -853,9 +854,12 @@ function rkHtml(R){
 /* V15: Model BL (model Bola Live sendiri) */
 var MBL=null;
 function blLine(x){var b=x.bl;if(!b||x.status!=="NS")return"";var g=x.bg,nm=[x.home.name,x.away.name],why=[];
-  if(b.k){if(b.k[0])why.push(b.k[0]+" pemain inti "+esc(nm[0])+" tidak main");if(b.k[1])why.push(b.k[1]+" pemain inti "+esc(nm[1])+" tidak main")}
+  /* V17: kekuatan line-up per lini (serang/bertahan) bila tersedia; kalau tidak, jumlah pemain inti yang tidak main */
+  if(b.lu){var sd=function(i,j){var a=b.lu[j],d=b.lu[j+1];if(a>=.95&&d>=.95)return;var ms=b.mi&&b.mi[i]&&b.mi[i].length?" (tanpa "+b.mi[i].map(esc).join(", ")+")":"";
+      why.push("Line-up "+esc(nm[i])+": serang "+Math.round(a*100)+"%, bertahan "+Math.round(d*100)+"%"+ms)};sd(0,0);sd(1,2)}
+  else if(b.k){if(b.k[0])why.push(b.k[0]+" pemain inti "+esc(nm[0])+" tidak main");if(b.k[1])why.push(b.k[1]+" pemain inti "+esc(nm[1])+" tidak main")}
   if(b.r){if(b.r[0])why.push(esc(nm[0])+" baru main ≤3 hari lalu");if(b.r[1])why.push(esc(nm[1])+" baru main ≤3 hari lalu")}
-  var tt='Model BL: perkiraan gol '+b.xg[0]+' - '+b.xg[1]+', skor paling mungkin '+b.ms[0]+'-'+b.ms[1]+', over 2,5 '+Math.round(b.ou)+'%, BTTS '+Math.round(b.bt)+'%'+(b.src==="xi"?". Memakai line-up resmi.":"");
+  var tt='Model BL: perkiraan gol '+b.xg[0]+' - '+b.xg[1]+', skor paling mungkin '+b.ms[0]+'-'+b.ms[1]+', over 2,5 '+Math.round(b.ou)+'%, BTTS '+Math.round(b.bt)+'%'+(b.lsrc==="xi"||b.src==="xi"?". Memakai line-up resmi.":b.lsrc==="pred"?". Memakai line-up perkiraan BSD.":"");
   var h=g?'<div class="acl blg" title="'+tt+'. Gabungan: BSD '+Math.round(g.w*100)+'% + Model BL '+Math.round((1-g.w)*100)+'%, bobot dipilih dari uji mundur.">Prediksi gabungan BSD + Model BL: <b>'+Math.round(g.h)+'</b> / '+Math.round(g.d)+' / <b>'+Math.round(g.a)+'</b></div>'
     :'<div class="acl bl" title="'+tt+'">Model BL: '+Math.round(b.h)+' / '+Math.round(b.d)+' / '+Math.round(b.a)+'</div>';
   return h+(why.length?'<div class="acl blw">'+why.join(" · ")+'</div>':"")}
@@ -870,6 +874,7 @@ function mblHtml(M,live){
   if(H)h+='<p class="'+(M.useful?"good":"cap")+'">Uji jujur di paruh kedua (bobot dipilih dari paruh pertama): log loss BSD '+f3(H.bsd.ll)+', Model BL '+f3(H.model.ll)+', gabungan '+f3(H.blend.ll)+'. '+(M.useful?'Gabungan terbukti lebih tepat, jadi kartu laga menampilkan "Prediksi gabungan".':'Gabungan belum terbukti lebih tepat dari BSD sendirian, jadi kartu hanya menampilkan Model BL sebagai pembanding.')+'</p>';
   if(B.calib&&B.calib.length)h+='<div class="ov"><table class="ev"><tr><th>Keyakinan Model BL</th><th>Laga</th><th>Rata-rata model</th><th>Kenyataan</th></tr>'+B.calib.filter(function(c){return c.n}).map(function(c){var g=c.hit-c.avg;return'<tr><td>'+c.lo+'–'+(c.hi>100?100:c.hi)+'%</td><td>'+c.n+'</td><td>'+pc(c.avg)+'</td><td class="'+(Math.abs(g)<=5?"good":"warn")+'">'+pc(c.hit)+'</td></tr>'}).join("")+'</table></div>';
   h+='<p class="cap">Isi model: kekuatan serang/tahan tiap tim (laga baru lebih berbobot), keunggulan kandang per liga (rata-rata +'+Math.round((Math.exp(M.hfa)-1)*100)+'% gol), efek jadwal padat dari data (istirahat ≤3 hari: gol sendiri '+(M.rest.own>=0?"+":"")+Math.round((Math.exp(M.rest.own)-1)*100)+'%, kebobolan '+(M.rest.opp>=0?"+":"")+Math.round((Math.exp(M.rest.opp)-1)*100)+'%), dan koreksi pemain inti yang tidak main (dari line-up resmi BSD).</p>';
+  var cv=M.cov;if(cv)h+='<p class="cap">Diukur dari data: '+(cv.nXr>=300?'line-up lini serang 10% lebih lemah → gol sendiri '+Math.round((1-Math.pow(.9,cv.gA))*100)+'% lebih sedikit; lini bertahan 10% lebih lemah → kebobolan '+Math.round((Math.pow(.9,-cv.gD)-1)*100)+'% lebih banyak (dari '+cv.nXr.toLocaleString("id-ID")+' laga yang line-up-nya diketahui).':'efek line-up baru diukur dari '+(cv.nXr||0)+' laga, perlu 300 laga sebelum dipakai (sementara memakai koreksi pemain inti sederhana).')+(cv.nZv?' Nilai skuad tersedia untuk '+cv.nZv.toLocaleString("id-ID")+' laga.':'')+'</p>';
   if(live&&live.n)h+='<p>Penilaian langsung (prediksi dicatat sebelum kickoff): '+live.n+' laga, Model BL tepat '+pc(live.model.acc)+' vs BSD '+pc(live.bsd.acc)+'.</p>';
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(M.updated))+' WITA, dilatih ulang sekali sehari.</p></div>'}
 /* V16 (Tahap 1): uji "klasemen menipu" + kemajuan data pemain */
