@@ -30,3 +30,18 @@ BSD (sports.bzzoiro.com, paket Football gratis, 7.500 permintaan/hari) kini menj
 - **Match Center** (tombol di tiap kartu): ringkasan (cuaca, penonton, siaran TV termasuk Indonesia, preview AI, fakta, cuplikan, form 10 laga), prediksi BSD lengkap (1X2, skor, over/under, BTTS, pojok), statistik + momentum + peta tembakan, line-up resmi/prediksi AI + pemain absen, kejadian, komentar, rating pemain, odds konsensus + perbandingan bookmaker + Polymarket, H2H (`m/{id}.json`).
 - **Odds terbaik antar bookmaker** (1X2, over/under 2,5, BTTS) tampil di kartu.
 - Variabel: `BSD_MAX_DETAIL` (default 250 laga), `BSD_CONCURRENCY` (6), `BSD_DEEP=0` untuk mematikan mode lengkap, variabel repo `FORCE_HEAVY=1` untuk memaksa mode berat tiap run.
+
+## Perubahan V19 (audit menyeluruh, 20 Nov 2026)
+- **Data antar-run disimpan di cache GitHub Actions**, bukan diunduh ulang dari situs tayang. `bola-live/prev` = keluaran run sebelumnya, `bola-live/state` = data internal (riwayat hasil setahun, xG, data pemain, nilai pasar, line-up, riwayat prediksi, status Highlightly, odds Pinnacle). Data internal **tidak lagi tayang publik** (sesuai syarat BSD/Highlightly yang melarang data mentah disebar sebagai dataset).
+- **Pemeriksa sebelum tayang** (`scripts/guard.mjs`): file data internal yang menyusut tidak wajar dikembalikan ke versi sebelum run (peringatan di Actions); `all.json` yang rusak/anjlok membatalkan deploy (situs lama tetap tayang). Ringkasan kesehatan (model basi, Highlightly kosong, waktu skrip, Model BL vs BSD) tampil di halaman run.
+- **Cadangan harian terenkripsi** (artifact `state-backup`, 14 hari), dipulihkan otomatis bila cache hilang.
+- **Saat upload kode (push)** semua tes dijalankan dulu; kode yang gagal tes tidak di-deploy.
+- **Hemat bandwidth**: situs memakai revalidasi (jawaban 304 bila data belum berubah); file Match Center laga yang akan datang diringkas dari ±66KB ke ±17KB (form tim & grid bookmaker hanya angka yang ditampilkan).
+- **Keamanan**: Content-Security-Policy, link cuplikan hanya http(s), escape tambahan.
+- **Variabel repo** (Settings > Secrets and variables > Actions > *Variables*), tanpa upload kode:
+  - `BL_NEUTRAL=1` — tampilan netral: tanpa tag "Value" dan tabel perbandingan bookmaker.
+  - `BL_NOINDEX=1` — situs tidak diindeks mesin pencari.
+  - `BSD_EXPIRES=YYYY-MM-DD` — tanggal akhir langganan BSD (default 2026-12-19); peringatan muncul 21 hari sebelumnya.
+  - `GUARD_ALLOW_SHRINK=1` — izinkan data menyusut untuk satu run (mis. sengaja mengosongkan data), lalu hapus lagi.
+- **Secret opsional** `BACKUP_KEY` — kata sandi enkripsi cadangan (bila tidak diisi, memakai `BSD_API_KEY`; bila token BSD diganti, cadangan lama tidak bisa dibuka, cukup tunggu cadangan baru).
+- `scripts/check-bsd-history.mjs` (pemeriksaan sekali jalan) membaca `bsd-history.json` dari situs; sejak V19 file itu tidak tayang, jadi skrip ini perlu disesuaikan bila ingin dipakai lagi.
