@@ -834,6 +834,7 @@ function blLine(x){var b=x.bl;if(!b||x.status!=="NS")return"";var g=x.bg,nm=[x.h
 function mblHtml(M,live){
   if(!M||!M.bt)return"";var B=M.bt,H=B.holdout;
   var h='<div class="evs"><h2>Model BL <small>model Bola Live dari '+(M.nMatches||0).toLocaleString("id-ID")+' laga ('+M.span+' hari), '+(M.nTeams||0).toLocaleString("id-ID")+' tim</small></h2>';
+  h+='<p class="cap">Data xG tersedia untuk '+(M.xgCov!=null?String(M.xgCov).replace(".",","):"0")+'% laga 6 bulan terakhir (diisi bertahap, ±5.000 laga/hari). '+(M.cfg&&M.cfg.xga?'Model memakai campuran '+Math.round(M.cfg.xga*100)+'% xG + '+Math.round((1-M.cfg.xga)*100)+'% skor.':'Saat ini model memakai skor akhir saja; xG dipakai otomatis begitu terbukti lebih tepat.')+'</p>';
   if(M.partial)h+='<p class="cap">Riwayat masih diisi bertahap (baru '+M.span+' dari 365 hari). Hasil di bawah akan makin kuat setelah lengkap.</p>';
   var r=function(t,q){return q?'<tr><td style="text-align:left">'+t+'</td><td>'+pc(q.acc)+'</td><td>'+f3(q.brier)+'</td><td>'+f3(q.ll)+'</td></tr>':""};
   h+='<p>Uji mundur '+B.days+' hari: tiap laga ditebak hanya dari data sebelum laga itu, pada '+(B.joined||0).toLocaleString("id-ID")+' laga yang juga punya prediksi BSD.</p>';
