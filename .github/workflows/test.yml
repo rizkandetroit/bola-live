@@ -7,11 +7,15 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - run: node bola-live/scripts/test-bsd.mjs
-      - run: node bola-live/scripts/test-ui.mjs
+      # V19 (audit): semua tes dijalankan (sebelumnya hanya 2 dari 9)
+      - run: |
+          set -e
+          for t in test.mjs test-bsd.mjs test-ui.mjs test-ci.mjs test-lite.mjs test-understat.mjs test-pitch.mjs test-intelligence.mjs test-guard.mjs; do
+            echo "== $t"; node bola-live/scripts/$t
+          done

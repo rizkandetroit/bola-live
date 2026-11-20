@@ -14,15 +14,56 @@ concurrency:
   group: pages
   cancel-in-progress: false
 # Satu run berjalan sekaligus; run terjadwal berikutnya menunggu.
+# V19 (audit 20 Nov 2026):
+#  - data antar-run disimpan di cache GitHub Actions (bola-live/prev = keluaran run sebelumnya, bola-live/state = data internal),
+#    bukan diunduh ulang dari situs: hemat bandwidth Pages, dan data mentah (riwayat setahun, xG, data pemain, odds) tidak tayang publik.
+#  - pemeriksa sebelum tayang: bila data penting menyusut tidak wajar, run berhenti SEBELUM cache disimpan dan sebelum deploy.
+#  - cadangan harian terenkripsi (artifact 14 hari), dipulihkan otomatis bila cache hilang.
+#  - saat upload kode (push): semua tes dijalankan dulu; kode yang gagal tes tidak di-deploy.
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+    env:
+      PREV_DIR: bola-live/prev
+      STATE_DIR: bola-live/state
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 24
+
+      - name: Tes (hanya saat upload kode)
+        if: github.event_name == 'push'
+        run: |
+          set -e
+          for t in test.mjs test-bsd.mjs test-ui.mjs test-ci.mjs test-lite.mjs test-understat.mjs test-pitch.mjs test-intelligence.mjs test-guard.mjs; do
+            echo "== $t"; node bola-live/scripts/$t
+          done
+
+      - name: Pulihkan data run sebelumnya (cache)
+        id: restore
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            bola-live/prev
+            bola-live/state
+          key: data-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: data-
+
+      - name: Pulihkan dari cadangan harian (bila cache hilang)
+        if: steps.restore.outputs.cache-matched-key == ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKUP_KEY: ${{ secrets.BACKUP_KEY || secrets.BSD_API_KEY }}
+        run: |
+          id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=state-backup&per_page=20" --jq '[.artifacts[]|select(.expired==false)][0].id // empty')
+          if [ -z "$id" ]; then echo "Belum ada cadangan; data dibaca dari situs tayang (sekali saja)."; exit 0; fi
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id/zip" > backup.zip
+          unzip -o -q backup.zip
+          openssl enc -d -aes-256-cbc -pbkdf2 -pass env:BACKUP_KEY -in state-backup.enc | tar xzf - -C bola-live
+          echo "Data internal dipulihkan dari cadangan $id"; ls -la bola-live/state | head -20
 
       - name: Pemeriksaan awal (token dan GitHub Pages)
         run: node bola-live/scripts/preflight.mjs
@@ -30,15 +71,18 @@ jobs:
         env:
           BSD_API_KEY: ${{ secrets.BSD_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BSD_EXPIRES: ${{ vars.BSD_EXPIRES }}
 
-      # V12.2: hanya BSD. Tiap 5 menit = mode ringan (live). Tiap ~1 jam / manual = mode berat (klasemen + Match Center penuh).
-      - name: Tentukan mode dan bawa data run berat sebelumnya
+      - name: Catat data sebelum run
+        run: node bola-live/scripts/guard.mjs before
+
+      # V12.2: tiap 5 menit = mode ringan (live). Tiap ~1 jam / upload = mode berat (klasemen, Match Center penuh, model).
+      - name: Tentukan mode
         id: mode
         run: node bola-live/scripts/carry.mjs
         env:
           FORCE_HEAVY: ${{ vars.FORCE_HEAVY }}
 
-      # SEMUA liga: jadwal, skor, live, H2H, prediksi, logo -> all.json (menggantikan API-Football, SportAPI, FotMob, TheSportsDB)
       - name: Ambil SEMUA liga (BSD)
         run: node bola-live/scripts/bsd.mjs
         continue-on-error: true
@@ -49,13 +93,51 @@ jobs:
           BSD_MAX_DETAIL: 400
           BSD_CONCURRENCY: 6
           GAP_MS: 150
+          MAX_RUN_MS: 720000
+          BL_NEUTRAL: ${{ vars.BL_NEUTRAL }}
 
-      # Liga Indonesia (Liga 1 + Liga 2) dari Highlightly, paket gratis 100 permintaan/hari (hemat kuota otomatis)
-      - name: Ambil liga Indonesia (Highlightly)
+      - name: Ambil liga Highlightly (Indonesia, Denmark, Algeria)
         run: node bola-live/scripts/highlightly.mjs
         continue-on-error: true
         env:
           HIGHLIGHTLY_KEY: ${{ secrets.HIGHLIGHTLY_KEY }}
+          MAX_RUN_MS: 180000
+
+      - name: Periksa data sebelum tayang
+        id: guard
+        run: node bola-live/scripts/guard.mjs after
+        env:
+          GUARD_ALLOW_SHRINK: ${{ vars.GUARD_ALLOW_SHRINK }}
+
+      - name: Simpan data untuk run berikutnya (cache)
+        run: rm -rf bola-live/prev && cp -r bola-live/site bola-live/prev
+      - uses: actions/cache/save@v4
+        with:
+          path: |
+            bola-live/prev
+            bola-live/state
+          key: data-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Cadangan harian terenkripsi
+        if: steps.guard.outputs.backup == '1'
+        env:
+          BACKUP_KEY: ${{ secrets.BACKUP_KEY || secrets.BSD_API_KEY }}
+        run: tar czf - -C bola-live state | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:BACKUP_KEY -out state-backup.enc
+      - if: steps.guard.outputs.backup == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: state-backup
+          path: state-backup.enc
+          retention-days: 14
+
+      # Pilihan tampilan lewat variabel repo (Settings > Secrets and variables > Actions > Variables), tanpa upload kode:
+      #   BL_NEUTRAL=1 -> tanpa tag "Value" dan tabel perbandingan bookmaker;  BL_NOINDEX=1 -> situs tidak diindeks mesin pencari
+      - name: Pengaturan tampilan
+        if: vars.BL_NEUTRAL == '1' || vars.BL_NOINDEX == '1'
+        run: |
+          f=bola-live/site/index.html
+          if [ "${{ vars.BL_NEUTRAL }}" = "1" ]; then sed -i 's/,NEUTRAL=0;/,NEUTRAL=1;/' "$f"; grep -q ',NEUTRAL=1;' "$f"; fi
+          if [ "${{ vars.BL_NOINDEX }}" = "1" ]; then sed -i '0,/<meta charset[^>]*>/s//&\n<meta name="robots" content="noindex,nofollow">/' "$f"; grep -q 'name="robots"' "$f"; fi
 
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
