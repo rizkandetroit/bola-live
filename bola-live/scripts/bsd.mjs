@@ -137,7 +137,7 @@ export function updateHistory(hist,matches,now){
       const v=bestVal(m);
       H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:[m.p.h,m.p.d,m.p.a],ou:m.p.ou??null,bt:m.p.bt??null,
         o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:(e&&e.o)||null,v:v,r:e&&e.r||null,
-        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null});
+        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null});
     }
     if(e&&!e.r&&m.status==="FT"&&m.score[0]!=null&&m.score[1]!=null)e.r=[m.score[0],m.score[1]];
   }
@@ -160,14 +160,40 @@ export const devig=o=>{if(!o||!o.every(x=>x>1))return null;const q=o.map(x=>1/x)
 export function evalMove(hist,minMove=3){
   const R=(hist||[]).filter(e=>e.r&&e.po&&e.pc),z=()=>({n:0,hit:0,br:0});
   const add=(s,p,o)=>{s.n++;if(p.indexOf(Math.max(...p))===o)s.hit++;s.br+=p.reduce((a,x,i)=>a+(x/100-(i===o?1:0))**2,0)};
-  const op=z(),cl=z(),bs=z(),mv={n:0,hit:0,imp:0,impO:0},big=[];
+  const op=z(),cl=z(),bs=z(),mv={n:0,hit:0,imp:0,impO:0},W=[0,.1,.2,.3,.4,.5,.6,.7,.8,.9,1].map(w=>({w,s:z()}));
   for(const e of R){const a=devig(e.po),b=devig(e.pc);if(!a||!b)continue;const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2;
-    add(op,a,o);add(cl,b,o);if(e.p)add(bs,e.p,o);
+    add(op,a,o);add(cl,b,o);if(e.p){add(bs,e.p,o);for(const q of W)add(q.s,mixP(e.p,b,q.w),o)}
     const d=b.map((x,i)=>x-a[i]),k=d.indexOf(Math.max(...d));           // hasil yang paling "dibeli" pasar
     if(d[k]>=minMove){mv.n++;if(k===o)mv.hit++;mv.imp+=b[k];mv.impO+=a[k]}}
   const f=s=>s.n?{n:s.n,acc:s.hit/s.n*100,brier:s.br/s.n}:null;
-  return{n:op.n,open:f(op),close:f(cl),bsd:f(bs),moved:mv.n?{n:mv.n,minMove,hit:mv.hit/mv.n*100,closeImp:mv.imp/mv.n,openImp:mv.impO/mv.n}:{n:0,minMove},
+  const best=W.filter(q=>q.s.n).sort((x,y)=>x.s.br-y.s.br)[0],m50=W[5].s;
+  const mix=best?{n:best.s.n,w:best.w,best:f(best.s),half:f(m50),ok:best.s.n>=300&&bs.n>0&&best.s.br/best.s.n<bs.br/bs.n-.002&&best.w<1}:null;
+  return{n:op.n,open:f(op),close:f(cl),bsd:f(bs),mix,moved:mv.n?{n:mv.n,minMove,hit:mv.hit/mv.n*100,closeImp:mv.imp/mv.n,openImp:mv.impO/mv.n}:{n:0,minMove},
     pending:(hist||[]).filter(e=>!e.r&&e.po).length};
+}
+// V13.5: pemain absen dari /events/{id}/lineups/ (unavailable_players) -> ringkas untuk kartu: {h:[[nama,status]],a:[...]}
+// status: i = cedera, d = diragukan, s = skors. Hanya nama pendek, paling banyak 6 per tim.
+export function absOf(lu){
+  const u=lu&&lu.unavailable_players;if(!u)return null;const S={injured:"i",doubtful:"d",suspended:"s"};
+  const side=a=>(Array.isArray(a)?a:[]).filter(p=>p&&(p.short_name||p.name)).map(p=>[p.short_name||p.name,S[p.status]||"i"]).slice(0,6);
+  const h=side(u.home),a=side(u.away),n=k=>(Array.isArray(u[k])?u[k].length:0);
+  return h.length||a.length?{h,a,nh:n("home"),na:n("away")}:{h:[],a:[],nh:0,na:0};
+}
+// V13.5: prediksi gabungan BSD + pasar (Pinnacle, margin dibuang). Bobot BSD = w.
+export const mixP=(p,mk,w)=>{if(!p||!mk)return null;const m=p.map((x,i)=>w*x+(1-w)*mk[i]),t=m[0]+m[1]+m[2];return m.map(x=>x/t*100)};
+// V13.5: indikator risiko — penilaian akurasi BSD per kelompok laga "rawan".
+export function riskFlags(e){
+  const f=[],p=e.p;if(!p)return f;const mx=Math.max(...p),pk=p.indexOf(mx);
+  if(mx<40)f.push("tipis");
+  const mk=devig(e.pc)||devig(e.o);if(mk&&mk.indexOf(Math.max(...mk))!==pk)f.push("beda");
+  if(e.ab&&(e.ab[0]+e.ab[1]>=5||Math.max(e.ab[0],e.ab[1])>=4))f.push("absen");
+  return f;
+}
+export function evalRisk(hist){
+  const R=(hist||[]).filter(e=>e.r&&e.p),G={};
+  const add=(k,e)=>{const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,g=G[k]=G[k]||{n:0,hit:0};g.n++;if(e.p.indexOf(Math.max(...e.p))===o)g.hit++};
+  for(const e of R){const f=riskFlags(e);add("semua",e);if(!f.length)add("aman",e);for(const k of f)add(k,e);if(f.length>=2)add("ganda",e);if(e.ab)add("adaAbsen",e)}
+  const out={};for(const k in G)out[k]={n:G[k].n,acc:G[k].hit/G[k].n*100};return out;
 }
 export function evalHistory(hist){
   const R=(hist||[]).filter(e=>e.r&&e.p),z=()=>({n:0,hit:0,br:0,ll:0,home:0,ouN:0,ouHit:0,btN:0,btHit:0,bets:0,profit:0,mkN:0,mkHit:0,mkBr:0});
@@ -317,11 +343,11 @@ async function main(){
         h2h:e.head_to_head||null,pred:P.get(id)||null,stats,lineups,incidents:inc&&inc.incidents||null,
         commentary:com&&com.commentary?com.commentary.slice(0,120):null,player_stats:ps?slimPS(ps):null,
         odds:odds||null,odds_cmp:trimCmp(cmp),polymarket:poly,meta,tv:tv&&tv.results||null,form};
-      writeFileSync(dir+"m/"+id+".json",JSON.stringify(out));have.add(id);deep.details++;
+      writeFileSync(dir+"m/"+id+".json",JSON.stringify(out));have.add(id);deep.details++;{const ab=absOf(lineups);if(ab)m.ab=ab}
     });
     if(LIGHT){ // laga fokus heavy yang tidak disegarkan: bawa dari situs tayang (supaya Match Center tetap lengkap)
       const prev=await pull("m/index.json"),want=new Set(focusOf(every,now,false).map(m=>m.eid));
-      await pool(((prev&&prev.ids)||[]).filter(i=>want.has(i)&&!hotIds.has(i)).slice(0,MAXD),async id=>{const o=await pull("m/"+id+".json");if(o){writeFileSync(dir+"m/"+id+".json",JSON.stringify(o));have.add(id);deep.carried++}});
+      await pool(((prev&&prev.ids)||[]).filter(i=>want.has(i)&&!hotIds.has(i)).slice(0,MAXD),async id=>{const o=await pull("m/"+id+".json");if(o){writeFileSync(dir+"m/"+id+".json",JSON.stringify(o));have.add(id);deep.carried++;const ab=absOf(o.lineups),m=every.find(x=>x.eid===id);if(ab&&m)m.ab=ab}});
     }
     for(const m of every)if(have.has(m.eid))m.dx=1;
     writeFileSync(dir+"m/index.json",JSON.stringify({updated:new Date(now).toISOString(),ids:[...have]}));
@@ -331,7 +357,7 @@ async function main(){
   // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
   let hist=[];{const site=siteBase();if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
     else if(site){try{const r=await tfetch(site+"bsd-history.json?t="+now);if(r.ok)hist=await r.json()}catch(e){}}}
-  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist)}))}
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeFileSync(dir+"bsd-history.json",JSON.stringify(hist));writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist)}))}
   // V13.3: uji mundur 90 hari -> bsd-backtest.json (heavy, paling sering sekali per ~20 jam; selain itu dibawa dari situs)
   {const site=siteBase(),BTD=Number(process.env.BSD_BACKTEST_DAYS??90);let prev=null;
     if(site){try{const r=await tfetch(site+"bsd-backtest.json?t="+now);if(r.ok)prev=await r.json()}catch(e){}}

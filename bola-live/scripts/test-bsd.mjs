@@ -6,7 +6,7 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import assert from "node:assert";
-import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory} from "./bsd.mjs";
+import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
 
 const here=fileURLToPath(new URL(".",import.meta.url));
 const S=JSON.parse(readFileSync(join(here,"fixtures/bsd-sample.json"),"utf8"));
@@ -118,6 +118,25 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  const ev=evalMove(h);assert.equal(ev.n,10);assert.equal(ev.pending,1);assert.equal(ev.moved.n,10);assert.equal(ev.moved.hit,70);
  assert(ev.close.brier<ev.open.brier,"harga tutup lebih tepat");assert(ev.moved.closeImp>ev.moved.openImp);assert.equal(ev.bsd.n,10);
  console.log("pinnacle ok: buka",ev.open.brier.toFixed(3),"tutup",ev.close.brier.toFixed(3))}
+
+// V13.5: pemain absen, prediksi gabungan, indikator risiko
+{const lu={unavailable_players:{home:[{name:"Alex Roldán",short_name:"A. Roldán",status:"injured",reason:"Calf"},{name:"Y Gómez",status:"suspended"}],away:[{short_name:"D. Luna",status:"doubtful"}]}};
+ assert.deepEqual(absOf(lu),{h:[["A. Roldán","i"],["Y Gómez","s"]],a:[["D. Luna","d"]],nh:2,na:1});
+ assert.deepEqual(absOf({unavailable_players:{home:[],away:[]}}),{h:[],a:[],nh:0,na:0});assert.equal(absOf(null),null);
+ const big={unavailable_players:{home:Array.from({length:9},(_,i)=>({short_name:"P"+i,status:"injured"})),away:[]}};const b=absOf(big);assert.equal(b.h.length,6);assert.equal(b.nh,9);
+ const mx=mixP([60,25,15],[40,30,30],.5);assert(Math.abs(mx[0]-50)<1e-9&&Math.abs(mx[0]+mx[1]+mx[2]-100)<1e-9);assert.equal(mixP(null,[1,1,1],.5),null);
+ assert.deepEqual(riskFlags({p:[38,32,30]}),["tipis"]);assert.deepEqual(riskFlags({p:[41,30,29]}),[]);
+ assert.deepEqual(riskFlags({p:[55,25,20],pc:[3.5,3.4,2.0]}),["beda"]);                 // pasar mengunggulkan tim tamu
+ assert.deepEqual(riskFlags({p:[55,25,20],ab:[3,2]}),["absen"]);assert.deepEqual(riskFlags({p:[55,25,20],ab:[1,1]}),[]);
+ const H=[];for(let i=0;i<10;i++)H.push({p:[38,32,30],r:i<3?[1,0]:[0,1]});for(let i=0;i<10;i++)H.push({p:[60,25,15],r:i<8?[1,0]:[0,0],ab:[0,0]});H.push({p:[60,25,15]});
+ const R=evalRisk(H);assert.equal(R.semua.n,20);assert.equal(R.tipis.acc,30);assert.equal(R.aman.acc,80);assert.equal(R.adaAbsen.n,10);
+ // gabungan: pasar lebih tepat -> bobot terbaik condong ke pasar; riwayat menyimpan jumlah absen
+ const h=[];for(let i=0;i<400;i++)h.push({r:i%10<7?[1,0]:[0,1],p:[34,33,33],po:[2,3.4,3.8],pc:[1.45,4.4,6.5]});
+ const ev=evalMove(h);assert(ev.mix&&ev.mix.w<.5,"bobot BSD kecil: "+ev.mix.w);assert(ev.mix.best.brier<=ev.bsd.brier);assert.equal(ev.mix.ok,true);
+ const ev2=evalMove(h.slice(0,50));assert.equal(ev2.mix.ok,false,"data sedikit -> belum dipakai");
+ const t0=Date.parse("2026-11-20T00:00:00Z"),m={eid:5,league:"L",utc:"2026-11-20T12:00:00Z",status:"NS",home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25},score:[null,null]};
+ let HH=updateHistory([],[{...m,ab:{h:[],a:[],nh:3,na:1}}],t0);HH=updateHistory(HH,[{...m}],t0+36e5);assert.deepEqual(HH[0].ab,[3,1]);
+ console.log("absen + gabungan + risiko ok: bobot BSD terbaik",ev.mix.w)}
 
 // ---- e2e: bsd.mjs dijalankan sungguhan ke server tiruan ----
 const cfg={mode:"ok",hits:[]};
