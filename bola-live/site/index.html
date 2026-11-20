@@ -174,6 +174,8 @@ h2 small{font-size:12px;color:var(--mut);font-weight:400}
 .tm .n{display:flex;align-items:center;gap:6px;line-height:1.25;min-width:0}.tm .r .n{justify-content:flex-end}.tm .n .cr{flex:0 0 auto;margin:0}.tm .s:empty{display:none}
 .jmain .kpi{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media (max-width:600px){.jmain .kpi{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}.jmain .kpi .k{padding:10px 12px}.jmain .kpi .k b{font-size:22px}.jmain .kpi .k span{font-size:11px;line-height:1.3}}
+.lc{font-size:.85em;color:var(--mut);font-weight:400;opacity:.9}
+.acl{font-size:11.5px;color:var(--mut);margin-top:6px}.acl b{color:var(--ink)}.acl.good b{color:var(--ok)}.acl.warn b{color:var(--A)}
 #v-s,#v-k,#v-e{max-width:1180px;margin-left:auto;margin-right:auto}
 .lr .lt{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:15px;line-height:1.5}.lr .lt .ln{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lr .lt b{font-size:16px;min-width:20px;text-align:right;font-variant-numeric:tabular-nums}.lr .lt.lwin .ln,.lr .lt.lwin b{font-weight:700}.lr .lt.llos .ln,.lr .lt.llos b{color:var(--mut)}.lr .s{margin-top:2px}.tr.lr{grid-template-columns:100px minmax(0,420px) minmax(160px,1fr) 110px}.lr .lp:empty,.lr .ld:empty{display:none}
 @media (max-width:760px){#sl-kpi{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}#sl-kpi .k{padding:8px 6px;text-align:center}#sl-kpi .k b{font-size:20px;display:block}#sl-kpi .k span{font-size:10.5px;line-height:1.25;display:block}#sl-list .tr.lr{grid-template-columns:54px minmax(0,1fr);gap:6px 10px;padding:10px 12px}#sl-list .lr .lp{grid-column:1/-1}#sl-list .lr .ld{display:none}#sl-list .lr .lt{font-size:14px}#sl-list .lr .lt b{font-size:15px}#sl-list .lr .dtc{font-size:12px;font-weight:600}#sl-list .lr .s{font-size:11px}}
@@ -717,15 +719,17 @@ function rowNp(x){
   return'<div class="tr'+(x.status==="LIVE"?" lv":"")+'"><div class="dtc">'+stt(x,1)+'</div><div><div class="n">'+esc(x.home.name)+(x.status==="NS"?'<span class="vs2"> vs </span>':'<span class="sc">'+(x.score[0]==null?"-":x.score[0])+"-"+(x.score[1]==null?"-":x.score[1])+'</span>')+esc(x.away.name)+'</div><div class="s">'+esc(x.league)+'</div></div><div></div><div style="text-align:right"><span class="tag l1">tanpa prediksi</span></div></div>'
 }
 
+/* V13.3: nama negara di samping nama liga (mis. "Liga 1" Peru vs Liga 1 Indonesia) */
+function lgName(x){return esc(x.league)+(x.lc&&String(x.league).indexOf(x.lc)<0?' <span class="lc">'+esc(x.lc)+'</span>':"")}
 function card(x,rank){
   if(x.np)return cardNp(x);
   var ri=rank!=null?rank-1:99,rc=rkStyle(ri);
   return'<div class="c cc'+rc+(x.status==="LIVE"?" lv":"")+(String(MC.id)===String(x.eid)?" sel":"")+'"'+(x.eid?' data-mc="'+x.eid+'" role="button" tabindex="0" aria-label="Buka Match Center '+esc(x.home.name)+' vs '+esc(x.away.name)+'"':"")+'><div class="tp">'
-    +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+cr(x.lgc,"lgc")+esc(x.league)+'</span>':'<span>'+cr(x.lgc,"lgc")+esc(x.league)+'</span>')
+    +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+cr(x.lgc,"lgc")+lgName(x)+'</span>':'<span>'+cr(x.lgc,"lgc")+lgName(x)+'</span>')
     +(x.src==="BSD"?' <span class="tag l2" title="Peluang dari model BSD (machine learning)">BSD</span>':x.src==="HL"?' <span class="tag l3" title="'+(x.p&&x.p.engine==="poisson"?"Prediksi model Poisson + Elo Bola Live":"Data dan prediksi dari Highlightly")+'">'+(x.p&&x.p.engine==="poisson"?"Model BL":"Highlightly")+'</span>':x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
     +'<span class="tme">'+stt(x)+'</span></div>'
     +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+'</div><div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+esc(x.away.name)+cr(x.away.crest)+'</div><div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"")+'</div></div></div>'
-    +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'
+    +pb(x)+'<div class="ft2"><span style="font-size:12px">Condong ke <b>'+esc(pk(x).name)+'</b>'+(conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+btLine(x)
     +(x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"")
     +valTag(x)+'</div>'
 }
@@ -772,7 +776,24 @@ function bsdEvalHtml(e){
   if(L.length)h+='<h2>Per liga (min. 5 laga)</h2><div class="ov"><table class="ev"><tr><th>Liga</th><th>Laga</th><th>Akurasi</th><th>Selalu tuan rumah</th><th>Brier</th><th>ROI value</th></tr>'+L.map(function(k){var q=e.byLeague[k];return'<tr><td>'+esc(k)+'</td><td>'+q.n+'</td><td>'+pc(q.acc)+'</td><td>'+pc(q.homeAcc)+'</td><td>'+f3(q.brier)+'</td><td>'+(q.value&&q.value.bets?pc(q.value.roi):"-")+'</td></tr>'}).join("")+'</table></div>';
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
-function loadEval(){fetch("bsd-eval.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){$("#v-e").innerHTML=bsdEvalHtml(j)}).catch(function(){$("#v-e").innerHTML=bsdEvalHtml(null)})}
+function loadEval(){var gj=function(f){return fetch(f+"?"+Date.now()).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
+  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json")]).then(function(a){if(a[0]){BT=a[0];draw()}$("#v-e").innerHTML=btHtml(a[0])+bsdEvalHtml(a[1])})}
+/* V13.3: uji mundur 90 hari dari riwayat BSD */
+var BT=null;
+function btLg(name){var q=BT&&BT.byLeague&&BT.byLeague[name];return q&&q.n>=20?q:null}
+function btCls(q){return q.acc>=55?"good":q.acc<45?"warn":""}
+function btLine(x){var q=x&&x.src==="BSD"&&btLg(x.league);if(!q)return"";var c=btCls(q);
+  return'<div class="acl'+(c?" "+c:"")+'" title="Uji mundur '+(BT.days||90)+' hari: tebakan BSD vs hasil asli di liga ini">Akurasi liga ini <b>'+pc(q.acc)+'</b> · '+q.n+' laga'+(q.acc<45?" · sering meleset":"")+'</div>'}
+function btHtml(b){
+  if(!b||!b.n)return"";var se=1.96*Math.sqrt(.25/b.n)*100,d=b.acc-b.homeAcc,C=b.countries||{};
+  var h='<div class="evs"><h2>Uji mundur '+(b.days||90)+' hari <small>'+b.n.toLocaleString("id-ID")+' laga · riwayat prediksi BSD vs hasil asli</small></h2>';
+  h+='<div class="kpi"><div class="k"><b>'+pc(b.acc)+'</b><span>Tebakan 1X2 tepat</span></div><div class="k"><b>'+pc(b.homeAcc)+'</b><span>Patokan: selalu tuan rumah</span></div><div class="k"><b>'+(b.ou?pc(b.ou.acc):"-")+'</b><span>Over/under 2,5 tepat</span></div><div class="k"><b>'+(b.bt?pc(b.bt.acc):"-")+'</b><span>Kedua tim cetak gol tepat</span></div></div>';
+  h+='<p class="'+(d>se?"good":"warn")+'">Dari '+b.n.toLocaleString("id-ID")+' laga ('+(b.from?df.format(new Date(b.from)):"")+' sampai '+(b.to?df.format(new Date(b.to)):"")+'), BSD tepat '+pc(b.acc)+', '+(Math.abs(d)<.05?'sama dengan':d>0?'lebih baik '+d.toFixed(1).replace(".",",")+' poin dari':'lebih buruk '+(-d).toFixed(1).replace(".",",")+' poin dari')+' patokan "selalu tuan rumah"'+(d>0&&d<=se?' (selisihnya masih bisa kebetulan)':'')+'. Brier '+f3(b.brier)+' (makin kecil makin baik). Angka prediksi BSD sudah dicek tidak berubah setelah kickoff.</p>';
+  if(b.calib&&b.calib.length)h+='<h2>Kalibrasi <small>apakah keyakinan model sesuai kenyataan</small></h2><div class="ov"><table class="ev"><tr><th>Keyakinan model</th><th>Laga</th><th>Rata-rata model</th><th>Kenyataan tepat</th></tr>'+b.calib.filter(function(c){return c.n}).map(function(c){var g=c.hit!=null&&c.avg!=null?c.hit-c.avg:0;return'<tr><td>'+c.lo+'–'+(c.hi>100?100:c.hi)+'%</td><td>'+c.n+'</td><td>'+pc(c.avg)+'</td><td class="'+(Math.abs(g)<=5?"good":"warn")+'">'+pc(c.hit)+'</td></tr>'}).join("")+'</table></div><p class="cap">Model yang jujur: saat ia bilang 60%, tebakannya tepat sekitar 6 dari 10 kali. Selisih lebih dari 5 poin ditandai.</p>';
+  var L=Object.keys(b.byLeague||{}).map(function(k){var q=b.byLeague[k];return{k:k,q:q}}).filter(function(o){return o.q.n>=20}).sort(function(a,c){return c.q.n-a.q.n});
+  if(L.length)h+='<h2>Per liga <small>minimal 20 laga · '+L.length+' liga</small></h2><div class="ov"><table class="ev"><tr><th style="text-align:left">Liga</th><th>Laga</th><th>1X2 tepat</th><th>Tuan rumah</th><th>O/U 2,5</th><th>BTTS</th><th>Brier</th></tr>'+L.map(function(o){var q=o.q,c=btCls(q);return'<tr><td style="text-align:left">'+esc(o.k)+(C[o.k]?' <small>'+esc(C[o.k])+'</small>':"")+'</td><td>'+q.n+'</td><td class="'+c+'">'+pc(q.acc)+'</td><td>'+pc(q.homeAcc)+'</td><td>'+(q.ou?pc(q.ou.acc):"-")+'</td><td>'+(q.bt?pc(q.bt.acc):"-")+'</td><td>'+f3(q.brier)+'</td></tr>'}).join("")+'</table></div><p class="cap">Hijau: tepat 55% ke atas. Merah: di bawah 45%. Liga dengan laga sedikit lebih untung-untungan.</p>';
+  return h+'<p class="cap">Diperbarui '+tf.format(new Date(b.updated))+' WITA, dihitung ulang sekali sehari.</p></div>'
+}
 function loadEvalOld(){fetch("eval.json?"+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){EV=j;renderEval()}).catch(function(){renderEval()})}
 
 function nav(v){VIEW=v;$("#v-j").hidden=v!=="j";$("#v-s").hidden=v!=="s";$("#v-k").hidden=v!=="k";$("#v-e").hidden=v!=="e";$("#v-p").hidden=v!=="p";if(v==="k")loadKl();[].forEach.call(document.querySelectorAll("#nv button"),function(b){b.className=b.dataset.n===v?"on":""});if(v==="e")loadEval();if(v==="p")loadPitch();if(v==="s")renderLive()}
@@ -910,7 +931,7 @@ function renderLive(){
   [].forEach.call(document.querySelectorAll("#sl-st button"),function(b){b.className=b.dataset.sl===SLF.st?"on":""});
   if(!L.length){$("#sl-list").innerHTML='<div class="em">'+(SLF.st==="LIVE"?"Tidak ada laga live saat ini.":"Tidak ada pertandingan.")+'</div>';return}
   var by={},ord=[];L.forEach(function(x){if(!by[x.league]){by[x.league]=[];ord.push(x.league)}by[x.league].push(x)});
-  $("#sl-list").innerHTML=ord.map(function(l){var f=by[l][0];return'<div class="day">'+cr(f.lgc,"lgc")+esc(l)+'</div>'+by[l].map(function(x){
+  $("#sl-list").innerHTML=ord.map(function(l){var f=by[l][0];return'<div class="day">'+cr(f.lgc,"lgc")+esc(l)+(f.lc&&l.indexOf(f.lc)<0?' <span class="lc">'+esc(f.lc)+'</span>':"")+'</div>'+by[l].map(function(x){
     var stx=x.status==="LIVE"?'<span class="st lv">'+(x.ht?"Turun minum":x.pend?"Baru mulai":x.min!=null?x.min+"\'":"Live")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':tf.format(new Date(x.utc));
     var ns=x.status==="NS",S=x.score||[null,null],T=[S[0],S[1]];if(x.et&&S[0]!=null)T=[S[0]+x.et[0],S[1]+x.et[1]];
     var win=x.status!=="FT"||S[0]==null?-1:x.pen?(x.pen[0]>x.pen[1]?0:1):T[0]>T[1]?0:T[0]<T[1]?1:-1;
@@ -1131,7 +1152,7 @@ document.addEventListener("click",function(e){
 document.addEventListener("change",function(e){if(e.target.id==="sl-lig"){SLF.lg=e.target.value;renderLive()}if(e.target.id==="kl-sel"){var v=e.target.value;showKl(/^\d+$/.test(v)?Number(v):v)}});
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&MC.id&&!MC.panel)closeMC();var c=e.target.closest&&e.target.closest(".cc[data-mc]");if(c&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openMC(c.dataset.mc)}});
 
-nav("j");load(); setInterval(function(){if(!document.hidden)load()},60000); setInterval(function(){if(!document.hidden&&VIEW==="s")load()},30000); setInterval(function(){if(!document.hidden&&VIEW==="p"){PITCH=null;loadPitch()}},300000); setInterval(function(){if(!document.hidden&&MC.id&&(MC.panel||!$("#mc").hidden))openMC(MC.id,true)},60000);
+nav("j");load(); fetch("bsd-backtest.json?"+Date.now()).then(function(r){return r.ok?r.json():null}).then(function(j){if(j&&j.n){BT=j;draw()}}).catch(function(){}); setInterval(function(){if(!document.hidden)load()},60000); setInterval(function(){if(!document.hidden&&VIEW==="s")load()},30000); setInterval(function(){if(!document.hidden&&VIEW==="p"){PITCH=null;loadPitch()}},300000); setInterval(function(){if(!document.hidden&&MC.id&&(MC.panel||!$("#mc").hidden))openMC(MC.id,true)},60000);
 </script>
 </body>
 </html>
