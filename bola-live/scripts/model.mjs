@@ -12,7 +12,8 @@
 // Semua parameter diestimasi dengan Newton per koordinat (cepat, tanpa pustaka luar).
 
 const DAY=864e5,MAXG=10;
-export const DEF={hl:180,tauT:4,tauL:1,tauH:6,rho:-0.06,rest:3,maxAge:400,sweeps:40,minGames:4};
+// xga: bobot xG dalam "gol" yang dipakai untuk melatih kekuatan tim (0 = hanya skor; 0,7 = 70% xG + 30% skor), bila xG laga tersedia.
+export const DEF={hl:180,tauT:4,tauL:1,tauH:6,rho:-0.06,rest:3,maxAge:400,sweeps:40,minGames:4,xga:0};
 
 // ms: [{t,l,h,a,gh,ga,n}] (t = waktu ms, l = id liga, n = netral). Mengembalikan model siap prediksi.
 export function fitModel(ms,asOf,o={}){
@@ -30,8 +31,8 @@ export function fitModel(ms,asOf,o={}){
   const N=L.length,H=new Int32Array(N),A=new Int32Array(N),LG=new Int32Array(N),NE=new Uint8Array(N),W=new Float64Array(N),
     YH=new Float64Array(N),YA=new Float64Array(N),SH=new Int8Array(N),SA=new Int8Array(N);
   let sg=0,sw=0;
-  L.forEach((m,k)=>{H[k]=ti(m.h);A[k]=ti(m.a);LG[k]=li(m.l);NE[k]=m.n?1:0;W[k]=Math.pow(.5,(asOf-m.t)/(P.hl*DAY));YH[k]=m.gh;YA[k]=m.ga;
-    SH[k]=(rest.get(m.id+":"+m.h)??99)<=P.rest?1:0;SA[k]=(rest.get(m.id+":"+m.a)??99)<=P.rest?1:0;TL[H[k]].n++;TL[A[k]].n++;LL[LG[k]].n++;sg+=W[k]*(m.gh+m.ga);sw+=2*W[k]});
+  L.forEach((m,k)=>{H[k]=ti(m.h);A[k]=ti(m.a);LG[k]=li(m.l);NE[k]=m.n?1:0;W[k]=Math.pow(.5,(asOf-m.t)/(P.hl*DAY));const ux=P.xga>0&&m.xh!=null&&m.xa!=null;YH[k]=ux?P.xga*m.xh+(1-P.xga)*m.gh:m.gh;YA[k]=ux?P.xga*m.xa+(1-P.xga)*m.ga:m.ga;
+    SH[k]=(rest.get(m.id+":"+m.h)??99)<=P.rest?1:0;SA[k]=(rest.get(m.id+":"+m.a)??99)<=P.rest?1:0;TL[H[k]].n++;TL[A[k]].n++;LL[LG[k]].n++;sg+=W[k]*(YH[k]+YA[k]);sw+=2*W[k]});
   const tl=TL.map(t=>lix.has(t.lg)?lix.get(t.lg):li(t.lg));   // indeks liga rumah tiap tim
   let mu=Math.log(Math.max(.3,sg/Math.max(sw,1e-9))),hfa=.25,bo=0,bd=0;   // bo: istirahat pendek -> serang sendiri; bd: -> kebobolan
   const lh=new Float64Array(N),la=new Float64Array(N);

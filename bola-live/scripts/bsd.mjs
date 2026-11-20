@@ -410,12 +410,22 @@ async function main(){
     }
     for(const k of Object.keys(st.t))if(!st.t[k].length||st.t[k][st.t[k].length-1][0]*1000<now-120*DAY)delete st.t[k];
     writeFileSync(dir+"starters.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),t:st.t}));
+    // V15.1: xG per laga selesai (xg.json): dari Match Center run ini + isi mundur bertahap, laga terbaru dulu. 0 = BSD tidak punya xG laga itu.
+    let xg=await pullS("xg.json");xg=xg&&xg.e?xg:{e:{}};
+    const xgOf=o=>{const S=o&&o.stats&&o.stats.home?o.stats:o&&o.stats&&o.stats.stats;const h=S&&S.home&&num(S.home.expected_goals),a=S&&S.away&&num(S.away.expected_goals);return h!=null&&a!=null?[r2(h),r2(a),o.xg_estimated||(o.stats&&o.stats.xg_estimated)?1:0]:null};
+    for(const m of every){if(!m.dx||m.status!=="FT"||xg.e[m.eid])continue;let o=null;try{o=JSON.parse(readFileSync(dir+"m/"+m.eid+".json","utf8"))}catch(e){}const v=xgOf(o&&o.stats);if(v)xg.e[m.eid]=v}
+    if(DEEP&&!LIGHT&&!overDeadline()){const want=rows.filter(r=>xg.e[r[0]]==null).sort((a,b)=>b[1]-a[1]).slice(0,Number(process.env.BL_XG_PER_RUN??200));
+      await pool(want,async r=>{const o=await get(`${BASE}/events/${r[0]}/stats/`,{soft:true});deep.xg=(deep.xg||0)+1;const v=xgOf(o);xg.e[r[0]]=v||0});}
+    {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(xg.e))if(!keep.has(k))delete xg.e[k]}
+    const xgN=Object.values(xg.e).filter(v=>v&&v.length).length;deep.xgHave=xgN;
+    writeFileSync(dir+"xg.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),e:xg.e}));
     // latih + uji mundur + bobot gabungan (sekali sehari), atau bawa hasil sebelumnya
     let MB=prevM;
     if(needModel&&DEEP&&!LIGHT&&btEnt&&btEnt.length&&rows.length>=500&&!overDeadline()){
-      const ms=rows.map(r=>({id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7]}));
+      const ms=rows.map(r=>{const x=xg.e[r[0]];return{id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7],xh:x?x[0]:null,xa:x?x[1]:null}});
+      const xgCov=ms.filter(m=>m.t>now-180*DAY&&m.xh!=null).length/Math.max(1,ms.filter(m=>m.t>now-180*DAY).length);
       const span=(now-ms[0].t)/DAY,bfrom=now-Number(process.env.BL_BT_DAYS??90)*DAY;
-      const cfgs=span>=200&&process.env.BL_TUNE!=="0"?[{},{hl:120},{hl:300},{tauT:2},{tauT:8},{hl:240,tauT:6},{rho:-.12},{rho:0}]:[{}];
+      const cfgs=span>=200&&process.env.BL_TUNE!=="0"?[{},{hl:120},{hl:300},{tauT:2},{tauT:8},{rho:-.12}].concat(xgCov>=.2?[{xga:.5},{xga:.7},{xga:.7,hl:120},{xga:.85,tauT:6}]:[]):[{}];
       let best=null;for(const c of cfgs){if(overDeadline())break;const rb=rollingBacktest(ms,bfrom,now,c);const sc=score(rb);if(sc&&(!best||sc.ll<best.sc.ll))best={c,rb,sc}}
       const TT=best?bestTemp(best.rb):1;if(best)for(const r of best.rb)r.p=temper(r.p,TT);   // kalibrasi suhu dari uji mundur
       const bsdP=new Map((btEnt||[]).map(e=>[e.id,e.p]));
@@ -429,7 +439,7 @@ async function main(){
       const M=fitModel(ms,now,best?best.c:{});addTimes(M,every.filter(m=>m.hid!=null&&m.aid!=null).map(m=>({h:m.hid,a:m.aid,t:Date.parse(m.utc)})));
       const pred={};for(const m of every){if(m.status!=="NS"||m.hid==null||m.aid==null||m.lid==null)continue;const a=M.team.get(m.hid),b=M.team.get(m.aid);if(!a||!b||a.n<4||b.n<4)continue;
         const q=predictModel(M,{h:m.hid,a:m.aid,l:m.lid,n:EV.get(m.eid)&&EV.get(m.eid).is_neutral_ground?1:0,t:Date.parse(m.utc)});pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,n:q.n}}
-      MB={updated:new Date(now).toISOString(),temp:TT,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
+      MB={updated:new Date(now).toISOString(),temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
         useful,w:wa?wa.w:1,core:CORE,pred};
       deep.model=Object.keys(pred).length;

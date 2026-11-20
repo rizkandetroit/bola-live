@@ -285,6 +285,8 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     let mm;if((mm=u.pathname.match(/^\/api\/v2\/events\/(\d+)\/lineups\/$/))){const e=E[+mm[1]-1],xi=tid=>({team_id:tid,players:Array.from({length:11},(_,k)=>({id:tid*100+k})),substitutes:[]});
       if(e.status==="finished")return send({event_id:e.id,lineup_status:"confirmed",lineups:{home:xi(e.home_team_id),away:xi(e.away_team_id)},unavailable_players:{home:[],away:[]}});
       return send({event_id:e.id,lineup_status:"predicted",lineups:{home:xi(e.home_team_id),away:xi(e.away_team_id)},unavailable_players:{home:e.id===U.id?[0,1,2].map(k=>({id:e.home_team_id*100+k,short_name:"P"+k,status:"injured"})):[],away:[]}})}
+    if((mm=u.pathname.match(/^\/api\/v2\/events\/(\d+)\/stats\/$/))){const e=E[+mm[1]-1];if(e.status!=="finished"||e.id%7===0)return send({event_id:e.id,stats:null});
+      return send({event_id:e.id,xg_estimated:false,stats:{home:{expected_goals:Math.round((e.home_score*.6+1.4*.4+gs()*.2)*100)/100},away:{expected_goals:Math.round((e.away_score*.6+1.1*.4+gs()*.2)*100)/100}}})}
     if(/^\/api\/v2\/events\/\d+\/\w/.test(u.pathname)||/^\/api\/v2\/(teams|leagues)\//.test(u.pathname)||u.pathname.startsWith("/api/v2/odds/"))return send({});
     r.writeHead(404);r.end("{}")});
   await new Promise(z=>H.listen(0,"127.0.0.1",z));
@@ -294,13 +296,15 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
   const cp=(o,f)=>{try{writeFileSync(join(st,f),readFileSync(join(o,f)))}catch(e){}};
   try{
     // run 1: riwayat baru sebagian (90 hari + 30 minggu) -> model ditandai "partial"
-    const r1=await go();assert.equal(r1.c,0,r1.e);for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json"])cp(r1.out,f);
+    const r1=await go();assert.equal(r1.c,0,r1.e);for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json"])cp(r1.out,f);
     const res1=JSON.parse(readFileSync(join(r1.out,"results.json"),"utf8"));assert(res1.rows.length>900,"riwayat: "+res1.rows.length);
     const m1=JSON.parse(readFileSync(join(r1.out,"model-bl.json"),"utf8"));assert.equal(m1.partial,true);
     // run 2: lanjut isi mundur sampai setahun -> model lengkap
     const r2=await go();assert.equal(r2.c,0,r2.e);
     const res2=JSON.parse(readFileSync(join(r2.out,"results.json"),"utf8")),M=JSON.parse(readFileSync(join(r2.out,"model-bl.json"),"utf8"));
-    assert(res2.rows.length>res1.rows.length,"isi mundur berlanjut");assert.equal(M.partial,false,"span "+M.span);
+    assert(res2.rows.length>res1.rows.length,"isi mundur berlanjut");
+    const X=JSON.parse(readFileSync(join(r2.out,"xg.json"),"utf8")).e,xv=Object.values(X);assert(xv.filter(v=>v&&v.length).length>=300,"xG terisi bertahap: "+xv.length);
+    assert(xv.some(v=>v===0),"laga tanpa xG ditandai 0 (tidak diminta ulang)");assert(M.xgCov>=20,"cakupan xG "+M.xgCov);assert.equal(M.partial,false,"span "+M.span);
     assert(M.bt&&M.bt.joined>=150,"uji mundur tergabung dengan BSD: "+(M.bt&&M.bt.joined));
     assert(M.bt.modelJ.ll<1.1&&M.bt.bsd.ll<1.1,"log loss wajar");assert(M.hfa>.1&&M.hfa<.45,"keunggulan kandang "+M.hfa);
     assert(M.bt.holdout&&M.bt.holdout.blend.ll<=M.bt.holdout.bsd.ll+.01,"gabungan tidak lebih buruk dari BSD");
@@ -312,12 +316,12 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     if(M.useful)assert(mU.bg&&Math.abs(mU.bg.h+mU.bg.d+mU.bg.a-100)<.5);else assert(!mU.bg);
     const h2=JSON.parse(readFileSync(join(r2.out,"bsd-history.json"),"utf8")).find(e=>e.id===U.id);assert(h2&&h2.bl,"riwayat menyimpan prediksi Model BL");
     // run 3 (ringan): model dibawa, tidak dilatih ulang, prediksi tetap menempel
-    for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json"])cp(r2.out,f);hits.length=0;
+    for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json"])cp(r2.out,f);hits.length=0;
     const r3=await new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",BSD_MODE:"light",GAP_MS:"0",RETRY_MS:"0",BSD_NOW:new Date(NOW+36e5).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json")}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
-    assert.equal(r3.c,0,r3.e);assert(!hits.some(h=>/status=finished/.test(h)),"run ringan tidak mengunduh riwayat");
+    assert.equal(r3.c,0,r3.e);assert(!hits.some(h=>/status=finished|\/stats\//.test(h)),"run ringan tidak mengunduh riwayat / xG");
     const a3=JSON.parse(readFileSync(join(r3.out,"all.json"),"utf8"));assert(a3.matches.find(x=>x.eid===U.id).bl,"prediksi dibawa di run ringan");
     const M3=JSON.parse(readFileSync(join(r3.out,"model-bl.json"),"utf8"));assert.equal(M3.updated,M.updated,"run ringan tidak melatih ulang");assert(M.temp>=.8&&M.temp<=1.4,"suhu kalibrasi "+M.temp);
-    return `${res2.rows.length} laga, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
+    return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
   }finally{H.close()}
 });
 let bad=0;
