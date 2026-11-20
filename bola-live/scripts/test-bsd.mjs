@@ -271,7 +271,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
   const E=[],P=[];let id=1;const PO=l=>{const a=[Math.exp(-l)];for(let i=1;i<=10;i++)a.push(a[i-1]*l/i);return a};
   for(let d=380;d>-3;d-=3.5)for(const l of [1,2]){const X=T.filter(t=>t.l===l).sort(()=>rnd()-.5);for(let i=0;i<X.length;i+=2){const h=X[i],a=X[i+1],t=NOW-d*DAYm+rnd()*36e5*6;
     const lh=Math.exp(.15+.25+h.a-a.d),la=Math.exp(.15+a.a-h.d),fin=t<NOW-3*36e5;const e={id:id++,league_id:l,league_name:"L"+l,season_id:1,home_team_id:h.id,home_team:"T"+h.id,away_team_id:a.id,away_team:"T"+a.id,
-      event_date:new Date(t).toISOString(),status:fin?"finished":"notstarted",home_score:fin?pz(lh):null,away_score:fin?pz(la):null,is_neutral_ground:false};E.push(e);
+      event_date:new Date(t).toISOString(),status:fin?"finished":"notstarted",home_score:fin?pz(lh):null,away_score:fin?pz(la):null,is_neutral_ground:false,has_xg:id%7!==1};E.push(e);
     const ph=PO(lh),pa=PO(la),q=[0,0,0];for(let x=0;x<=10;x++)for(let y=0;y<=10;y++)q[x>y?0:x===y?1:2]+=ph[x]*pa[y];const nz=q.map(v=>Math.max(.01,v*Math.exp(gs()*.35))),s=nz[0]+nz[1]+nz[2];
     P.push({event:{id:e.id},markets:{match_result:{prob_home:nz[0]/s*100,prob_draw:nz[1]/s*100,prob_away:nz[2]/s*100,predicted:nz[0]>=nz[2]?"H":"A"},over_under:{prob_over_25:50},btts:{prob_yes:50}}})}}
   const up=E.filter(e=>e.status==="notstarted");const U=up[0];
@@ -300,11 +300,17 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     const res1=JSON.parse(readFileSync(join(r1.out,"results.json"),"utf8"));assert(res1.rows.length>900,"riwayat: "+res1.rows.length);
     const m1=JSON.parse(readFileSync(join(r1.out,"model-bl.json"),"utf8"));assert.equal(m1.partial,true);
     // run 2: lanjut isi mundur sampai setahun -> model lengkap
+    {const f=join(st,"results.json"),J=JSON.parse(readFileSync(f,"utf8"));J.rows=J.rows.map(r=>r.slice(0,8));writeFileSync(f,JSON.stringify(J))}   // seperti cache lama di situs: tanpa tanda has_xg
     const r2=await go();assert.equal(r2.c,0,r2.e);
+    {const A=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")).bsd,Rw=JSON.parse(readFileSync(join(r2.out,"results.json"),"utf8")).rows,old=Rw.filter(r=>r[1]*1000<NOW-100*DAYm);
+     assert(A.xgScan>0,"pindai ulang tanda xG untuk baris lama");assert(old.some(r=>r[8]!=null),"baris lama mendapat tanda");}
     const res2=JSON.parse(readFileSync(join(r2.out,"results.json"),"utf8")),M=JSON.parse(readFileSync(join(r2.out,"model-bl.json"),"utf8"));
     assert(res2.rows.length>res1.rows.length,"isi mundur berlanjut");
     const X=JSON.parse(readFileSync(join(r2.out,"xg.json"),"utf8")).e,xv=Object.values(X);assert(xv.filter(v=>v&&v.length).length>=300,"xG terisi bertahap: "+xv.length);
-    assert(xv.some(v=>v===0),"laga tanpa xG ditandai 0 (tidak diminta ulang)");assert(M.xgCov>=20,"cakupan xG "+M.xgCov);assert.equal(M.partial,false,"span "+M.span);
+    assert(xv.some(v=>v===0),"laga tanpa xG ditandai 0 (tidak diminta ulang)");assert(M.xgCov>=20,"cakupan xG "+M.xgCov);
+    const A2=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")).bsd;assert(A2.xgSkip>0,"laga tanpa xG dilewati tanpa permintaan: "+A2.xgSkip);
+    const ck=JSON.parse(readFileSync(join(r2.out,"xg.json"),"utf8")).chk;assert(ck&&ck.n>0&&ck.hit===0,"sampel 10% laga bertanda tanpa xG memang kosong: "+JSON.stringify(ck));
+    const stH=hits.filter(h=>/\/stats\//.test(h)).map(h=>+h.split("/")[4]),bad=stH.filter(i=>i%7===0&&i%10!==0);assert.equal(bad.length,0,"tidak meminta xG laga bertanda tanpa xG (kecuali sampel)");assert.equal(M.partial,false,"span "+M.span);
     assert(M.bt&&M.bt.joined>=150,"uji mundur tergabung dengan BSD: "+(M.bt&&M.bt.joined));
     assert(M.bt.modelJ.ll<1.1&&M.bt.bsd.ll<1.1,"log loss wajar");assert(M.hfa>.1&&M.hfa<.45,"keunggulan kandang "+M.hfa);
     assert(M.bt.holdout&&M.bt.holdout.blend.ll<=M.bt.holdout.bsd.ll+.01,"gabungan tidak lebih buruk dari BSD");

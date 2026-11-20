@@ -385,7 +385,7 @@ async function main(){
     const RD=Number(process.env.BL_DAYS??365),CH=Number(process.env.BL_BACKFILL_WEEKS??26);
     let res=await pullS("results.json"),st=await pullS("starters.json");res=res&&res.rows?res:{rows:[],from:null};st=st&&st.t?st:{t:{}};
     const row=e=>e&&String(e.status).toLowerCase()==="finished"&&num(e.home_score)!=null&&num(e.away_score)!=null&&e.home_team_id!=null&&e.away_team_id!=null?
-      [e.id,Math.round(Date.parse(e.event_date)/1000),e.league_id,e.home_team_id,e.away_team_id,num(e.home_score),num(e.away_score),e.is_neutral_ground?1:0]:null;
+      [e.id,Math.round(Date.parse(e.event_date)/1000),e.league_id,e.home_team_id,e.away_team_id,num(e.home_score),num(e.away_score),e.is_neutral_ground?1:0,e.has_xg===true?1:e.has_xg===false?0:null]:null;
     const R=new Map(res.rows.map(r=>[r[0],r]));let added=0;const put=e=>{const r=row(e);if(r&&!R.has(r[0])){R.set(r[0],r);added++}else if(r)R.set(r[0],r)};
     for(const e of btE)put(e);for(const e of events)put(e);
     let from=res.from?Date.parse(res.from):(btE.length?now-90*DAY:now);
@@ -394,8 +394,7 @@ async function main(){
       for(let w=0;w<CH&&from>now-RD*DAY&&!fatal&&!overDeadline();w++){const t=from-DAY,f=t-6*DAY;
         const got=await safe("model riwayat",()=>pages(`/events/?status=finished&date_from=${wday(f)}&date_to=${wday(t)}&limit=200`,60,{soft:true}));for(const e of got)put(e);from=f}
     }
-    const rows=[...R.values()].filter(r=>r[1]*1000>now-(RD+35)*DAY).sort((a,b)=>a[1]-b[1]);
-    writeFileSync(dir+"results.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),from:new Date(from).toISOString(),rows}));
+    let rows=[...R.values()].filter(r=>r[1]*1000>now-(RD+35)*DAY).sort((a,b)=>a[1]-b[1]);
     // line-up resmi: dari Match Center run ini (laga live/selesai) + isi mundur untuk tim yang akan bermain dalam 48 jam
     const xiOf=(lu,side)=>{const L=lu&&lu.lineups&&lu.lineups[side];return L&&Array.isArray(L.players)&&L.players.length>=11?L.players.map(p=>p.id).filter(x=>x!=null):null};
     const rec=(team,t,ids)=>{if(team==null||!ids)return;const a=st.t[team]=st.t[team]||[];if(!a.some(x=>x[0]===t)){a.push([t,ids]);a.sort((x,y)=>x[0]-y[0]);if(a.length>10)a.splice(0,a.length-10)}};
@@ -414,11 +413,25 @@ async function main(){
     let xg=await pullS("xg.json");xg=xg&&xg.e?xg:{e:{}};
     const xgOf=o=>{const S=o&&o.stats&&o.stats.home?o.stats:o&&o.stats&&o.stats.stats;const h=S&&S.home&&num(S.home.expected_goals),a=S&&S.away&&num(S.away.expected_goals);return h!=null&&a!=null?[r2(h),r2(a),o.xg_estimated||(o.stats&&o.stats.xg_estimated)?1:0]:null};
     for(const m of every){if(!m.dx||m.status!=="FT"||xg.e[m.eid])continue;let o=null;try{o=JSON.parse(readFileSync(dir+"m/"+m.eid+".json","utf8"))}catch(e){}const v=xgOf(o&&o.stats);if(v)xg.e[m.eid]=v}
-    if(DEEP&&!LIGHT&&!overDeadline()){const want=rows.filter(r=>xg.e[r[0]]==null).sort((a,b)=>b[1]-a[1]).slice(0,Number(process.env.BL_XG_PER_RUN??200));
-      await pool(want,async r=>{const o=await get(`${BASE}/events/${r[0]}/stats/`,{soft:true});deep.xg=(deep.xg||0)+1;const v=xgOf(o);xg.e[r[0]]=v||0});}
+    if(DEEP&&!LIGHT&&!overDeadline()){
+      // V15.2: tanda has_xg dari daftar laga (1 halaman = 200 laga) jauh lebih murah dari 1 permintaan per laga.
+      // Baris lama tanpa tanda: pindai ulang daftar laga per minggu (terbaru dulu), paling banyak BL_FLAG_WEEKS minggu per run.
+      const unk=rows.filter(r=>r[8]==null&&xg.e[r[0]]==null);
+      if(unk.length&&process.env.BL_XG_FLAG!=="0"){const wk=new Set();for(const r of unk.sort((a,b)=>b[1]-a[1]))wk.add(Math.floor((r[1]*1000+WITA)/(7*DAY)));
+        for(const w of [...wk].slice(0,Number(process.env.BL_FLAG_WEEKS??8))){if(overDeadline())break;const f=w*7*DAY-WITA;
+          for(const e of await safe("tanda xG",()=>pages(`/events/?status=finished&date_from=${wday(f)}&date_to=${wday(f+6*DAY)}&limit=200`,60,{soft:true})))put(e);deep.xgScan=(deep.xgScan||0)+1}
+        rows=[...R.values()].filter(r=>r[1]*1000>now-(RD+35)*DAY).sort((a,b)=>a[1]-b[1])}
+      // tanpa xG menurut BSD -> tandai 0 tanpa meminta; 10% tetap dicek sebagai sampel untuk memastikan tanda itu bisa dipercaya
+      const skip=r=>r[8]===0&&r[0]%10!==0&&process.env.BL_XG_FLAG!=="0";let sk=0;for(const r of rows)if(xg.e[r[0]]==null&&skip(r)){xg.e[r[0]]=0;sk++}deep.xgSkip=sk;
+      const want=rows.filter(r=>xg.e[r[0]]==null).sort((a,b)=>b[1]-a[1]).slice(0,Number(process.env.BL_XG_PER_RUN??200));
+      const chk=xg.chk||{n:0,hit:0,yes:0,yesHit:0};
+      await pool(want,async r=>{const o=await get(`${BASE}/events/${r[0]}/stats/`,{soft:true});deep.xg=(deep.xg||0)+1;const v=xgOf(o);xg.e[r[0]]=v||0;
+        if(r[8]===0){chk.n++;if(v)chk.hit++}else if(r[8]===1){chk.yes++;if(v)chk.yesHit++}});
+      xg.chk=chk;deep.xgCheck=chk;}
     {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(xg.e))if(!keep.has(k))delete xg.e[k]}
     const xgN=Object.values(xg.e).filter(v=>v&&v.length).length;deep.xgHave=xgN;
-    writeFileSync(dir+"xg.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),e:xg.e}));
+    writeFileSync(dir+"xg.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),chk:xg.chk||null,e:xg.e}));
+    writeFileSync(dir+"results.json",JSON.stringify({v:1,updated:new Date(now).toISOString(),from:new Date(from).toISOString(),rows}));
     // latih + uji mundur + bobot gabungan (sekali sehari), atau bawa hasil sebelumnya
     let MB=prevM;
     if(needModel&&DEEP&&!LIGHT&&btEnt&&btEnt.length&&rows.length>=500&&!overDeadline()){
