@@ -432,7 +432,7 @@ async function main(){
     const RD=Number(process.env.BL_DAYS??365),CH=Number(process.env.BL_BACKFILL_WEEKS??26);
     let res=await pullS("results.json"),st=await pullS("starters.json");res=res&&res.rows?res:{rows:[],from:null};st=st&&st.t?st:{t:{}};
     const row=e=>e&&String(e.status).toLowerCase()==="finished"&&num(e.home_score)!=null&&num(e.away_score)!=null&&e.home_team_id!=null&&e.away_team_id!=null?
-      [e.id,Math.round(Date.parse(e.event_date)/1000),e.league_id,e.home_team_id,e.away_team_id,num(e.home_score),num(e.away_score),e.is_neutral_ground?1:0,e.has_xg===true?1:e.has_xg===false?0:null,e.season_id??null,(e.is_local_derby?1:0)|(e.previous_leg_event_id?2:0),e.travel_distance_km!=null?Math.round(e.travel_distance_km):null,e.home_coach_id??null,e.away_coach_id??null,e.referee_id??null]:null;
+      [e.id,Math.round(Math.min(Date.parse(e.event_date),now)/1000)/* V22a.1: laga "selesai" bertanggal masa depan (jadwal BSD belum diperbarui) dicatat pada waktu sekarang */,e.league_id,e.home_team_id,e.away_team_id,num(e.home_score),num(e.away_score),e.is_neutral_ground?1:0,e.has_xg===true?1:e.has_xg===false?0:null,e.season_id??null,(e.is_local_derby?1:0)|(e.previous_leg_event_id?2:0),e.travel_distance_km!=null?Math.round(e.travel_distance_km):null,e.home_coach_id??null,e.away_coach_id??null,e.referee_id??null]:null;
     const R=new Map(res.rows.map(r=>[r[0],r]));let added=0;const put=e=>{const r=row(e);if(r&&!R.has(r[0])){R.set(r[0],r);added++}else if(r)R.set(r[0],r)};
     for(const e of btE)put(e);for(const e of events)put(e);
     let from=res.from?Date.parse(res.from):(btE.length?now-90*DAY:now);
