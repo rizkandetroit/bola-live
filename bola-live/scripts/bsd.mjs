@@ -167,7 +167,9 @@ export function updateHistory(hist,matches,now){
         o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:(e&&e.o)||null,v:v,r:e&&e.r||null,
         po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null,sk:m.sk?[m.sk.h,m.sk.d,m.sk.a]:(e&&e.sk)||null,lu:m.bl&&m.bl.lu?m.bl.lu:(e&&e.lu)||null});
     }
-    if(e&&!e.r&&m.status==="FT"&&m.score[0]!=null&&m.score[1]!=null)e.r=[m.score[0],m.score[1]];
+    // V22c: skor akhir BSD = skor 90 menit (gol perpanjangan waktu terpisah di m.et). Saat laga baru selesai BSD kadang sempat
+    // memberi skor termasuk perpanjangan, lalu mengoreksinya -> hasil diperbarui selama 48 jam setelah kickoff, bukan dicatat sekali.
+    if(e&&m.status==="FT"&&m.score[0]!=null&&m.score[1]!=null&&(!e.r||now-t<48*36e5))e.r=[m.score[0],m.score[1]];
   }
   for(const [k,e] of H){const t=Date.parse(e.u);if((!e.r&&t<now-3*864e5)||t<now-120*864e5)H.delete(k)}   // tanpa hasil >3 hari / >120 hari: buang
   return [...H.values()].sort((a,b)=>a.u.localeCompare(b.u)).slice(-6000);
@@ -514,8 +516,12 @@ async function main(){
     lap("latih");
     // latih + uji mundur + bobot gabungan (sekali sehari), atau bawa hasil sebelumnya
     let MB=prevM,teamsDone=false;
+    // V22c (audit 21 Nov): kekuatan line-up historis (xi.json) disusun dari pemain >= 45 menit (bukan starter asli) dan mutu pemain
+    // dari statistik musim yang memuat laga sesudahnya -> "mengintip" hasil. Tidak dipakai melatih model sampai dibangun ulang dari
+    // starter asli; koreksi pemain absen memakai hitungan pemain inti (adjustL). BL_XR_HIST=1 menyalakan cara lama (untuk uji).
+    const XRH=process.env.BL_XR_HIST==="1";
     if(needModel&&DEEP&&!LIGHT&&btEnt&&btEnt.length&&rows.length>=500&&!overDeadline()){
-      const ms=rows.map(r=>{const x=xg.e[r[0]];const xr=XR.e[r[0]];return{id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7],xh:x?x[0]:null,xa:x?x[1]:null,xe:x?x[2]:0,se:r[9]??null,
+      const ms=rows.map(r=>{const x=xg.e[r[0]];const xr=XRH?XR.e[r[0]]:null;return{id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7],xh:x?x[0]:null,xa:x?x[1]:null,xe:x?x[2]:0,se:r[9]??null,
         xr:xr||null,zv:ZV.has(r[3])&&ZV.has(r[4])?[ZV.get(r[3]),ZV.get(r[4])]:null,dby:r[10]&1?1:0,tr:r[11]??null,hc:r[12]??null,ac:r[13]??null}});
       // V20: fitur klasemen (poin/laga sebelum kickoff) & pelatih baru, untuk laga selesai dan laga mendatang
       const UP=every.filter(m=>m.status==="NS"&&m.hid!=null&&m.aid!=null&&m.lid!=null).map(m=>{const ev=EV.get(m.eid)||{};return{id:"u"+m.eid,t:Date.parse(m.utc),l:m.lid,h:m.hid,a:m.aid,gh:null,ga:null,se:ev.season_id??null,hc:ev.home_coach_id??null,ac:ev.away_coach_id??null}});
@@ -558,7 +564,7 @@ async function main(){
         pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,n:q.n,f:{tb:fe.tb?fe.tb.map(r2):null,nc:fe.nc||null,eu:fe.eu||null,tr:fe.tr||null,sr}}}
       MB={updated:new Date(now).toISOString(),temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
-        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,v20,stk:STK,blLg,tbl,fac,pred};
+        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,xrHist:XRH?1:0,v20,stk:STK,blLg,tbl,fac,pred};
       // ringkasan per tim untuk tampilan (Tahap 4): peringkat kekuatan, keberuntungan musim ini, data pemain
       try{const lk=luckOf(ms,now),TS={};const lgs=new Set(every.map(m=>m.lid).filter(x=>x!=null));
         for(const [id,t] of M.team){if(!lgs.has(t.lg)||t.n<4)continue;const R=strengthRanks(M,t.lg),L=lk[id],S=teamSummary(PS.t[id],VA.p),Lg=M.lg.get(t.lg)||{A:0,D:0};

@@ -7,6 +7,7 @@ import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
+import {kickModels,toRec as hlRec} from "./highlightly.mjs";
 
 const here=fileURLToPath(new URL(".",import.meta.url));
 const S=JSON.parse(readFileSync(join(here,"fixtures/bsd-sample.json"),"utf8"));
@@ -118,6 +119,27 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  const ev=evalMove(h);assert.equal(ev.n,10);assert.equal(ev.pending,1);assert.equal(ev.moved.n,10);assert.equal(ev.moved.hit,70);
  assert(ev.close.brier<ev.open.brier,"harga tutup lebih tepat");assert(ev.moved.closeImp>ev.moved.openImp);assert.equal(ev.bsd.n,10);
  console.log("pinnacle ok: buka",ev.open.brier.toFixed(3),"tutup",ev.close.brier.toFixed(3))}
+// V22c: skor di riwayat = skor 90 menit dari BSD; koreksi BSD (mis. skor sempat termasuk perpanjangan waktu) diikuti 48 jam, lalu terkunci
+{const t0=Date.parse("2026-11-20T00:00:00Z"),m={eid:77,league:"Cup",utc:"2026-11-20T12:00:00Z",status:"NS",home:{name:"A"},away:{name:"B"},p:{h:45,d:28,a:27},odds:null,score:[null,null]};
+ let H=updateHistory([],[m],t0);assert.equal(H[0].r,null);
+ H=updateHistory(H,[{...m,status:"FT",score:[2,2]}],t0+16*36e5);assert.deepEqual(H[0].r,[2,2]);
+ H=updateHistory(H,[{...m,status:"FT",score:[1,1],et:[1,1]}],t0+20*36e5);assert.deepEqual(H[0].r,[1,1],"skor yang dikoreksi BSD ikut diperbarui");
+ H=updateHistory(H,[{...m,status:"FT",score:[null,null]}],t0+21*36e5);assert.deepEqual(H[0].r,[1,1],"skor kosong tidak menimpa");
+ H=updateHistory(H,[{...m,status:"LIVE",score:[3,3]}],t0+22*36e5);assert.deepEqual(H[0].r,[1,1],"status bukan FT tidak menimpa");
+ H=updateHistory(H,[{...m,status:"FT",score:[9,0]}],t0+(12+49)*36e5);assert.deepEqual(H[0].r,[1,1],"lewat 48 jam setelah kickoff: terkunci");
+ assert.deepEqual(H[0].p,[45,28,27],"prediksi sebelum kickoff tidak berubah");
+ console.log("riwayat skor 90 menit ok")}
+// V22c: model cadangan Highlightly untuk laga yang sudah selesai hanya memakai laga sebelum kickoff (tidak "tahu" hasilnya)
+{const D=864e5,T0=Date.parse("2026-08-01T12:00:00Z"),fin=[];let s=7;const rnd=()=>{s=(s*16807)%2147483647;return s/2147483647};
+ for(let k=0;k<60;k++)fin.push({t:T0+k*2*D,h:1+(k%6),a:1+((k+2)%6),gh:Math.floor(rnd()*3),ga:Math.floor(rnd()*3)});
+ const tx=T0+40*2*D,now=T0+70*2*D;fin[40]={t:tx,h:1,a:2,gh:9,ga:0};   // laga yang dinilai: hasil ekstrem
+ const K=kickModels(fin,now),mk=n=>({id:1,date:new Date(tx).toISOString(),state:{description:"Finished",score:{current:"9 - 0"}},homeTeam:{id:1,name:"A"},awayTeam:{id:2,name:"B"}});
+ const lg={id:5,name:"L"},A=K.at(tx);assert.equal(A.n,40,"hanya 40 laga sebelum kickoff");assert.equal(K.at(now+D),K.model,"laga mendatang memakai model terbaru");
+ const before=hlRec(mk(),lg,null,A),leak=hlRec(mk(),lg,null,K.model);
+ const fin2=fin.slice();fin2[40]={...fin[40],gh:0,ga:3};const other=hlRec(mk(),lg,null,kickModels(fin2,now).at(tx));
+ assert.deepEqual(before.p,other.p,"peluang laga selesai tidak bergantung pada hasil laga itu sendiri");
+ assert.notDeepEqual(leak.p,before.p,"cara lama (model sekarang) memang terpengaruh hasilnya");
+ console.log("Highlightly kickoff ok:",before.p.h,"/",before.p.d,"/",before.p.a,"vs bocor",leak.p.h)}
 
 // V13.5: pemain absen, prediksi gabungan, indikator risiko
 {const lu={unavailable_players:{home:[{name:"Alex Roldán",short_name:"A. Roldán",status:"injured",reason:"Calf"},{name:"Y Gómez",status:"suspended"}],away:[{short_name:"D. Luna",status:"doubtful"}]}};
@@ -299,8 +321,8 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     r.writeHead(404);r.end("{}")});
   await new Promise(z=>H.listen(0,"127.0.0.1",z));
   const st=mkdtempSync(join(tmpdir(),"bls-"));
-  const go=()=>new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",GAP_MS:"0",RETRY_MS:"0",
-    BSD_NOW:new Date(NOW).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json"),BL_BACKFILL_WEEKS:"30",BSD_PIN:"0",BSD_CONCURRENCY:"4"}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
+  const go=(x={})=>new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",GAP_MS:"0",RETRY_MS:"0",
+    BSD_NOW:new Date(NOW).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json"),BL_BACKFILL_WEEKS:"30",BSD_PIN:"0",BSD_CONCURRENCY:"4",...x}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
   const cp=(o,f)=>{try{writeFileSync(join(st,f),readFileSync(join(o,f)))}catch(e){}};
   try{
     // run 1: riwayat baru sebagian (90 hari + 30 minggu) -> model ditandai "partial"
@@ -309,7 +331,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     const m1=JSON.parse(readFileSync(join(r1.out,"model-bl.json"),"utf8"));assert.equal(m1.partial,true);
     // run 2: lanjut isi mundur sampai setahun -> model lengkap
     {const f=join(st,"results.json"),J=JSON.parse(readFileSync(f,"utf8"));J.rows=J.rows.map(r=>r.slice(0,8));writeFileSync(f,JSON.stringify(J))}   // seperti cache lama di situs: tanpa tanda has_xg
-    const r2=await go();assert.equal(r2.c,0,r2.e);
+    const r2=await go({BL_XR_HIST:"1"});assert.equal(r2.c,0,r2.e);   // V22c: cara lama (line-up historis) dinyalakan untuk menguji mekanismenya
     {const A=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")).bsd,Rw=JSON.parse(readFileSync(join(st,"results.json"),"utf8")).rows,old=Rw.filter(r=>r[1]*1000<NOW-100*DAYm);
      assert(A.xgScan>0,"pindai ulang tanda xG untuk baris lama");assert(old.some(r=>r[8]!=null),"baris lama mendapat tanda");}
     const res2=JSON.parse(readFileSync(join(st,"results.json"),"utf8")),M=JSON.parse(readFileSync(join(r2.out,"model-bl.json"),"utf8"));
@@ -363,6 +385,12 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     for(const f of ["results.json","xg.json","players.json","values.json","xi.json","starters.json","bsd-history.json","pin.json"]){assert(!existsSync(join(r3.out,f)),"data internal tidak tayang: "+f);assert(f==="pin.json"||existsSync(join(st,f)),"data internal tersimpan: "+f)}
     const a3=JSON.parse(readFileSync(join(r3.out,"all.json"),"utf8"));assert(a3.matches.find(x=>x.eid===U.id).bl,"prediksi dibawa di run ringan");
     const M3=JSON.parse(readFileSync(join(r3.out,"model-bl.json"),"utf8"));assert.equal(M3.updated,M.updated,"run ringan tidak melatih ulang");assert(M.temp>=.8&&M.temp<=1.4,"suhu kalibrasi "+M.temp);
+    // V22c: bawaan = line-up historis TIDAK dipakai melatih (bocor); koreksi pemain absen tetap jalan lewat hitungan pemain inti
+    {const {unlinkSync}=await import("node:fs");try{unlinkSync(join(st,"model-bl.json"))}catch(e){}
+     const r4=await go();assert.equal(r4.c,0,r4.e);const M4=JSON.parse(readFileSync(join(r4.out,"model-bl.json"),"utf8")),u4=JSON.parse(readFileSync(join(r4.out,"all.json"),"utf8")).matches.find(x=>x.eid===U.id);
+     assert.equal(M4.xrHist,0);assert.equal(M.xrHist,1);assert.equal(M4.cov.nXr,0,"tanpa line-up historis: "+JSON.stringify(M4.cov));assert.equal(M4.cov.gA,0);assert.equal(M4.cov.gD,0);
+     assert(u4&&u4.bl&&u4.bl.ux===0,"koreksi line-up berbobot tidak dipakai: "+JSON.stringify(u4&&u4.bl));assert.equal(u4.bl.k[0],3,"3 pemain inti absen tetap terhitung");
+     assert(u4.bl.xg[0]<M4.pred[U.id].x[0],"serangan tuan rumah tetap dikoreksi turun (cara pemain inti)");assert(M4.stk&&M4.bt&&M4.bt.joined>=150,"latihan & uji mundur tetap jalan")}
     return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
   }finally{H.close()}
 });

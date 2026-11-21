@@ -28,6 +28,12 @@ export function predOf(det){ // prediksi prematch terbaru Highlightly -> {h,d,a,
   if(h==null||a==null)return null;if(d==null)d=Math.max(0,100-h-a);const s=h+d+a||1;
   return{h:r1(h/s*100),d:r1(d/s*100),a:r1(a/s*100),desc:p.description||"",at:p.generatedAt||null};
 }
+// V22c: model Poisson + Elo cadangan. model = dari semua hasil sampai sekarang (untuk laga yang belum mulai);
+// at(t) = dari laga SEBELUM kickoff t saja, untuk laga yang sudah mulai/selesai (sebelumnya kartu laga selesai ikut "tahu" hasilnya).
+export function kickModels(fin,now){
+  const model=fin.length?{m:fit(fin,now),n:fin.length}:null,C=new Map();
+  return{model,at:t=>{if(!fin.length||!(t<now))return model;const k=Math.floor(t/6e4);if(!C.has(k)){const mm=fit(fin,t);C.set(k,{m:mm,n:mm.n})}return C.get(k)}};
+}
 export function toRec(x,lg,pred,model){
   const st=stOf(x.state&&x.state.description);if(!st)return null;
   const t=Date.parse(x.date);if(Number.isNaN(t))return null;
@@ -155,9 +161,10 @@ async function main(){
   for(const lg of LGS){
     const M=S.matches[String(lg.id)]||[];
     const fin=M.map(x=>({t:Date.parse(x.date),h:x.homeTeam&&x.homeTeam.id,a:x.awayTeam&&x.awayTeam.id,s:scoreOf(x.state),st:stOf(x.state&&x.state.description)})).filter(m=>m.st==="FT"&&m.s[0]!=null).map(m=>({t:m.t,h:m.h,a:m.a,gh:m.s[0],ga:m.s[1]})).sort((a,b)=>a.t-b.t);
-    const model=fin.length?{m:fit(fin,now),n:fin.length}:null;
+    const {model,at:modelAt}=kickModels(fin,now);
     for(const x of M){const d=new Date(Date.parse(x.date)+WITA).toISOString().slice(0,10);if(d<W[0]||d>W[1])continue;
-      const det=S.det[x.id],r=toRec(x,lg,det&&det.pred,model);if(!r)continue;if(det&&det.raw){r.dx=1;const raw={...det.raw,status:r.status};writeFileSync(dir+"m/"+r.eid+".json",JSON.stringify(raw))}out.push(r)}
+      const started=stOf(x.state&&x.state.description)!=="NS";
+      const det=S.det[x.id],r=toRec(x,lg,det&&det.pred,started?modelAt(Date.parse(x.date)):model);if(!r)continue;if(det&&det.raw){r.dx=1;const raw={...det.raw,status:r.status};writeFileSync(dir+"m/"+r.eid+".json",JSON.stringify(raw))}out.push(r)}
     // klasemen dari Highlightly; bila tidak tersedia (mis. Liga 2) dihitung sendiri dari hasil laga
     const api=S.tables[String(lg.id)],calc=(S.calc&&S.calc[String(lg.id)])||!(api&&api.length);const rows=calc?tableFromResults(M):api;
     if(rows&&rows.length){writeFileSync(dir+"lg/hl"+lg.id+".json",JSON.stringify({id:"hl"+lg.id,name:lg.name,country:lg.country,season:{name:String((S.season[String(lg.id)]&&S.season[String(lg.id)].yr)||yr)},grouped:new Set(rows.map(r=>r.grp)).size>1,standings:new Set(rows.map(r=>r.grp)).size>1?[]:rows,groups:new Set(rows.map(r=>r.grp)).size>1?rows.reduce((o,r)=>{(o[r.grp]=o[r.grp]||[]).push(r);return o},{}):null,zones:null,top:{},updated:new Date(calc?now:(S.stand[String(lg.id)]||now)).toISOString(),src:calc?"dihitung Bola Live dari hasil laga Highlightly":"Highlightly"}))}

@@ -120,6 +120,12 @@ console.log("OK F. Evaluasi: baris ringkas, subset xG, peringatan sampel kecil")
  assert.equal(F.dp(x),x.sk);assert.equal(F.pkD(x).name,"B");assert(F.pb(x).includes("Gabungan")&&F.pb(x).includes("42%"));assert(F.cfTag(x).includes("Terbuka · 42% benar"));
  assert(F.whyLine(x).includes("&lt;A&gt;"),"alasan di-escape");const y={...x,sk:{...x.sk,u:0}};assert.equal(F.dp(y),x.p);assert(!F.pb(y).includes("Gabungan"));
  assert(F.cfTag({...x,cf:null}).includes("Kuat 20"),"tanpa label: tingkat lama")}
+// V22c: seri peluang tertinggi -> kartu menulis "Berimbang: seri paling mungkin", bukan "Condong ke <tim>"
+{const F=new Function(pre+";return {drawTop}")(),mk=(p,sk)=>({status:"NS",level:"Tipis",edge:9,pick:"h",home:{name:"Alpha"},away:{name:"Beta"},p,sk,league:"L",utc:"2026-11-22T12:00:00Z",eid:5,id:5});
+ const a=mk({h:34.8,d:40.3,a:25}),b=mk({h:45,d:30,a:25}),c=mk({h:45,d:30,a:25},{h:30,d:41,a:29,u:1}),e=mk({h:40,d:40,a:20});
+ assert.equal(F.drawTop(a),true);assert.equal(F.drawTop(b),false);assert.equal(F.drawTop(c),true,"ikut angka Gabungan bila aktif");assert.equal(F.drawTop(e),false,"seri sama besar: tetap condong");
+ assert.equal(F.drawTop({...c,sk:{...c.sk,u:0}}),false,"Gabungan belum lolos: pakai BSD");assert.equal(F.drawTop(mk({h:null,d:null,a:null})),false);
+ const ca=card(a),cb=card(b);assert(ca.includes("Berimbang: <b>seri</b> paling mungkin")&&!ca.includes("Condong ke <b>"),"kartu seri");assert(cb.includes("Condong ke <b>Alpha</b>"),"kartu biasa tetap")}
 // V22: rekap harian & akurasi Model BL per liga di kartu
 {const F=new Function(pre+";return {rekapHtml,btLine,set:function(b,m){BT=b;MBL=m}}")();
  const h=F.rekapHtml({days:[{d:"2026-11-21",bsd:[9,5],bl:[9,4],sk:[0,0],lg:[["Eerste Divisie",9,5,9,4,0,0]],m:[["Eerste Divisie","Heracles","Jong <PSV>",2,1,0,0,null]]}]});
