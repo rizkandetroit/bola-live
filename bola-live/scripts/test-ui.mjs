@@ -120,6 +120,12 @@ console.log("OK F. Evaluasi: baris ringkas, subset xG, peringatan sampel kecil")
  assert.equal(F.dp(x),x.sk);assert.equal(F.pkD(x).name,"B");assert(F.pb(x).includes("Gabungan")&&F.pb(x).includes("42%"));assert(F.cfTag(x).includes("Terbuka · 42% benar"));
  assert(F.whyLine(x).includes("&lt;A&gt;"),"alasan di-escape");const y={...x,sk:{...x.sk,u:0}};assert.equal(F.dp(y),x.p);assert(!F.pb(y).includes("Gabungan"));
  assert(F.cfTag({...x,cf:null}).includes("Kuat 20"),"tanpa label: tingkat lama")}
+// V22: rekap harian & akurasi Model BL per liga di kartu
+{const F=new Function(pre+";return {rekapHtml,btLine,set:function(b,m){BT=b;MBL=m}}")();
+ const h=F.rekapHtml({days:[{d:"2026-11-21",bsd:[9,5],bl:[9,4],sk:[0,0],lg:[["Eerste Divisie",9,5,9,4,0,0]],m:[["Eerste Divisie","Heracles","Jong <PSV>",2,1,0,0,null]]}]});
+ assert(h.includes("Sabtu, 21 Nov")&&h.includes("BSD 56% (5/9)")&&h.includes("Model BL 44% (4/9)")&&h.includes("Jong &lt;PSV&gt;")&&h.includes("✅")&&!h.includes("Gabungan benar"),h.slice(0,400));
+ F.set({days:90,byLeague:{"K League 1":{n:44,acc:40.9}}},{blLg:{"77":[40,42,47.5]}});const b=F.btLine({src:"BSD",league:"K League 1",lid:77});
+ assert(b.includes("BSD <b>40,9%</b>")&&b.includes("Model BL <b>47,5%</b>")&&b.includes("BSD sering meleset"),b)}
 {const F=new Function(pre+";NEUTRAL=1;return {oddLine,pinLine}")();assert.equal(F.oddLine({odds:{h:{o:2,b:"x"}}}),"");assert.equal(F.pinLine({status:"NS"}),"")}
 assert(/if\(NEUTRAL\)\{tabs=tabs\.filter/.test(js),"tab Odds disembunyikan saat netral");
 assert(!/fetch\([^)]*Date\.now\(\)/.test(js),"tidak ada lagi unduhan dengan ?Date.now() (pakai revalidasi 304)");

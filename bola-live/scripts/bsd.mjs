@@ -226,6 +226,19 @@ export function evalRisk(hist){
   const out={};for(const k in G)out[k]={n:G[k].n,acc:G[k].hit/G[k].n*100};return out;
 }
 // V15: penilaian langsung Model BL vs BSD pada laga yang sudah selesai (prediksi tercatat sebelum kickoff)
+// V22: rekap harian (ringkasan hasil prediksi, bukan data mentah): 3 hari terakhir menurut tanggal WITA kickoff.
+// Per hari: jumlah laga, berapa yang ditebak benar oleh BSD / Model BL / Gabungan, ringkasan per liga, dan daftar laga (2 hari terakhir, maks. 150).
+export function recapOf(hist,now,o={}){
+  const days=o.days??3,maxM=o.maxM??150,W=8*36e5,top=a=>a&&a.length===3?a.indexOf(Math.max(...a)):null;
+  const R=(hist||[]).filter(e=>e.r&&e.p&&e.u&&Date.parse(e.u)<=now);const by=new Map();
+  for(const e of R){const d=new Date(Date.parse(e.u)+W).toISOString().slice(0,10);(by.get(d)||by.set(d,[]).get(d)).push(e)}
+  const keys=[...by.keys()].sort().reverse().slice(0,days);
+  return{days:keys.map((d,i)=>{const L=by.get(d).sort((a,b)=>a.u.localeCompare(b.u)),res=e=>e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2;
+    const cnt=k=>{const Q=L.filter(e=>e[k]);return[Q.length,Q.filter(e=>top(e[k])===res(e)).length]};
+    const lg=new Map();for(const e of L){const g=lg.get(e.lg)||[e.lg,0,0,0,0,0,0];g[1]++;if(top(e.p)===res(e))g[2]++;if(e.bl){g[3]++;if(top(e.bl)===res(e))g[4]++}if(e.sk){g[5]++;if(top(e.sk)===res(e))g[6]++}lg.set(e.lg,g)}
+    return{d,bsd:cnt("p"),bl:cnt("bl"),sk:cnt("sk"),lg:[...lg.values()].sort((a,b)=>b[1]-a[1]).slice(0,15),
+      m:i<2?L.slice(0,maxM).map(e=>[e.lg,e.h,e.a,e.r[0],e.r[1],top(e.p),top(e.bl),top(e.sk)]):null}})};
+}
 export function evalBL(hist){const R=(hist||[]).filter(e=>e.r&&e.p&&e.bl);if(!R.length)return{n:0};
   const sc=k=>{let a=0,b=0,l=0;for(const e of R){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e[k].map(x=>x/100);if(p.indexOf(Math.max(...p))===o)a++;b+=p.reduce((s,x,i)=>s+(x-(i===o?1:0))**2,0);l-=Math.log(Math.max(p[o],1e-6))}return{acc:a/R.length*100,brier:b/R.length,ll:l/R.length}};
   const R2=(hist||[]).filter(e=>e.r&&e.p&&e.sk),sc2=k=>{let a=0,l=0;for(const e of R2){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e[k].map(x=>x/100);if(p.indexOf(Math.max(...p))===o)a++;l-=Math.log(Math.max(p[o],1e-6))}return{acc:a/R2.length*100,ll:l/R2.length}};
@@ -525,6 +538,9 @@ async function main(){
       const hold=w1&&J2.length?{w:w1.w,bsd:score(J2,"b"),model:score(J2,"p"),blend:mixS(J2,w1.w)}:null;
       const useful=!!(hold&&wa&&hold.blend.ll<hold.bsd.ll-.002&&wa.w<.95&&J.length>=300);
       const cal=best?[[0,40],[40,50],[50,60],[60,70],[70,101]].map(([lo,hi])=>{const b=best.rb.filter(r=>{const m=Math.max(...r.p);return m>=lo&&m<hi});let s=0,h=0;for(const r of b){const m=Math.max(...r.p);s+=m;if(r.p.indexOf(m)===r.o)h++}return{lo,hi,n:b.length,avg:b.length?s/b.length:null,hit:b.length?h/b.length*100:null}}):[];
+      // V22: akurasi per liga (uji mundur, laga yang punya prediksi BSD & Model BL): [laga, % BSD benar, % Model BL benar]
+      const blLg={};{const top=a=>a.indexOf(Math.max(...a)),G=new Map();for(const r of J){const g=G.get(r.l)||[0,0,0];g[0]++;if(top(r.b)===r.o)g[1]++;if(top(r.p)===r.o)g[2]++;G.set(r.l,g)}
+        for(const [l,g] of G)if(g[0]>=20)blLg[l]=[g[0],Math.round(g[1]/g[0]*1000)/10,Math.round(g[2]/g[0]*1000)/10]}
       // V21: lapisan koreksi BSD (diuji pada 30% laga terakhir; aktif hanya bila lebih baik dari BSD & gabungan lama)
       let STK=null;try{const SR=J.map(r=>{const f=FE.get(r.id)||{};return{o:r.o,b:r.b,p:r.p,l:r.l,t:r.t,tb:f.tb||null,nc:f.nc||null,eu:f.eu||null}});STK=trainStack(SR);
         // odds pasar (internal): bobot dipelajari dari riwayat prediksi yang sudah punya peluang koreksi + odds sebelum kickoff
@@ -542,7 +558,7 @@ async function main(){
         pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,n:q.n,f:{tb:fe.tb?fe.tb.map(r2):null,nc:fe.nc||null,eu:fe.eu||null,tr:fe.tr||null,sr}}}
       MB={updated:new Date(now).toISOString(),temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
-        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,v20,stk:STK,tbl,fac,pred};
+        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,v20,stk:STK,blLg,tbl,fac,pred};
       // ringkasan per tim untuk tampilan (Tahap 4): peringkat kekuatan, keberuntungan musim ini, data pemain
       try{const lk=luckOf(ms,now),TS={};const lgs=new Set(every.map(m=>m.lid).filter(x=>x!=null));
         for(const [id,t] of M.team){if(!lgs.has(t.lg)||t.n<4)continue;const R=strengthRanks(M,t.lg),L=lk[id],S=teamSummary(PS.t[id],VA.p),Lg=M.lg.get(t.lg)||{A:0,D:0};
@@ -587,7 +603,7 @@ async function main(){
   // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
   let hist=[];{if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
     else{const h=await readState("bsd-history.json");if(Array.isArray(h))hist=h}}
-  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist)}))}
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now)}))}
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,
     heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,ghost,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};

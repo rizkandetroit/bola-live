@@ -7,7 +7,7 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {tfetch,cleanKey,outDir,siteBase,ghWarn,sleep,readPrev,readState,writeState,stateDir} from "./net.mjs";
 import {fit,predictM,level,r1} from "./lib.mjs";
-import {updateHistory,evalHistory,evalMove,evalRisk,evalBL} from "./bsd.mjs";
+import {updateHistory,evalHistory,evalMove,evalRisk,evalBL,recapOf} from "./bsd.mjs";
 
 // V14.1 (20 Nov 2026): + 2 liga yang tidak ada di BSD (dicek di paket gratis: laga, prediksi, klasemen tersedia).
 // Liga tambahan (extra) memakai sisa kuota: disegarkan lebih jarang dan berhenti bila pemakaian hari ini sudah >= HL_EXTRA_CAP,
@@ -178,7 +178,7 @@ async function main(){
   try{let hist=null;const SD=stateDir();try{hist=JSON.parse(readFileSync((SD||dir)+"bsd-history.json","utf8"))}catch(e){}
     if(!Array.isArray(hist)){const h=await readState("bsd-history.json");hist=Array.isArray(h)?h:null}   // V19: jangan mulai dari kosong bila skrip BSD gagal lebih dulu
     if(!hist)throw new Error("riwayat prediksi tidak terbaca; dilewati supaya riwayat lama tidak tertimpa");
-    hist=updateHistory(hist,out,now);writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist)}))}catch(e){errors.push("evaluasi: "+e.message)}
+    hist=updateHistory(hist,out,now);writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now)}))}catch(e){errors.push("evaluasi: "+e.message)}
   // simpan status (tanpa data mentah yang besar)
   // V19 (audit): status lama yang gagal dibaca tidak ditimpa status kosong (penyebab hl.json hilang 20 Nov: baca gagal + kuota habis)
   if(!S0&&!Object.keys(S.matches).length)errors.push("status hl.json tidak terbaca dan tidak ada data baru; status lama tidak ditimpa");

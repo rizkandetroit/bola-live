@@ -327,6 +327,9 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     assert(mU&&mU.bl&&Math.abs(mU.bl.h+mU.bl.d+mU.bl.a-100)<.5,"prediksi Model BL di laga");
     // V20: koreksi klasemen & pelatih baru diuji mundur (on/off) dan tercatat; tebakan skor di catatan kartu dari Model BL
     assert(M.v20&&typeof M.v20.on==="boolean"&&M.v20.llOff!=null,"uji on/off V20: "+JSON.stringify(M.v20));assert("tb" in M.cov&&"nc" in M.cov&&(M.v20.on?M.cov.nTb>0:M.cov.tb===0),"kovariat klasemen tercatat: "+JSON.stringify(M.cov)+JSON.stringify(M.v20));
+    // V22: akurasi per liga (BSD vs Model BL) & rekap harian
+    assert(M.blLg&&Object.values(M.blLg).every(v=>v.length===3&&v[0]>=20),"akurasi per liga: "+JSON.stringify(M.blLg).slice(0,200));
+    {const EVj=JSON.parse(readFileSync(join(r2.out,"bsd-eval.json"),"utf8"));assert(EVj.rk&&Array.isArray(EVj.rk.days),"rekap harian di bsd-eval.json")}
     // V21: lapisan koreksi terlatih & teruji, peluang koreksi + label + alasan di laga, tercatat di riwayat
     assert(M.stk&&M.stk.n>=300&&typeof M.stk.on==="boolean"&&M.stk.m&&M.stk.lab,"lapisan koreksi: "+JSON.stringify(M.stk&&{n:M.stk.n,on:M.stk.on,why:M.stk.why}));
     assert(M.stk.test.stack&&M.stk.test.bsd&&M.stk.mk&&M.stk.mk.on===false,"uji koreksi tercatat; odds pasar belum aktif (data riwayat belum cukup)");
@@ -480,6 +483,18 @@ sc("V21: lapisan koreksi BSD menemukan bias yang ditanam, label & odds pasar",as
  const W=whyOf({home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25}},{sr:[9,3,12],tr:[2,8,12],nc:[0,1],eu:[1,0]},[30,25,45]);
  assert(/Klasemen menipu: A peringkat 2 klasemen, tapi kekuatan aslinya #9/.test(W[0])&&W.length===3,"alasan: "+W.join(" | "));
  return "uji "+T.nTest+" laga: koreksi "+T.test.stack.ll.toFixed(3)+" vs BSD "+T.test.bsd.ll.toFixed(3)+" vs gabungan lama "+T.test.blend.ll.toFixed(3);
+});
+sc("V22: rekap harian per tanggal WITA, per liga, siapa yang benar",async()=>{
+ const {recapOf}=await import("./bsd.mjs");const now=Date.parse("2026-11-21T03:00:00Z");
+ const H=[{id:1,lg:"Eerste Divisie",u:"2026-11-20T19:00:00Z",h:"Heracles",a:"Jong PSV",p:[80,13,7],bl:[74,16,10],r:[2,1]},   // 21 Nov WITA
+   {id:2,lg:"Eerste Divisie",u:"2026-11-20T19:00:00Z",h:"Volendam",a:"Jong Ajax",p:[49,22,29],bl:[72,16,12],sk:[60,20,20],r:[1,2]},
+   {id:3,lg:"Ligue 2",u:"2026-11-20T14:00:00Z",h:"A",a:"B",p:[30,30,40],bl:[30,40,30],r:[0,0]},                                   // 20 Nov WITA 22.00
+   {id:4,lg:"Ligue 2",u:"2026-11-22T14:00:00Z",h:"C",a:"D",p:[50,25,25],r:null}];
+ const R=recapOf(H,now);assert.deepEqual(R.days.map(d=>d.d),["2026-11-21","2026-11-20"]);
+ const d0=R.days[0];assert.deepEqual(d0.bsd,[2,1]);assert.deepEqual(d0.bl,[2,1]);assert.deepEqual(d0.sk,[1,0]);
+ assert.deepEqual(d0.lg[0],["Eerste Divisie",2,1,2,1,1,0]);assert.deepEqual(d0.m[1],["Eerste Divisie","Volendam","Jong Ajax",1,2,0,0,0]);
+ assert.deepEqual(R.days[1].bl,[1,1],"seri ditebak Model BL");assert.equal(recapOf(H,now,{days:1}).days.length,1);
+ return d0.d+": BSD "+d0.bsd[1]+"/"+d0.bsd[0];
 });
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}
