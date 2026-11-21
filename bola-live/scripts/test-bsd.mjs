@@ -327,6 +327,12 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     assert(mU&&mU.bl&&Math.abs(mU.bl.h+mU.bl.d+mU.bl.a-100)<.5,"prediksi Model BL di laga");
     // V20: koreksi klasemen & pelatih baru diuji mundur (on/off) dan tercatat; tebakan skor di catatan kartu dari Model BL
     assert(M.v20&&typeof M.v20.on==="boolean"&&M.v20.llOff!=null,"uji on/off V20: "+JSON.stringify(M.v20));assert("tb" in M.cov&&"nc" in M.cov&&(M.v20.on?M.cov.nTb>0:M.cov.tb===0),"kovariat klasemen tercatat: "+JSON.stringify(M.cov)+JSON.stringify(M.v20));
+    // V21: lapisan koreksi terlatih & teruji, peluang koreksi + label + alasan di laga, tercatat di riwayat
+    assert(M.stk&&M.stk.n>=300&&typeof M.stk.on==="boolean"&&M.stk.m&&M.stk.lab,"lapisan koreksi: "+JSON.stringify(M.stk&&{n:M.stk.n,on:M.stk.on,why:M.stk.why}));
+    assert(M.stk.test.stack&&M.stk.test.bsd&&M.stk.mk&&M.stk.mk.on===false,"uji koreksi tercatat; odds pasar belum aktif (data riwayat belum cukup)");
+    assert(mU.sk&&Math.abs(mU.sk.h+mU.sk.d+mU.sk.a-100)<.5&&(mU.sk.u===1)===M.stk.on,"peluang koreksi di laga: "+JSON.stringify(mU.sk));
+    assert(mU.cf&&["jelas","cukup","terbuka"].includes(mU.cf.k),"label keyakinan");assert(Array.isArray(mU.why),"alasan");
+    {const H2=JSON.parse(readFileSync(join(st,"bsd-history.json"),"utf8"));const e=H2.find(x=>x.id===U.id);assert(e&&e.sk&&e.sk.length===3,"peluang koreksi tercatat sebelum kickoff")}
     if(mU.note&&/Skor paling mungkin/.test(mU.note))assert(/Skor paling mungkin \d+-\d+ \(Model BL\)/.test(mU.note),"skor dari Model BL: "+mU.note);
     const S=JSON.parse(readFileSync(join(st,"starters.json"),"utf8"));assert((S.t[U.home_team_id]||[]).length>=3,"line-up resmi tercatat");
     assert.equal(mU.bl.k[0],3,"3 pemain inti tuan rumah absen: "+JSON.stringify(mU.bl));assert.equal(mU.bl.k[1],0);
@@ -450,6 +456,30 @@ sc("V20: fitur klasemen & pelatih baru, efek pelatih baru terbaca model",async()
  const p0=predictModel(M,{h:1,a:2,l:1,t:B+61*5*D}).p[0],p1=predictModel(M,{h:1,a:2,l:1,t:B+61*5*D,nc:[1,0]}).p[0];assert(p1<p0,"pelatih baru menurunkan peluang tuan rumah");
  const Moff=fitModel(ms,B+61*5*D,{sweeps:30,nc:0});assert.equal(Moff.cov.nc,0,"bisa dimatikan");
  return "nc "+M.cov.nc.toFixed(2)+", peluang tuan rumah "+p0.toFixed(1)+"% -> "+p1.toFixed(1)+"%";
+});
+sc("V21: lapisan koreksi BSD menemukan bias yang ditanam, label & odds pasar",async()=>{
+ const {trainStack,applyStack,trainMarket,marketP,poolMarket,labelOf}=await import("./stack.mjs");const {whyOf}=await import("./bsd.mjs");
+ let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647},sm=v=>{const m=Math.max(...v),e=v.map(x=>Math.exp(x-m)),t=e.reduce((a,b)=>a+b);return e.map(x=>x/t)};
+ const R=[];for(let i=0;i<5000;i++){const g=(rnd()-.5)*2.4,l=i%8,tb=[1+rnd()*1.5,1+rnd()*1.5],nc=[rnd()<.1?1:0,rnd()<.1?1:0];
+   const tru=sm([.25+g-.35*(nc[0]-nc[1]),.1,-g+.35*(nc[0]-nc[1])]);
+   const bs=sm([(.25+g+.5*(tb[0]-tb[1]))*(l<2?1.8:1),.1,(-g-.5*(tb[0]-tb[1]))*(l<2?1.8:1)]),bl=sm([.25+g*.8,.1,-g*.8]);
+   const u=rnd(),o=u<tru[0]?0:u<tru[0]+tru[1]?1:2;R.push({o,b:bs.map(x=>x*100),p:bl.map(x=>x*100),l,t:i,tb,nc,eu:[0,0]})}
+ const T=trainStack(R);assert(T.on,"koreksi lolos uji: "+JSON.stringify(T.test));assert(T.test.stack.ll<T.test.bsd.ll-.01&&T.test.stack.ll<T.test.blend.ll);
+ assert(T.m.th[0]<-.05,"bias klasemen BSD terbaca: "+T.m.th[0]);assert(T.m.th[1]<-.1,"efek pelatih baru terbaca: "+T.m.th[1]);
+ assert(T.m.lg[0][0]<T.m.lg[5][0],"liga tempat BSD terlalu yakin diberi suhu lebih rendah");
+ assert(T.lab.jelas.hit>T.lab.cukup.hit&&T.lab.cukup.hit>T.lab.terbuka.hit,"label berurutan: "+JSON.stringify(T.lab));
+ const q=applyStack(T.m,R[0]);assert(Math.abs(q[0]+q[1]+q[2]-100)<1e-6);
+ // BSD sudah tepat (hasil diundi dari peluang BSD sendiri): koreksi tidak lolos (tidak memaksa)
+ const R0=R.map(r=>{const u=rnd(),b=r.b;return{...r,o:u<b[0]/100?0:u<(b[0]+b[1])/100?1:2}});const T0=trainStack(R0);assert.equal(T0.on,false,"BSD sudah tepat: tidak aktif "+JSON.stringify(T0.test));
+ // odds pasar: aktif hanya bila menambah informasi
+ const truM=R.slice(0,1200).map(r=>({o:r.o,t:r.t,q:r.b,m:r.p}));assert(trainMarket(truM).on,"pasar yang lebih tepat dari dasar: aktif");
+ assert.equal(trainMarket(truM.slice(0,100)).on,false,"data pasar sedikit: belum aktif");
+ const sameM=R0.slice(0,1200).map(r=>({o:r.o,t:r.t,q:r.b,m:r.p}));assert.equal(trainMarket(sameM).on,false,"pasar tidak menambah informasi: tidak aktif");
+ assert.deepEqual(marketP([2,3.4,3.8]).map(Math.round),[47,28,25]);assert.equal(marketP([2,null,3]),null);
+ assert.equal(labelOf([60,25,15],[58,25,17],[55,26,19]),"jelas");assert.equal(labelOf([60,25,15],[58,25,17],[30,26,44]),"terbuka");assert.equal(labelOf([48,27,25],[48,27,25],null),"cukup");
+ const W=whyOf({home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25}},{sr:[9,3,12],tr:[2,8,12],nc:[0,1],eu:[1,0]},[30,25,45]);
+ assert(/Klasemen menipu: A peringkat 2 klasemen, tapi kekuatan aslinya #9/.test(W[0])&&W.length===3,"alasan: "+W.join(" | "));
+ return "uji "+T.nTest+" laga: koreksi "+T.test.stack.ll.toFixed(3)+" vs BSD "+T.test.bsd.ll.toFixed(3)+" vs gabungan lama "+T.test.blend.ll.toFixed(3);
 });
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}

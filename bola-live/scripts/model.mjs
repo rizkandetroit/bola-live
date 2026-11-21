@@ -200,11 +200,14 @@ export function luckOf(ms,now,days=200){
 // nc = pelatih baru (pelatih berbeda dari sebelumnya, <= 4 laga pertama, pergantian < 90 hari). Laga mendatang (gh null) ikut dihitung
 // dari data sebelum kickoff saja.
 export function matchFeatures(ms,o={}){
-  const minN=o.minN??6,tab=tablesAt(ms),out=new Map();
+  const minN=o.minN??6,tab=tablesAt(ms),out=new Map(),eu=o.eu||null,lastM=new Map();   // V21: eu = Set id liga Eropa/antarbenua
   const S=ms.slice().sort((a,b)=>a.t-b.t),st=new Map();   // per tim: {c: pelatih terakhir, same: laga beruntun dgn pelatih itu, oldT: laga terakhir pelatih sebelumnya}
   const flag=(id,c,t)=>{const x=st.get(id);if(c==null||!x||x.c==null)return 0;if(c!==x.c)return 1;return x.oldT!=null&&x.same<4&&t-x.oldT<90*DAY?1:0};
   const push=(id,c,t)=>{if(c==null)return;const x=st.get(id)||{c:null,same:0,oldT:null};if(x.c===c)x.same++;else{x.oldT=x.c!=null?x.lastT:null;x.c=c;x.same=1}x.lastT=t;st.set(id,x)};
   for(const m of S){const T=tab.get(m.id);let tb=null;if(T&&T.h[1]>=minN&&T.a[1]>=minN)tb=[T.h[2]/T.h[1],T.a[2]/T.a[1]];
-    const nc=[flag(m.h,m.hc,m.t),flag(m.a,m.ac,m.t)];out.set(m.id,{tb,nc});
-    if(Number.isFinite(m.gh)){push(m.h,m.hc,m.t);push(m.a,m.ac,m.t)}}
+    const nc=[flag(m.h,m.hc,m.t),flag(m.a,m.ac,m.t)];
+    const euF=id=>{if(!eu||eu.has(m.l))return 0;const x=lastM.get(id);return x&&m.t-x.t<=4*DAY&&m.t>x.t&&eu.has(x.l)?1:0};
+    const tr=T&&T.h[0]!=null&&T.a[0]!=null&&T.h[1]>=minN&&T.a[1]>=minN?[T.h[0],T.a[0],T.n]:null;
+    out.set(m.id,{tb,nc,eu:[euF(m.h),euF(m.a)],tr});
+    if(Number.isFinite(m.gh)){push(m.h,m.hc,m.t);push(m.a,m.ac,m.t);lastM.set(m.h,{t:m.t,l:m.l});lastM.set(m.a,{t:m.t,l:m.l})}}
   return out}
