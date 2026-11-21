@@ -102,7 +102,9 @@ async function main(){
   // V19: status Highlightly = data internal (STATE_DIR, tidak tayang); file tayang lain dari keluaran run sebelumnya
   const pull=async f=>{if(process.env.HL_STATE_FILE&&f==="hl.json"){try{return JSON.parse(readFileSync(process.env.HL_STATE_FILE,"utf8"))}catch(e){return null}}return f==="hl.json"?readState(f):readPrev(f)};
   const S0=await pull("hl.json"),S=S0||{};S.season=S.season||{};S.stand=S.stand||{};S.det=S.det||{};S.matches=S.matches||{};S.tables=S.tables||{};S.calls=S.calls||{};S.today=S.today||{};
-  const today=new Date(now+WITA).toISOString().slice(0,10);if(S.calls.day!==today)S.calls={day:today,n:0};
+  // V19.1: hitungan harian mengikuti reset kuota Highlightly (00.00 UTC = 08.00 WITA), bukan tengah malam WITA.
+  // Sebelumnya permintaan yang ditolak 429 antara 00.00-08.00 WITA ikut terhitung untuk "hari ini" sehingga setelah kuota pulih skrip mengira jatah sudah habis.
+  const today=new Date(now).toISOString().slice(0,10);if(S.calls.day!==today||S.calls.v!==2)S.calls={day:today,n:0,v:2};   // v2: hitungan lama (salah zona waktu) dibuang sekali
   let left=null,calls=0;const errors=[];
   async function get(path){
     if(S.calls.n>=Number(process.env.HL_DAY_CAP??90))throw Object.assign(new Error("batas harian run ini tercapai"),{quota:true});
@@ -110,7 +112,7 @@ async function main(){
     const r=await tfetch(BASE+path,{headers:{"x-rapidapi-key":KEY,Accept:"application/json"}});calls++;S.calls.n++;
     const rem=r.headers.get("x-ratelimit-requests-remaining");if(rem!=null)left=Number(rem);
     if(r.status===401||r.status===403)throw Object.assign(new Error("Highlightly menolak key (HTTP "+r.status+")"),{fatal:true});
-    if(r.status===429)throw Object.assign(new Error("kuota Highlightly habis (429)"),{quota:true});
+    if(r.status===429){S.calls.n--;throw Object.assign(new Error("kuota Highlightly habis (429)"),{quota:true})}   // ditolak = tidak memakai kuota
     if(!r.ok)throw new Error("HTTP "+r.status+" "+path);
     return r.json();
   }

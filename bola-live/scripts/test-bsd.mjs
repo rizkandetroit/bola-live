@@ -253,11 +253,15 @@ sc("Highlightly: liga tambahan ikut tampil, Indonesia diprioritaskan, musim tahu
     const firstX=det.findIndex(id=>id>=1029040);assert(firstX<0||det.slice(firstX).every(id=>id>=1029040),"detail Indonesia lebih dulu: "+det);
     // kuota sudah dipakai banyak hari ini -> liga tambahan dilewati, Indonesia tetap jalan, laga tambahan lama tetap tampil
     const st=JSON.parse(readFileSync(join(r.out,"hl.json"),"utf8"));const day=st.calls.day;
-    st.calls={day,n:70};st.season={};st.stand={};hits.length=0;writeFileSync(join(r.out,"state2.json"),JSON.stringify(st));
+    st.calls={day,n:70,v:2};st.season={};st.stand={};hits.length=0;writeFileSync(join(r.out,"state2.json"),JSON.stringify(st));
     const r2=await run({},join(r.out,"state2.json"));assert.equal(r2.c,0,r2.e);
     assert(hits.some(h=>h.includes("leagueId=233958")),"Indonesia tetap disegarkan");assert(!hits.some(h=>/leagueId=(102904|159070)/.test(h)),"liga tambahan dilewati: "+hits.join(" "));
     const a2=JSON.parse(readFileSync(r2.out+"/all.json","utf8"));assert(a2.matches.some(m=>m.league==="1st Division Denmark"),"laga tambahan dari catatan lama tetap tampil");
     assert(!(a2.errors||[]).some(e=>/tambahan/.test(e)),"melewati liga tambahan bukan galat");
+    // V19.1: hitungan hari mengikuti 00.00 UTC; catatan hari lain (mis. tanggal WITA lama) direset
+    {const st3=JSON.parse(readFileSync(join(r.out,"hl.json"),"utf8"));assert.equal(st3.calls.day,new Date().toISOString().slice(0,10),"hari kuota = tanggal UTC");
+     st3.calls={day:"2000-01-01",n:90};st3.season={};st3.stand={};writeFileSync(join(r.out,"state3.json"),JSON.stringify(st3));hits.length=0;
+     const r3=await run({},join(r.out,"state3.json"));assert.equal(r3.c,0,r3.e);assert(hits.some(h=>h.includes("leagueId=233958")),"hitungan hari lain tidak memblokir")}
     return all.matches.length+" laga, "+hits.length+" permintaan saat kuota dihemat";
   }finally{H.close()}
 });
