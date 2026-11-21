@@ -818,7 +818,7 @@ function loadEval(){var gj=function(f){return fetch(f,NC).then(function(r){retur
 function dvg(o){if(!o||o.length!==3||!o.every(function(x){return x>1}))return null;var q=o.map(function(x){return 1/x}),t=q[0]+q[1]+q[2];return q.map(function(x){return x/t*100})}
 function pinMove(x){var a=x&&x.pin&&dvg(x.pin.o),b=x&&x.pin&&dvg(x.pin.c);if(!a||!b)return null;var d=b.map(function(v,i){return v-a[i]}),k=0;
   for(var i=1;i<3;i++)if(Math.abs(d[i])>Math.abs(d[k]))k=i;return{k:k,a:a[k],b:b[k],d:d[k]}}
-function pinLine(x){if(x.status!=="NS")return"";var m=pinMove(x);if(!m||Math.abs(m.d)<3)return"";
+function pinLine(x){if(NEUTRAL)return"";if(x.status!=="NS")return"";var m=pinMove(x);if(!m||Math.abs(m.d)<3)return"";
   var nm=m.k===0?x.home.name:m.k===2?x.away.name:"Seri",up=m.d>0;
   return'<div class="acl pmv" title="Peluang tersirat dari harga Pinnacle, margin bandar dibuang. Harga buka vs harga terkini.">Pasar '+(up?"makin yakin":"mulai ragu")+' <b>'+esc(nm)+'</b> '+Math.round(m.a)+'% → <b class="'+(up?"up":"dn")+'">'+Math.round(m.b)+'%</b></div>'}
 function mvHtml(v){
@@ -1019,7 +1019,7 @@ function load(){Promise.all([Promise.resolve(null),Promise.resolve(null),fj("all
 var IMG="https://sports.bzzoiro.com/img/";
 var MC={id:null,tab:"sum",d:null},KL={idx:null,cur:null,cache:{}},SLF={st:"LIVE",lg:""};
 function o2(v){return v==null?"-":Number(v).toFixed(2)}
-function oddLine(x){
+function oddLine(x){if(NEUTRAL)return"";
   var o=x.odds;if(!o)return"";
   var c=[["1",o.h],["X",o.d],["2",o.a],["O2,5",o.o25],["U2,5",o.u25],["BTTS",o.by]].filter(function(q){return q[1]});
   if(!c.length)return"";
@@ -1262,6 +1262,7 @@ function drawMC(x,d,loading){
   var b=MC.panel?$("#mcp-body"):$("#mc-body");if(!x&&!d){b.innerHTML='<div class="em">Laga tidak ditemukan.</div>';return}
   x=x||{home:{name:"Tuan rumah"},away:{name:"Tamu"},score:[null,null],status:d.status,utc:d.updated};
   var tabs=[["sum","Ringkasan"],["pred","Prediksi"],["stats","Statistik"],["lu","Line-up"],["inc","Kejadian"],["com","Komentar"],["ps","Pemain"],["odds","Odds"],["h2h","H2H"]];
+  if(NEUTRAL){tabs=tabs.filter(function(t){return t[0]!=="odds"});if(MC.tab==="odds")MC.tab="sum"}   // V20: mode netral tanpa tab Odds
   var isHL=(d&&d.src==="HL")||(x&&x.src==="HL");if(isHL){tabs=tabs.filter(function(t){return["sum","pred","stats","inc"].indexOf(t[0])>=0});if(!tabs.some(function(t){return t[0]===MC.tab}))MC.tab="sum"}
   var st=x.status==="LIVE"?'<span class="st lv">'+(x.ht?"Turun minum":x.pend?"Baru mulai":x.min!=null?x.min+"\'":"Live")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':df.format(new Date(x.utc))+" "+tf.format(new Date(x.utc))+" WITA";
   var h='<div class="cap">'+cr(x.lgc,"lgc")+esc(x.league||"")+(x.rl?" · "+esc(x.rl):"")+'</div><div class="mchd"><div>'+cr(x.home.crest)+'<b>'+esc(x.home.name)+'</b></div><div><div class="bs">'+scoreTxt(x)+'</div>'+st+'</div><div>'+cr(x.away.crest)+'<b>'+esc(x.away.name)+'</b></div></div>';
