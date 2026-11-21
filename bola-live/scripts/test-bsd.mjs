@@ -325,6 +325,9 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     assert(M.bt.holdout&&M.bt.holdout.blend.ll<=M.bt.holdout.bsd.ll+.01,"gabungan tidak lebih buruk dari BSD");
     const all=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")),mU=all.matches.find(x=>x.eid===U.id);
     assert(mU&&mU.bl&&Math.abs(mU.bl.h+mU.bl.d+mU.bl.a-100)<.5,"prediksi Model BL di laga");
+    // V20: koreksi klasemen & pelatih baru diuji mundur (on/off) dan tercatat; tebakan skor di catatan kartu dari Model BL
+    assert(M.v20&&typeof M.v20.on==="boolean"&&M.v20.llOff!=null,"uji on/off V20: "+JSON.stringify(M.v20));assert("tb" in M.cov&&"nc" in M.cov&&(M.v20.on?M.cov.nTb>0:M.cov.tb===0),"kovariat klasemen tercatat: "+JSON.stringify(M.cov)+JSON.stringify(M.v20));
+    if(mU.note&&/Skor paling mungkin/.test(mU.note))assert(/Skor paling mungkin \d+-\d+ \(Model BL\)/.test(mU.note),"skor dari Model BL: "+mU.note);
     const S=JSON.parse(readFileSync(join(st,"starters.json"),"utf8"));assert((S.t[U.home_team_id]||[]).length>=3,"line-up resmi tercatat");
     assert.equal(mU.bl.k[0],3,"3 pemain inti tuan rumah absen: "+JSON.stringify(mU.bl));assert.equal(mU.bl.k[1],0);
     const q=M.pred[U.id];assert(mU.bl.xg[0]<q.x[0]&&mU.bl.xg[1]>q.x[1],"koreksi menurunkan serangan tuan rumah");
@@ -431,6 +434,22 @@ sc("V19: ringkasan grid bookmaker & form tim",async()=>{
  const f=slimForm({team_id:1,team_name:"A",overall:{matches:10,won:5,drawn:3,lost:2,goals_for:15,goals_against:9,form:"WWDLW",points_per_match:1.8,stats:{ball_possession:{average:55,total:550},expected_goals:{average:1.4},fouls:{average:12}}}});
  assert.equal(f.overall.won,5);assert.equal(f.overall.stats.ball_possession.average,55);assert.equal(f.overall.stats.fouls,undefined);assert.equal(slimForm({}),null);
  return Math.round(JSON.stringify(c).length/JSON.stringify(raw).length*100)+"% ukuran";
+});
+sc("V20: fitur klasemen & pelatih baru, efek pelatih baru terbaca model",async()=>{
+ const {matchFeatures,fitModel,predictModel}=await import("./model.mjs");
+ // fitur: klasemen baru dihitung setelah 6 laga; pelatih baru = 4 laga pertama; laga mendatang ikut
+ const D=864e5,B=Date.parse("2026-01-01"),L=[];for(let i=0;i<10;i++)L.push({id:i,t:B+i*7*D,l:1,h:1,a:2,gh:2,ga:0,se:5,hc:i<7?100:200,ac:300});
+ L.push({id:"u1",t:B+10*7*D,l:1,h:1,a:2,gh:null,ga:null,se:5,hc:200,ac:301});
+ const F=matchFeatures(L);assert.equal(F.get(5).tb,null);assert.deepEqual(F.get(6).tb,[3,0]);
+ assert.deepEqual([7,8,9].map(i=>F.get(i).nc[0]),[1,1,1]);assert.equal(F.get(6).nc[0],0);assert.equal(F.get("u1").nc[0],1,"laga ke-4 pelatih baru");assert.equal(F.get("u1").nc[1],1,"tamu ganti pelatih");
+ // efek yang ditanam: tim berpelatih baru mencetak lebih sedikit gol -> koefisien nc negatif
+ let sd=7;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647},pois=l=>{let k=0,p=Math.exp(-l),c=p,u=rnd();while(u>c&&k<10){k++;p*=l/k;c+=p}return k};
+ const ms=[];let id=0;for(let w=0;w<60;w++)for(let i=0;i<10;i++){const h=(i*2+w)%20,a=(i*2+1+w*3)%20;if(h===a)continue;const nh=rnd()<.15?1:0,na=rnd()<.15?1:0;
+   ms.push({id:id++,t:B+w*5*D,l:1,h,a,gh:pois(1.5*Math.exp(-.4*nh+.4*na)),ga:pois(1.1*Math.exp(-.4*na+.4*nh)),n:0,nc:[nh,na],tb:null})}
+ const M=fitModel(ms,B+61*5*D,{sweeps:30});assert(M.cov.nc<-.15,"efek pelatih baru terbaca: "+M.cov.nc);
+ const p0=predictModel(M,{h:1,a:2,l:1,t:B+61*5*D}).p[0],p1=predictModel(M,{h:1,a:2,l:1,t:B+61*5*D,nc:[1,0]}).p[0];assert(p1<p0,"pelatih baru menurunkan peluang tuan rumah");
+ const Moff=fitModel(ms,B+61*5*D,{sweeps:30,nc:0});assert.equal(Moff.cov.nc,0,"bisa dimatikan");
+ return "nc "+M.cov.nc.toFixed(2)+", peluang tuan rumah "+p0.toFixed(1)+"% -> "+p1.toFixed(1)+"%";
 });
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}

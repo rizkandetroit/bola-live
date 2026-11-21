@@ -37,11 +37,15 @@ export function fitModel(ms,asOf,o={}){
   // V17: kovariat per laga (besarnya diestimasi dari data, ditarik ke 0 bila datanya sedikit):
   //  0 gA  kekuatan lini serang sendiri (ln rasio line-up)      1 gD  kekuatan lini bertahan lawan (ln rasio, tanda minus)
   //  2 bv  selisih nilai skuad (log10)                          3 dby derby: perubahan keunggulan kandang
-  const NC=4,FH=[],FA=[],TH=new Float64Array(NC),TAU=[P.tauG??2,P.tauG??2,P.tauV??10,P.tauDby??10];for(let j=0;j<NC;j++){FH.push(new Float64Array(N));FA.push(new Float64Array(N))}
-  let nXr=0,nZv=0;
+  //  V20: 4 tb  "klasemen menipu": selisih poin per laga di klasemen musim ini (sebelum kickoff), di luar kekuatan asli tim
+  //       5 nc  pelatih baru (<= 4 laga pertama): +1 tuan rumah, -1 tamu
+  const NC=6,FH=[],FA=[],TH=new Float64Array(NC),TAU=[P.tauG??2,P.tauG??2,P.tauV??10,P.tauDby??10,P.tauTb??10,P.tauNc??20];for(let j=0;j<NC;j++){FH.push(new Float64Array(N));FA.push(new Float64Array(N))}
+  let nXr=0,nZv=0,nTb=0,nNc=0;
   L.forEach((m,k)=>{const x=m.xr;if(x&&x.every(v=>v>0)){FH[0][k]=Math.log(x[0]);FA[0][k]=Math.log(x[2]);FH[1][k]=-Math.log(x[3]);FA[1][k]=-Math.log(x[1]);nXr++}
     if(m.zv&&m.zv[0]!=null&&m.zv[1]!=null){FH[2][k]=m.zv[0]-m.zv[1];FA[2][k]=m.zv[1]-m.zv[0];nZv++}
-    if(m.dby&&!m.n)FH[3][k]=1});
+    if(m.dby&&!m.n)FH[3][k]=1;
+    if(P.tb!==0&&m.tb){const d=m.tb[0]-m.tb[1];FH[4][k]=d;FA[4][k]=-d;nTb++}
+    if(P.nc!==0&&m.nc&&(m.nc[0]||m.nc[1])){const d=m.nc[0]-m.nc[1];FH[5][k]=d;FA[5][k]=-d;nNc++}});
   let mu=Math.log(Math.max(.3,sg/Math.max(sw,1e-9))),hfa=.25,bo=0,bd=0;   // bo: istirahat pendek -> serang sendiri; bd: -> kebobolan
   const lh=new Float64Array(N),la=new Float64Array(N);
   const eta=()=>{for(let k=0;k<N;k++){const h=TL[H[k]],a=TL[A[k]],Lh=LL[tl[H[k]]],La=LL[tl[A[k]]],hf=NE[k]?0:hfa+LL[LG[k]].h;
@@ -60,7 +64,7 @@ export function fitModel(ms,asOf,o={}){
     eta();
     {let g=0,h=0;for(let k=0;k<N;k++){if(SA[k]){g+=W[k]*(YH[k]-lh[k]);h+=W[k]*lh[k]}if(SH[k]){g+=W[k]*(YA[k]-la[k]);h+=W[k]*la[k]}}bd+=step(g,h,20,bd)}
     eta();
-    {let ch=false;for(let j=0;j<NC;j++){if(j<2&&!nXr||j===2&&!nZv)continue;let g=0,h=0;for(let k=0;k<N;k++){const a=FH[j][k],b=FA[j][k];if(!a&&!b)continue;g+=W[k]*((YH[k]-lh[k])*a+(YA[k]-la[k])*b);h+=W[k]*(lh[k]*a*a+la[k]*b*b)}
+    {let ch=false;for(let j=0;j<NC;j++){if(j<2&&!nXr||j===2&&!nZv||j===4&&!nTb||j===5&&!nNc)continue;let g=0,h=0;for(let k=0;k<N;k++){const a=FH[j][k],b=FA[j][k];if(!a&&!b)continue;g+=W[k]*((YH[k]-lh[k])*a+(YA[k]-la[k])*b);h+=W[k]*(lh[k]*a*a+la[k]*b*b)}
       const d=step(g,h,TAU[j],TH[j]);if(d){TH[j]+=d;ch=true}}if(ch)eta()}
     // liga: keunggulan kandang, level serang/tahan
     LL.forEach((q,j)=>{let g=0,h=0;for(const k of byL[j])if(!NE[k]){g+=W[k]*(YH[k]-lh[k]);h+=W[k]*lh[k]}q.h+=step(g,h,P.tauH,q.h)});
@@ -76,7 +80,7 @@ export function fitModel(ms,asOf,o={}){
       const d=step(g,h,P.tauT,t.d);t.d+=d;if(d)for(const k of byT[i]){if(H[k]===i)la[k]*=Math.exp(-d);else lh[k]*=Math.exp(-d)}});
   }
   const team=new Map(TL.map((t,i)=>[t.id,{a:t.a,d:t.d,n:t.n,lg:t.lg,li:tl[i]}])),lg=new Map(LL.map(q=>[q.id,{A:q.A,D:q.D,h:q.h,n:q.n}]));
-  return{P,mu,hfa,bo,bd,team,lg,times,n:N,asOf,cov:{gA:TH[0],gD:TH[1],bv:TH[2],dby:TH[3],nXr,nZv}};
+  return{P,mu,hfa,bo,bd,team,lg,times,n:N,asOf,cov:{gA:TH[0],gD:TH[1],bv:TH[2],dby:TH[3],tb:TH[4],nc:TH[5],nXr,nZv,nTb,nNc}};
 }
 
 // Kekuatan tim untuk prediksi. Tim tanpa data: level liga laga ini (atau 0).
@@ -93,8 +97,9 @@ export function predictModel(M,x){
   const rh=shortRest(M,x.h,x.t),ra=shortRest(M,x.a,x.t);
   const ah=(x.adj&&x.adj.h)||1,aa=(x.adj&&x.adj.a)||1;
   const cv=M.cov||{},x2=x.xr&&x.xr.every(v=>v>0)?x.xr:null,zv=x.zv&&x.zv[0]!=null&&x.zv[1]!=null?x.zv:null;
-  const ch=(x2?(cv.gA||0)*Math.log(x2[0])-(cv.gD||0)*Math.log(x2[3]):0)+(zv?(cv.bv||0)*(zv[0]-zv[1]):0)+(x.dby&&!x.n?(cv.dby||0):0);
-  const ca=(x2?(cv.gA||0)*Math.log(x2[2])-(cv.gD||0)*Math.log(x2[1]):0)+(zv?(cv.bv||0)*(zv[1]-zv[0]):0);
+  const tb=x.tb?(cv.tb||0)*(x.tb[0]-x.tb[1]):0,nc=x.nc?(cv.nc||0)*((x.nc[0]||0)-(x.nc[1]||0)):0;   // V20
+  const ch=(x2?(cv.gA||0)*Math.log(x2[0])-(cv.gD||0)*Math.log(x2[3]):0)+(zv?(cv.bv||0)*(zv[0]-zv[1]):0)+(x.dby&&!x.n?(cv.dby||0):0)+tb+nc;
+  const ca=(x2?(cv.gA||0)*Math.log(x2[2])-(cv.gD||0)*Math.log(x2[1]):0)+(zv?(cv.bv||0)*(zv[1]-zv[0]):0)-tb-nc;
   const lh=Math.min(6,Math.max(.05,Math.exp(M.mu+hf+H.a-A.d+M.bo*rh+M.bd*ra+ch)*ah)),la=Math.min(6,Math.max(.05,Math.exp(M.mu+A.a-H.d+M.bo*ra+M.bd*rh+ca)*aa));
   const ph=pois(lh),pa=pois(la),rho=M.P.rho;let h=0,d=0,a=0,ov=0,bt=0,best=[0,0,0];
   for(let i=0;i<=MAXG;i++)for(let j=0;j<=MAXG;j++){let p=ph[i]*pa[j];
@@ -167,7 +172,7 @@ export function tablesAt(ms){
     let i=0;while(i<L.length){let j=i;while(j<L.length&&L[j].t===L[i].t)j++;   // laga di jam yang sama: klasemen sebelum semuanya
       const order=[...T.entries()].sort((x,y)=>y[1].p-x[1].p||y[1].gd-x[1].gd||y[1].gf-x[1].gf),rk=new Map(order.map(([id],k)=>[id,k+1]));
       for(let k=i;k<j;k++){const m=L[k],h=T.get(m.h),a=T.get(m.a);out.set(m.id,{h:h?[rk.get(m.h),h.n,h.p]:[null,0,0],a:a?[rk.get(m.a),a.n,a.p]:[null,0,0],n:T.size})}
-      for(let k=i;k<j;k++){const m=L[k],h=row(m.h),a=row(m.a);h.n++;a.n++;h.gf+=m.gh;a.gf+=m.ga;h.gd+=m.gh-m.ga;a.gd+=m.ga-m.gh;if(m.gh>m.ga)h.p+=3;else if(m.gh<m.ga)a.p+=3;else{h.p++;a.p++}}
+      for(let k=i;k<j;k++){const m=L[k];if(!Number.isFinite(m.gh)||!Number.isFinite(m.ga))continue;const h=row(m.h),a=row(m.a);h.n++;a.n++;h.gf+=m.gh;a.gf+=m.ga;h.gd+=m.gh-m.ga;a.gd+=m.ga-m.gh;if(m.gh>m.ga)h.p+=3;else if(m.gh<m.ga)a.p+=3;else{h.p++;a.p++}}
       i=j}}
   return out}
 // Uji "klasemen menipu": laga di mana klasemen mengunggulkan satu tim (selisih peringkat >= gap) tapi kekuatan asli mengunggulkan lawannya.
@@ -190,3 +195,16 @@ export function luckOf(ms,now,days=200){
     for(const [id,gf,ga,xf,xa,side] of [[m.h,m.gh,m.ga,m.xh,m.xa,0],[m.a,m.ga,m.gh,m.xa,m.xh,1]]){const t=T[id]=T[id]||{l:m.l,n:0,pts:0,gf:0,ga:0,xn:0,xgf:0,xga:0,xpts:0,xpN:0};
       t.n++;t.gf+=gf;t.ga+=ga;t.pts+=gf>ga?3:gf===ga?1:0;if(xf!=null&&xa!=null){t.xn++;t.xgf+=xf;t.xga+=xa;const e=pp(m.xh,m.xa)[side];t.xpts+=e;t.xpN+=gf>ga?3:gf===ga?1:0}}}
   return T}
+
+// V20: fitur per laga untuk Model BL. tb = poin per laga di klasemen musim ini sebelum kickoff (hanya bila kedua tim sudah >= minN laga);
+// nc = pelatih baru (pelatih berbeda dari sebelumnya, <= 4 laga pertama, pergantian < 90 hari). Laga mendatang (gh null) ikut dihitung
+// dari data sebelum kickoff saja.
+export function matchFeatures(ms,o={}){
+  const minN=o.minN??6,tab=tablesAt(ms),out=new Map();
+  const S=ms.slice().sort((a,b)=>a.t-b.t),st=new Map();   // per tim: {c: pelatih terakhir, same: laga beruntun dgn pelatih itu, oldT: laga terakhir pelatih sebelumnya}
+  const flag=(id,c,t)=>{const x=st.get(id);if(c==null||!x||x.c==null)return 0;if(c!==x.c)return 1;return x.oldT!=null&&x.same<4&&t-x.oldT<90*DAY?1:0};
+  const push=(id,c,t)=>{if(c==null)return;const x=st.get(id)||{c:null,same:0,oldT:null};if(x.c===c)x.same++;else{x.oldT=x.c!=null?x.lastT:null;x.c=c;x.same=1}x.lastT=t;st.set(id,x)};
+  for(const m of S){const T=tab.get(m.id);let tb=null;if(T&&T.h[1]>=minN&&T.a[1]>=minN)tb=[T.h[2]/T.h[1],T.a[2]/T.a[1]];
+    const nc=[flag(m.h,m.hc,m.t),flag(m.a,m.ac,m.t)];out.set(m.id,{tb,nc});
+    if(Number.isFinite(m.gh)){push(m.h,m.hc,m.t);push(m.a,m.ac,m.t)}}
+  return out}

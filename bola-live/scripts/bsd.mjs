@@ -1,7 +1,7 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir} from "./net.mjs";
-import {fitModel,predictModel,rollingBacktest,score,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks} from "./model.mjs";
+import {fitModel,predictModel,rollingBacktest,score,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats} from "./players.mjs";
 import {level,r1} from "./lib.mjs";
@@ -492,10 +492,17 @@ async function main(){
     if(needModel&&DEEP&&!LIGHT&&btEnt&&btEnt.length&&rows.length>=500&&!overDeadline()){
       const ms=rows.map(r=>{const x=xg.e[r[0]];const xr=XR.e[r[0]];return{id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7],xh:x?x[0]:null,xa:x?x[1]:null,xe:x?x[2]:0,se:r[9]??null,
         xr:xr||null,zv:ZV.has(r[3])&&ZV.has(r[4])?[ZV.get(r[3]),ZV.get(r[4])]:null,dby:r[10]&1?1:0,tr:r[11]??null,hc:r[12]??null,ac:r[13]??null}});
+      // V20: fitur klasemen (poin/laga sebelum kickoff) & pelatih baru, untuk laga selesai dan laga mendatang
+      const UP=every.filter(m=>m.status==="NS"&&m.hid!=null&&m.aid!=null&&m.lid!=null).map(m=>{const ev=EV.get(m.eid)||{};return{id:"u"+m.eid,t:Date.parse(m.utc),l:m.lid,h:m.hid,a:m.aid,gh:null,ga:null,se:ev.season_id??null,hc:ev.home_coach_id??null,ac:ev.away_coach_id??null}});
+      let FE=new Map();try{FE=matchFeatures(ms.concat(UP));for(const m of ms){const f=FE.get(m.id);if(f){m.tb=f.tb;m.nc=f.nc}}}catch(e){errors.push("fitur klasemen/pelatih: "+e.message)}
       const xgCov=ms.filter(m=>m.t>now-180*DAY&&m.xh!=null).length/Math.max(1,ms.filter(m=>m.t>now-180*DAY).length);
       const span=(now-ms[0].t)/DAY,bfrom=now-Number(process.env.BL_BT_DAYS??90)*DAY;
       const cfgs=(span>=200&&process.env.BL_TUNE!=="0"?[{},{hl:120},{hl:300},{tauT:8},{rho:-.12}].concat(xgCov>=.2?[{xga:.5},{xga:.7},{xga:.7,hl:120}]:[]):[{}]).map(c=>({sweeps:25,...c}));
       let best=null;for(const c of cfgs){if(overDeadline())break;const rb=rollingBacktest(ms,bfrom,now,{...c,ranks:true});const sc=score(rb);if(sc&&(!best||sc.ll<best.sc.ll))best={c,rb,sc}}
+      // V20: koreksi klasemen & pelatih baru hanya dipakai bila uji mundur membuktikan lebih baik
+      let v20=null;if(best&&!overDeadline()){const rbOff=rollingBacktest(ms,bfrom,now,{...best.c,tb:0,nc:0,ranks:true}),so=score(rbOff);
+        v20={llOn:best.sc.ll,llOff:so?so.ll:null,accOn:best.sc.acc,accOff:so?so.acc:null,on:!!(so&&best.sc.ll<so.ll-.0005)};
+        if(!v20.on&&so){best={c:{...best.c,tb:0,nc:0},rb:rbOff,sc:so}}}
       const TT=best?bestTemp(best.rb):1;if(best)for(const r of best.rb)r.p=temper(r.p,TT);   // kalibrasi suhu dari uji mundur
       const bsdP=new Map((btEnt||[]).map(e=>[e.id,e.p]));
       const J=best?best.rb.filter(r=>bsdP.has(r.id)).map(r=>({...r,b:bsdP.get(r.id)})):[];
@@ -512,11 +519,11 @@ async function main(){
         fac.cov={coach:Math.round(rows.filter(r=>r[12]!=null).length/rows.length*100),travel:Math.round(rows.filter(r=>r[11]!=null).length/rows.length*100),eu:eu.size}}catch(e){errors.push("uji faktor: "+e.message)}
       const M=fitModel(ms,now,{...(best?best.c:{}),sweeps:40});addTimes(M,every.filter(m=>m.hid!=null&&m.aid!=null).map(m=>({h:m.hid,a:m.aid,t:Date.parse(m.utc)})));
       const pred={};for(const m of every){if(m.status!=="NS"||m.hid==null||m.aid==null||m.lid==null)continue;const a=M.team.get(m.hid),b=M.team.get(m.aid);if(!a||!b||a.n<4||b.n<4)continue;
-        const ev=EV.get(m.eid)||{};const q=predictModel(M,{h:m.hid,a:m.aid,l:m.lid,n:ev.is_neutral_ground?1:0,t:Date.parse(m.utc),zv:ZV.has(m.hid)&&ZV.has(m.aid)?[ZV.get(m.hid),ZV.get(m.aid)]:null,dby:ev.is_local_derby?1:0});
+        const ev=EV.get(m.eid)||{},fe=FE.get("u"+m.eid)||{};const q=predictModel(M,{h:m.hid,a:m.aid,l:m.lid,n:ev.is_neutral_ground?1:0,t:Date.parse(m.utc),zv:ZV.has(m.hid)&&ZV.has(m.aid)?[ZV.get(m.hid),ZV.get(m.aid)]:null,dby:ev.is_local_derby?1:0,tb:fe.tb||null,nc:fe.nc||null});
         pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,n:q.n}}
       MB={updated:new Date(now).toISOString(),temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
-        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,tbl,fac,pred};
+        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,v20,tbl,fac,pred};
       // ringkasan per tim untuk tampilan (Tahap 4): peringkat kekuatan, keberuntungan musim ini, data pemain
       try{const lk=luckOf(ms,now),TS={};const lgs=new Set(every.map(m=>m.lid).filter(x=>x!=null));
         for(const [id,t] of M.team){if(!lgs.has(t.lg)||t.n<4)continue;const R=strengthRanks(M,t.lg),L=lk[id],S=teamSummary(PS.t[id],VA.p),Lg=M.lg.get(t.lg)||{A:0,D:0};
@@ -544,6 +551,8 @@ async function main(){
         const pr=probs(lh,la,MB.cfg&&MB.cfg.rho);pr.p=temper(pr.p,MB.temp||1);
         m.bl={h:r1(pr.p[0]),d:r1(pr.p[1]),a:r1(pr.p[2]),ou:r1(pr.ou),bt:r1(pr.bt),xg:[r2(lh),r2(la)],ms:pr.ms,r:q.r,k:[kh,ka],src:conf?"xi":"abs",
           lu:XH&&XA?[XH.r[0],XH.r[1],XA.r[0],XA.r[1]]:null,mi:XH&&XA?[XH.miss.filter(x=>x[1]).slice(0,2).map(x=>x[1]),XA.miss.filter(x=>x[1]).slice(0,2).map(x=>x[1])]:null,lsrc:XH?XH.src:null,ux:useXi?1:0};
+        // V20: tebakan skor di catatan kartu memakai Model BL (skor BSD sering seragam 1-1 di liga kecil)
+        if(m.note&&pr.ms)m.note=m.note.replace(/Skor paling mungkin [^.]*\./,"Skor paling mungkin "+pr.ms[0]+"-"+pr.ms[1]+" (Model BL).");
         if(MB.useful&&m.p&&!m.np&&m.p.h!=null){const w=MB.w,g=[m.p.h,m.p.d,m.p.a].map((x,i)=>w*x+(1-w)*pr.p[i]),t=g[0]+g[1]+g[2];m.bg={h:r1(g[0]/t*100),d:r1(g[1]/t*100),a:r1(g[2]/t*100),w}}}
     }
   }
