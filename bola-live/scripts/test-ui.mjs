@@ -153,3 +153,9 @@ console.log("render ok");
  assert(h.includes("BL benar 47,5%, BSD 35,0% (200 laga)"));assert(h.includes("dimatikan sementara"),"catatan line-up dimatikan");
  assert(!F.mblHtml({...M,dis:null},null).includes("berbeda arah"));
  console.log("OK V22d: menunggu data, pemain inti absen, beda arah")}
+// V24: bedah meleset di Evaluasi
+{const F=new Function(pre+";return {missHtml}")(),Z=(n,miss,draw,c)=>({n,miss,draw,c:Object.assign({apes:0,merah:0,telat:0,tipis:0,salah:0,nodata:0},c)});
+ const h=F.missHtml({days:30,bsd:Z(100,55,20,{apes:12,merah:3,telat:4,tipis:15,salah:11,nodata:10}),bl:Z(90,50,18,{apes:10,salah:14,tipis:16,nodata:10})});
+ assert(h.includes("Bedah meleset")&&h.includes("<b>Kurang beruntung</b>")&&h.includes("12 <small>(22%)</small>")&&h.includes("BSD meleset 55 dari 100 laga, Model BL 50 dari 90")&&h.includes("36% tebakan BSD"),h.slice(0,600));
+ assert.equal(F.missHtml(null),"");assert.equal(F.missHtml({days:30,bsd:Z(10,0,0,{})}),"");
+ console.log("OK V24: bedah meleset")}

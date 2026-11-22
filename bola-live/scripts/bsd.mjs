@@ -241,6 +241,34 @@ export function recapOf(hist,now,o={}){
     return{d,bsd:cnt("p"),bl:cnt("bl"),sk:cnt("sk"),lg:[...lg.values()].sort((a,b)=>b[1]-a[1]).slice(0,15),
       m:i<2?L.slice(0,maxM).map(e=>[e.lg,e.h,e.a,e.r[0],e.r[1],top(e.p),top(e.bl),top(e.sk)]):null}})};
 }
+// V24 "bedah meleset": bahan dari Match Center laga selesai (m/{id}.json): xG, kartu merah paling awal tiap tim,
+// dan skor sebelum gol terakhir bila gol itu terjadi menit 85-90+ (gol penentu di menit akhir).
+export function missFacts(o){
+  if(!o)return null;const S=o.stats&&(o.stats.stats&&o.stats.stats.home?o.stats.stats:o.stats);const xh=S&&S.home?num(S.home.expected_goals):null,xa=S&&S.away?num(S.away.expected_goals):null;
+  const inc=Array.isArray(o.incidents)?o.incidents:[];if(!inc.length&&(xh==null||xa==null))return null;
+  const rd=[null,null];for(const i of inc)if(i&&i.type==="card"&&/red/i.test(i.card_type||"")){const k=i.is_home?0:1,m=Number(i.minute)||0;if(rd[k]==null||m<rd[k])rd[k]=m}
+  const g=inc.filter(i=>i&&i.type==="goal"&&i.minute!=null&&Number(i.minute)<=90&&i.home_score!=null&&i.away_score!=null).sort((a,b)=>(a.minute*100+(a.added_time||0))-(b.minute*100+(b.added_time||0)));
+  const L=g[g.length-1];const lt=L&&Number(L.minute)>=85?[L.home_score-(L.is_home?1:0),L.away_score-(L.is_home?0:1)]:null;
+  return{x:xh!=null&&xa!=null?[r2(xh),r2(xa)]:null,rd,lt}}
+// alasan sebuah tebakan (0 kandang, 1 seri, 2 tamu) meleset; null = tebakan benar
+export function missWhy(pick,r,f){
+  const o=r[0]>r[1]?0:r[0]===r[1]?1:2;if(pick===o)return null;if(!f)return"nodata";
+  if(pick!==1&&f.rd&&f.rd[pick===0?0:1]!=null&&f.rd[pick===0?0:1]<80)return"merah";
+  if(f.lt){const pre=f.lt[0]>f.lt[1]?0:f.lt[0]===f.lt[1]?1:2;if(pre===pick)return"telat"}
+  if(!f.x)return"nodata";const [h,a]=f.x;
+  if(pick===1)return Math.abs(h-a)>=.6?"salah":"tipis";
+  const d=pick===0?h-a:a-h;return d>=.4?"apes":d<=-.4?"salah":"tipis"}
+export const MISS_KEYS=["apes","merah","telat","tipis","salah","nodata"];
+export function evalMiss(hist,now,days=30){
+  const pk=p=>p.indexOf(Math.max(...p)),Z=()=>({n:0,miss:0,draw:0,c:Object.fromEntries(MISS_KEYS.map(k=>[k,0]))}),out={days,bsd:Z(),bl:Z()};
+  for(const e of hist||[]){if(!e.r||now-Date.parse(e.u)>days*864e5)continue;const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2;
+    for(const [k,src] of [["bsd","p"],["bl","bl"]]){const q=e[src];if(!q)continue;const S=out[k];S.n++;const w=missWhy(pk(q),e.r,e.f||null);if(!w)continue;S.miss++;S.c[w]++;if(o===1)S.draw++}}
+  return out.bsd.n?out:null}
+// isi bahan bedah meleset sekali per laga, setelah laga selesai >= 3 jam (statistik final); dicoba sampai 4 hari
+export function fillMissFacts(hist,now,readM){
+  let n=0;for(const e of hist||[]){if(!e.r||e.f!==undefined)continue;const age=now-Date.parse(e.u);if(age<3*36e5)continue;
+    const o=readM(e.id);if(o&&o.status==="FT"){e.f=missFacts(o);n++}else if(age>4*864e5)e.f=null}
+  return n}
 export function evalBL(hist){const R=(hist||[]).filter(e=>e.r&&e.p&&e.bl);if(!R.length)return{n:0};
   const sc=k=>{let a=0,b=0,l=0;for(const e of R){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e[k].map(x=>x/100);if(p.indexOf(Math.max(...p))===o)a++;b+=p.reduce((s,x,i)=>s+(x-(i===o?1:0))**2,0);l-=Math.log(Math.max(p[o],1e-6))}return{acc:a/R.length*100,brier:b/R.length,ll:l/R.length}};
   const R2=(hist||[]).filter(e=>e.r&&e.p&&e.sk),sc2=k=>{let a=0,l=0;for(const e of R2){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e[k].map(x=>x/100);if(p.indexOf(Math.max(...p))===o)a++;l-=Math.log(Math.max(p[o],1e-6))}return{acc:a/R2.length*100,ll:l/R2.length}};
@@ -627,7 +655,8 @@ async function main(){
   // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
   let hist=[];{if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
     else{const h=await readState("bsd-history.json");if(Array.isArray(h))hist=h}}
-  if(!fatal&&events.length){hist=updateHistory(hist,every,now);writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now)}))}
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now);deep.missF=fillMissFacts(hist,now,id=>{try{return JSON.parse(readFileSync(dir+"m/"+id+".json","utf8"))}catch(e){return null}});
+    writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now),miss:evalMiss(hist,now)}))}
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,
     heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,ghost,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};

@@ -7,6 +7,7 @@ import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
+import {missFacts,missWhy,evalMiss,fillMissFacts} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate} from "./highlightly.mjs";
 import {disagree} from "./model.mjs";
 import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
@@ -167,6 +168,23 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  const A={},B2={};psIngestT(A,5,Date.parse("2026-11-01"),raw);psIngestT(B2,5,Date.parse("2026-11-01"),rows.map(statBack));
  for(const t of [1,2]){const x=tsT(A.t[t],{}),y=tsT(B2.t[t],{});assert.deepEqual(JSON.parse(JSON.stringify(x)),JSON.parse(JSON.stringify(y)),"ringkasan sama setelah dibaca ulang (tim "+t+")")}
  console.log("xi2 (line-up + statistik per laga) ok")}
+// V24: bedah meleset
+{const G=(min,h,hs,as,add)=>({type:"goal",minute:min,added_time:add||null,is_home:h,home_score:hs,away_score:as});
+ const o={status:"FT",stats:{stats:{home:{expected_goals:2.1},away:{expected_goals:.7}}},incidents:[G(20,true,1,0),{type:"card",card_type:"red",is_home:false,minute:60},{type:"card",card_type:"red",is_home:false,minute:30},G(88,false,1,1),{type:"card",card_type:"yellow",is_home:true,minute:10}]};
+ const f=missFacts(o);assert.deepEqual(f,{x:[2.1,.7],rd:[null,30],lt:[1,0]});
+ assert.equal(missWhy(0,[1,1],f),"telat","unggul 1-0 lalu disamakan menit 88");
+ assert.equal(missWhy(2,[1,1],f),"merah","tamu kena merah menit 30");
+ assert.equal(missWhy(0,[1,1],{x:[2.1,.7],rd:[null,null],lt:null}),"apes");assert.equal(missWhy(0,[0,1],{x:[.6,1.9],rd:[null,null],lt:null}),"salah");
+ assert.equal(missWhy(0,[1,1],{x:[1.2,1.0],rd:[null,null],lt:null}),"tipis");assert.equal(missWhy(1,[2,0],{x:[2.5,.4],rd:[null,null],lt:null}),"salah");
+ assert.equal(missWhy(0,[2,0],f),null,"tebakan benar");assert.equal(missWhy(0,[0,0],null),"nodata");assert.equal(missWhy(0,[0,0],{x:null,rd:[null,null],lt:null}),"nodata");
+ assert.equal(missFacts({status:"FT"}),null);assert.deepEqual(missFacts({stats:{home:{expected_goals:1},away:{expected_goals:2}}}),{x:[1,2],rd:[null,null],lt:null},"bentuk statistik datar");
+ const now=Date.parse("2026-11-22T12:00:00Z"),E=(id,h,r,p,bl)=>({id,u:new Date(now-h*36e5).toISOString(),r,p,bl});
+ const H=[E(1,10,[1,1],[60,25,15],[55,25,20]),E(2,10,[2,0],[60,25,15],[30,30,40]),E(3,2,[0,1],[50,30,20],null),E(4,120,[0,1],[50,30,20],null),E(5,10,null,[50,30,20],null)];
+ const n=fillMissFacts(H,now,id=>id===1?o:id===2?{status:"LIVE"}:null);assert.equal(n,1);assert.deepEqual(H[0].f,f);assert.equal(H[1].f,undefined,"belum FT: coba lagi nanti");
+ assert.equal(H[2].f,undefined,"baru 2 jam: tunggu statistik final");assert.equal(H[3].f,null,"lewat 4 hari tanpa data: berhenti mencoba");
+ const M=evalMiss(H,now);assert.equal(M.bsd.n,4,"hanya yang ada hasil");assert.equal(M.bsd.miss,3);assert.equal(M.bsd.c.telat,1);assert.equal(M.bsd.c.nodata,2);assert.equal(M.bsd.draw,1);assert.equal(evalMiss(H,now,3).bsd.n,3,"jendela hari");
+ assert.equal(M.bl.n,2);assert.equal(M.bl.miss,2);assert.equal(M.bl.c.telat,1);assert.equal(evalMiss([],now),null);
+ console.log("bedah meleset ok")}
 
 // V13.5: pemain absen, prediksi gabungan, indikator risiko
 {const lu={unavailable_players:{home:[{name:"Alex Roldán",short_name:"A. Roldán",status:"injured",reason:"Calf"},{name:"Y Gómez",status:"suspended"}],away:[{short_name:"D. Luna",status:"doubtful"}]}};
