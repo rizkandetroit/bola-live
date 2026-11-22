@@ -9,6 +9,7 @@ import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate} from "./highlightly.mjs";
 import {disagree} from "./model.mjs";
+import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
 
 const here=fileURLToPath(new URL(".",import.meta.url));
 const S=JSON.parse(readFileSync(join(here,"fixtures/bsd-sample.json"),"utf8"));
@@ -153,6 +154,19 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
 {const r=(b,p,o)=>({b,p,o}),R=[r([50,30,20],[55,25,20],0),r([50,30,20],[30,25,45],0),r([50,30,20],[30,25,45],2),r([50,30,20],[30,25,45],1),r([20,30,50],[60,20,20],0),r([45,30,25],null,0)];
  const D=disagree(R);assert.deepEqual({n:D.n,of:D.of,bsd:D.bsd,bl:D.bl,none:D.none},{n:4,of:5,bsd:1,bl:2,none:1});assert.deepEqual(D.bl50,{n:1,bsd:0,bl:1});
  assert.equal(disagree([r([50,30,20],[50,30,20],0)]),null);console.log("beda arah ok")}
+// V23a: line-up resmi + baris statistik ringkas per laga (bisa dibaca ulang oleh ingest dengan hasil sama)
+{const xi=t=>({team_id:t,players:Array.from({length:11},(_,k)=>({id:t*100+k}))});
+ assert.deepEqual(startersOf({lineup_status:"confirmed",lineups:{home:xi(1),away:xi(2)}}),[xi(1).players.map(p=>p.id),xi(2).players.map(p=>p.id)]);
+ assert.equal(startersOf({lineup_status:"predicted",lineups:{home:xi(1),away:xi(2)}}),0,"line-up perkiraan bukan starter asli");assert.equal(startersOf(null),0);
+ assert.equal(startersOf({lineup_status:"confirmed",lineups:{home:{players:[{id:1}]},away:xi(2)}}),0,"line-up tidak lengkap");
+ const raw=[{player_id:7,team_id:1,minutes_played:90,rating:7.3,goals:1,goal_assist:0,expected_goals:.62,expected_assists:.11,key_pass:2,big_chance_created:1,goals_prevented:0,saves:0},
+   {player_id:8,team_id:1,minutes_played:30,rating:null,goals:0,goal_assist:1,expected_goals:0,expected_assists:.3,key_pass:1,big_chance_created:0,goals_prevented:0,saves:0},
+   {player_id:9,team_id:2,minutes_played:90,rating:6.8,goals:0,goal_assist:0,expected_goals:0,expected_assists:0,key_pass:0,big_chance_created:0,goals_prevented:.45,saves:4},
+   {player_id:10,team_id:2,minutes_played:0,rating:null},{player_id:null,team_id:2,minutes_played:90}];
+ const rows=raw.map(statRow).filter(Boolean);assert.equal(rows.length,3,"pemain tanpa menit / tanpa id dibuang");assert.deepEqual(rows[0],[7,1,90,73,1,0,62,11,3,0,0]);assert.equal(rows[1][3],-1);
+ const A={},B2={};psIngestT(A,5,Date.parse("2026-11-01"),raw);psIngestT(B2,5,Date.parse("2026-11-01"),rows.map(statBack));
+ for(const t of [1,2]){const x=tsT(A.t[t],{}),y=tsT(B2.t[t],{});assert.deepEqual(JSON.parse(JSON.stringify(x)),JSON.parse(JSON.stringify(y)),"ringkasan sama setelah dibaca ulang (tim "+t+")")}
+ console.log("xi2 (line-up + statistik per laga) ok")}
 
 // V13.5: pemain absen, prediksi gabungan, indikator risiko
 {const lu={unavailable_players:{home:[{name:"Alex Roldán",short_name:"A. Roldán",status:"injured",reason:"Calf"},{name:"Y Gómez",status:"suspended"}],away:[{short_name:"D. Luna",status:"doubtful"}]}};
@@ -355,7 +369,12 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     {const f=join(st,"results.json"),J=JSON.parse(readFileSync(f,"utf8"));J.rows=J.rows.map(r=>r.slice(0,8));writeFileSync(f,JSON.stringify(J))}   // seperti cache lama di situs: tanpa tanda has_xg
     const r2=await go({BL_XR_HIST:"1"});assert.equal(r2.c,0,r2.e);   // V22c: cara lama (line-up historis) dinyalakan untuk menguji mekanismenya
     {const A=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")).bsd,Rw=JSON.parse(readFileSync(join(st,"results.json"),"utf8")).rows,old=Rw.filter(r=>r[1]*1000<NOW-100*DAYm);
-     assert(A.xgScan>0,"pindai ulang tanda xG untuk baris lama");assert(old.some(r=>r[8]!=null),"baris lama mendapat tanda");}
+     assert(A.xgScan>0,"pindai ulang tanda xG untuk baris lama");assert(old.some(r=>r[8]!=null),"baris lama mendapat tanda");
+     // V23a: line-up resmi + statistik per laga terkumpul untuk laga lama (data internal, tidak tayang)
+     const X2=JSON.parse(readFileSync(join(st,"xi2.json"),"utf8")),E2=Object.values(X2.e),full=E2.filter(e=>Array.isArray(e.s)&&Array.isArray(e.r));
+     assert(full.length>=50,"xi2 terkumpul: "+full.length+" / "+E2.length+" "+JSON.stringify({xi2:A.xi2,N:A.xi2N}));assert.equal(A.xi2N,full.length);
+     const e0=full[0];assert(e0.s[0].length===11&&e0.s[1].length===11&&e0.r.length>=20&&e0.r[0].length===11&&e0.h!=null&&e0.a!=null&&e0.t>0,JSON.stringify(e0).slice(0,200));
+     assert(!existsSync(join(r2.out,"xi2.json")),"xi2 tidak ikut tayang");assert(E2.every(e=>e.t*1000>NOW-165*DAYm),"hanya jendela 160 hari")}
     const res2=JSON.parse(readFileSync(join(st,"results.json"),"utf8")),M=JSON.parse(readFileSync(join(r2.out,"model-bl.json"),"utf8"));
     assert(res2.rows.length>res1.rows.length,"isi mundur berlanjut");
     const X=JSON.parse(readFileSync(join(st,"xg.json"),"utf8")).e,xv=Object.values(X);assert(xv.filter(v=>v&&v.length).length>=300,"xG terisi bertahap: "+xv.length);

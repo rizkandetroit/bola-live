@@ -73,3 +73,20 @@ export function xiRatio(Q,xi){
   return{r:[Math.round(Math.max(.5,Math.min(1.25,ra))*1000)/1000,Math.round(Math.max(.5,Math.min(1.25,rd))*1000)/1000],miss:miss.slice(0,4),known}}
 // XI dari baris player-stats satu tim (starter = >= 45 menit, maksimal 11 dengan menit terbanyak)
 export function xiFromStats(rows){return(rows||[]).filter(r=>Number(r.minutes_played)>=45).sort((a,b)=>b.minutes_played-a.minutes_played).slice(0,11).map(r=>r.player_id)}
+
+// ===== V23a (tahap kumpul data, 22 Nov 2026): line-up resmi + statistik pemain per laga, disimpan per laga (xi2.json) =====
+// Tujuannya: nanti mutu pemain bisa dihitung HANYA dari laga sebelum tanggal laga yang dinilai, dan XI = starter asli
+// (bukan pemain >= 45 menit), sehingga koreksi line-up tidak lagi "mengintip" hasil.
+// Starter dari line-up resmi: [[id kandang],[id tandang]]; 0 = tidak ada line-up resmi.
+export function startersOf(lu){
+  if(!lu||lu.lineup_status!=="confirmed")return 0;
+  const g=s=>{const L=lu.lineups&&lu.lineups[s];return L&&Array.isArray(L.players)&&L.players.length>=11?L.players.map(p=>p.id).filter(x=>x!=null):null};
+  const h=g("home"),a=g("away");return h&&a?[h,a]:0}
+// Baris player-stats -> angka ringkas: [pemain, tim, menit, rating x10 (-1 = tidak ada), gol, assist, xG x100, xA x100, peluang dibuat, goals prevented x100, penyelamatan]
+export function statRow(r){
+  if(!r||r.player_id==null||r.team_id==null)return null;const m=n0(r.minutes_played);if(m<=0)return null;const rt=r.rating==null?null:Number(r.rating);
+  return[r.player_id,r.team_id,m,rt!=null&&Number.isFinite(rt)?Math.round(rt*10):-1,n0(r.goals),n0(r.goal_assist),Math.round(n0(r.expected_goals)*100),Math.round(n0(r.expected_assists)*100),
+    n0(r.key_pass)+n0(r.big_chance_created),Math.round(n0(r.goals_prevented)*100),n0(r.saves)]}
+// Kebalikannya (bentuk yang dibaca ingest), untuk membangun ringkasan pemain "per tanggal" nanti
+export function statBack(q){return{player_id:q[0],team_id:q[1],minutes_played:q[2],rating:q[3]<0?null:q[3]/10,goals:q[4],goal_assist:q[5],expected_goals:q[6]/100,
+  expected_assists:q[7]/100,key_pass:q[8],big_chance_created:0,goals_prevented:q[9]/100,saves:q[10]}}

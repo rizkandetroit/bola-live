@@ -4,7 +4,7 @@ import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readP
 import {fitModel,predictModel,rollingBacktest,score,disagree,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
 import {trainStack,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
-import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats} from "./players.mjs";
+import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow} from "./players.mjs";
 import {level,r1} from "./lib.mjs";
 
 // SUMBER UTAMA SEMUA LIGA: BSD (sports.bzzoiro.com, Football API paket gratis, 7.500 permintaan/hari).
@@ -489,6 +489,9 @@ async function main(){
     lap("pemain");
     // V16 (Tahap 1): data pemain. players.json = ringkasan statistik pemain per tim; values.json = nilai pasar + posisi pemain.
     let PS=await pullS("players.json"),VA=await pullS("values.json"),XR=await pullS("xi.json");PS=PS&&PS.t?PS:{t:{}};VA=VA&&VA.p?VA:{p:{}};XR=XR&&XR.e?XR:{e:{}};
+    // V23a: data line-up per laga (tidak tayang), hanya dibuka di run berat
+    const XI2D=Number(process.env.BL_XI2_DAYS??160);let X2=null;if(DEEP&&!LIGHT){X2=await pullS("xi2.json");X2=X2&&X2.e?X2:{v:1,e:{}}}
+    const x2put=(r,L)=>{if(!X2||!L||!L.length||r[1]*1000<now-XI2D*DAY)return;const e=X2.e[r[0]]||{t:r[1],h:r[3],a:r[4]};if(!e.r){e.r=L.map(statRow).filter(Boolean);X2.e[r[0]]=e}};
     if(DEEP&&!LIGHT&&!overDeadline()&&process.env.BL_PLAYERS!=="0"){
       const soon=every.filter(m=>m.status==="NS"&&Date.parse(m.utc)>now&&Date.parse(m.utc)-now<72*36e5),teams=new Set();for(const m of soon){if(m.hid!=null)teams.add(m.hid);if(m.aid!=null)teams.add(m.aid)}
       const have=id=>new Set(((PS.t[id]||{}).ev||[]).map(e=>e[0])),seen=new Set(),jobs=[],per=new Map();
@@ -498,7 +501,7 @@ async function main(){
       jobs.sort((a,b)=>b[1]-a[1]);const MAXP=Number(process.env.BL_PS_PER_RUN??150);
       await pool(jobs.slice(0,MAXP),async r=>{const o=await get(`${BASE}/events/${r[0]}/player-stats/`,{soft:true});deep.ps=(deep.ps||0)+1;const L=o&&(o.player_stats||o.results||(Array.isArray(o)?o:null));
         if(L&&L.length){const side=id=>{const R=L.filter(x=>x.team_id===id);return R.length?xiRatio(playerQuality(PS.t[id],VA.p),xiFromStats(R)):null};
-          const a=side(r[3]),b=side(r[4]);if(a&&b&&a.known>=6&&b.known>=6)XR.e[r[0]]=[a.r[0],a.r[1],b.r[0],b.r[1]];psIngest(PS,r[0],r[1]*1000,L)}});
+          const a=side(r[3]),b=side(r[4]);if(a&&b&&a.known>=6&&b.known>=6)XR.e[r[0]]=[a.r[0],a.r[1],b.r[0],b.r[1]];psIngest(PS,r[0],r[1]*1000,L);x2put(r,L)}});
       // nilai pasar: pemain reguler (>= 20% menit) dari tim yang akan main, yang belum punya atau sudah > 30 hari
       const want=[];for(const id of teams){const T=PS.t[id];if(!T||!T.mt)continue;for(const [pid,q] of Object.entries(T.p)){if(q[0]/T.mt<.2)continue;const v=VA.p[pid];if(!v||now-v[2]*1000>30*DAY)want.push(pid)}}
       const MAXV=Number(process.env.BL_VAL_PER_RUN??150);
@@ -508,6 +511,19 @@ async function main(){
     deep.psTeams=Object.keys(PS.t).length;deep.psVals=Object.values(VA.p).filter(v=>v[0]!=null).length;
     writeState("players.json",{v:1,updated:new Date(now).toISOString(),t:PS.t},{dir});
     writeState("values.json",{v:1,updated:new Date(now).toISOString(),p:VA.p},{dir});
+    // V23a: isi mundur bertahap (laga terbaru dulu): line-up resmi + statistik pemain tiap laga selesai dalam BL_XI2_DAYS hari.
+    // Belum dipakai model; tahap uji menyusul setelah data cukup. Berhenti lebih awal bila waktu run menipis (latihan tidak terpotong).
+    if(X2&&!overDeadline()&&process.env.BL_XI2!=="0"){
+      const stop2=deadline-(needModel?240e3:90e3),MAX2=Number(process.env.BL_XI2_PER_RUN??150);
+      const jobs2=rows.filter(r=>r[1]*1000>now-XI2D*DAY&&r[1]*1000<now-3*36e5&&(!X2.e[r[0]]||X2.e[r[0]].s==null||X2.e[r[0]].r==null)).sort((a,b)=>b[1]-a[1]).slice(0,MAX2);
+      await pool(jobs2,async r=>{if(Date.now()>stop2){deep.xi2Cut=(deep.xi2Cut||0)+1;return}const e=X2.e[r[0]]||{t:r[1],h:r[3],a:r[4]};
+        if(e.s==null){const lu=await get(`${BASE}/events/${r[0]}/lineups/`,{soft:true});deep.xi2=(deep.xi2||0)+1;e.s=startersOf(lu)}
+        if(e.r==null){const o=await get(`${BASE}/events/${r[0]}/player-stats/`,{soft:true});deep.xi2=(deep.xi2||0)+1;const L=o&&(o.player_stats||o.results||(Array.isArray(o)?o:null));e.r=L&&L.length?L.map(statRow).filter(Boolean):0}
+        X2.e[r[0]]=e});
+    }
+    if(X2){for(const k of Object.keys(X2.e))if(X2.e[k].t*1000<now-(XI2D+5)*DAY)delete X2.e[k];
+      const V=Object.values(X2.e);deep.xi2N=V.filter(e=>Array.isArray(e.s)&&Array.isArray(e.r)).length;deep.xi2All=V.length;
+      writeState("xi2.json",{v:1,updated:new Date(now).toISOString(),days:XI2D,e:X2.e},{dir})}
     {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(XR.e))if(!keep.has(k))delete XR.e[k]}deep.xiN=Object.keys(XR.e).length;
     writeState("xi.json",{v:1,updated:new Date(now).toISOString(),e:XR.e},{dir});
     // nilai skuad (log10) relatif median liga, hanya tim yang nilai pasar pemain regulernya >= 60% terisi
