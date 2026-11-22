@@ -844,7 +844,7 @@ function mkP(x){var m=x&&x.pin&&dvg(x.pin.c);if(m)return m;var o=x&&x.odds;retur
 function absLine(x){var b=x.ab;if(!b||x.status==="FT"||!(b.nh+b.na))return"";
   /* V22d: berapa yang pemain inti (rutin jadi starter) menurut Model BL; dari line-up resmi bila sudah keluar */
   var K=x.bl&&x.bl.k,xi=x.bl&&x.bl.src==="xi",ki=function(k){return k>0?', <b class="ki">'+k+' inti'+(xi?' tak main':'')+'</b>':""};
-  var sd=function(L,n,t,k){if(!n&&!(xi&&k>0))return"";var nm=L.slice(0,2).map(function(q){return esc(q[0])+(q[1]==="d"?" (ragu)":q[1]==="s"?" (skors)":"")}).join(", ");return'<b>'+esc(t)+'</b> '+n+ki(k)+(nm?' ('+nm+(n>2?", …":"")+')':"")};
+  var sd=function(L,n,t,k){if(!n&&!(xi&&k>0))return"";var nm=L.slice(0,2).map(function(q){return esc(q[0])+(q[1]==="d"?" (ragu)":q[1]==="s"?" (skors)":"")}).join(", ");return'<b>'+esc(t)+'</b> '+(n?n+ki(k):'<b class="ki">'+k+' inti tak main</b>')+(nm?' ('+nm+(n>2?", …":"")+')':"")};
   var all=b.h.concat(b.a).map(function(q){return q[0]+(q[1]==="d"?" (diragukan)":q[1]==="s"?" (skors)":" (cedera)")}).join(", ");
   return'<div class="acl abs" title="Pemain absen menurut BSD: '+esc(all)+'. Inti = pemain yang rutin jadi starter di laga-laga terakhir (hitungan Model BL)'+(xi?'; dari line-up resmi':'')+'.">Absen: '+[sd(b.h,b.nh,x.home.name,K&&K[0]),sd(b.a,b.na,x.away.name,K&&K[1])].filter(Boolean).join(" · ")+'</div>'}
 function riskOf(x){if(!x.p||x.np||x.status==="FT")return[];var p=[x.p.h,x.p.d,x.p.a],mx=Math.max.apply(null,p),pk=p.indexOf(mx),r=[];
@@ -883,7 +883,7 @@ function blLine(x){var b=x.bl;if(!b||x.status!=="NS")return"";var g=x.bg,nm=[x.h
 function mblHtml(M,live){
   if(!M||!M.bt)return"";var B=M.bt,H=B.holdout;
   var h='<div class="evs"><h2>Model BL <small>model Bola Live dari '+(M.nMatches||0).toLocaleString("id-ID")+' laga ('+M.span+' hari), '+(M.nTeams||0).toLocaleString("id-ID")+' tim</small></h2>';
-  h+='<p class="cap">Data xG tersedia untuk '+(M.xgCov!=null?String(M.xgCov).replace(".",","):"0")+'% laga 6 bulan terakhir (diisi bertahap, ±5.000 laga/hari). '+(M.cfg&&M.cfg.xga?'Model memakai campuran '+Math.round(M.cfg.xga*100)+'% xG + '+Math.round((1-M.cfg.xga)*100)+'% skor.':'Saat ini model memakai skor akhir saja; xG dipakai otomatis begitu terbukti lebih tepat.')+'</p>';
+  h+='<p class="cap">Data xG tersedia untuk '+(M.xgCov!=null?String(M.xgCov).replace(".",","):"0")+'% laga 6 bulan terakhir (diisi bertahap, ±10.000 laga/hari). '+(M.cfg&&M.cfg.xga?'Model memakai campuran '+Math.round(M.cfg.xga*100)+'% xG + '+Math.round((1-M.cfg.xga)*100)+'% skor.':'Saat ini model memakai skor akhir saja; xG dipakai otomatis begitu terbukti lebih tepat.')+'</p>';
   if(M.partial)h+='<p class="cap">Riwayat masih diisi bertahap (baru '+M.span+' dari 365 hari). Hasil di bawah akan makin kuat setelah lengkap.</p>';
   var r=function(t,q){return q?'<tr><td style="text-align:left">'+t+'</td><td>'+pc(q.acc)+'</td><td>'+f3(q.brier)+'</td><td>'+f3(q.ll)+'</td></tr>':""};
   h+='<p>Uji mundur '+B.days+' hari: tiap laga ditebak hanya dari data sebelum laga itu, pada '+(B.joined||0).toLocaleString("id-ID")+' laga yang juga punya prediksi BSD.</p>';

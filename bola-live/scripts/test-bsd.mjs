@@ -414,6 +414,12 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
      assert(u4&&u4.bl&&u4.bl.ux===0,"koreksi line-up berbobot tidak dipakai: "+JSON.stringify(u4&&u4.bl));assert.equal(u4.bl.k[0],3,"3 pemain inti absen tetap terhitung");
      assert(u4.bl.xg[0]<M4.pred[U.id].x[0],"serangan tuan rumah tetap dikoreksi turun (cara pemain inti)");assert(M4.stk&&M4.bt&&M4.bt.joined>=150,"latihan & uji mundur tetap jalan");
      assert(M4.dis&&M4.dis.of===M4.bt.joined&&M4.dis.n>0&&M4.dis.bsd+M4.dis.bl+M4.dis.none===M4.dis.n,"statistik beda arah: "+JSON.stringify(M4.dis))}
+    // V22b: pengisian xG berhenti lebih awal bila waktu run menipis (latihan model tidak boleh terpotong)
+    {const {unlinkSync}=await import("node:fs");try{unlinkSync(join(st,"model-bl.json"))}catch(e){}
+     const xs=JSON.parse(readFileSync(join(st,"xg.json"),"utf8"));let k=0;for(const id of Object.keys(xs.e)){if(k++>=40)break;delete xs.e[id]}writeFileSync(join(st,"xg.json"),JSON.stringify(xs));
+     const r5=await go({MAX_RUN_MS:"200000"});assert.equal(r5.c,0,r5.e);const a5=JSON.parse(readFileSync(join(r5.out,"all.json"),"utf8")).bsd;
+     assert(a5.xgCut>=1&&!a5.xg,"xG dilewati karena waktu: "+JSON.stringify({cut:a5.xgCut,xg:a5.xg}));
+     const M5=JSON.parse(readFileSync(join(r5.out,"model-bl.json"),"utf8"));assert(M5.bt&&M5.bt.joined>=150,"model tetap dilatih")}
     return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
   }finally{H.close()}
 });

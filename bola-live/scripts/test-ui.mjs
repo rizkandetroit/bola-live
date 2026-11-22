@@ -145,7 +145,8 @@ console.log("render ok");
  assert.equal(g("b").pendLate,1);assert(F.stt(g("b")).includes("menunggu data")&&!F.stt(g("b")).includes("baru mulai"),"lewat 20 menit tanpa data");
  const x={status:"NS",home:{name:"Lorient"},away:{name:"Rennes"},ab:{h:[["B. Fadiga","i"],["I. Baldé","i"],["S. Touré","i"],["P. Katseris","i"]],a:[["P. Frankowski","i"]],nh:4,na:1},bl:{k:[2,0],src:"abs"}};
  const L=F.absLine(x);assert(L.includes("<b>Lorient</b> 4, <b class=\"ki\">2 inti</b> (B. Fadiga, I. Baldé, …)"),L);assert(L.includes("<b>Rennes</b> 1 (P. Frankowski)")&&!L.includes("0 inti"),L);
- assert(F.absLine({...x,bl:{k:[2,1],src:"xi"}}).includes("2 inti tak main"),"line-up resmi");assert(!F.absLine({...x,bl:null}).includes("inti</b>"),"tanpa Model BL: seperti biasa");
+ assert(F.absLine({...x,bl:{k:[2,1],src:"xi"}}).includes("2 inti tak main"),"line-up resmi");
+ {const z=F.absLine({...x,ab:{...x.ab,a:[],na:0},bl:{k:[2,1],src:"xi"}});assert(z.includes("<b>Rennes</b> <b class=\"ki\">1 inti tak main</b>")&&!z.includes("Rennes</b> 0"),"tanpa pemain absen: tidak menulis 0 → "+z)}assert(!F.absLine({...x,bl:null}).includes("inti</b>"),"tanpa Model BL: seperti biasa");
  const M={updated:"2026-11-22T00:00:00Z",temp:1,xgCov:40,cfg:{xga:.7},hfa:.18,rest:{own:0,opp:0},cov:{nXr:0,gA:0,gD:0,nZv:10},xrHist:0,core:{own:.035,opp:.025},w:1,useful:false,
    bt:{days:90,joined:4107,bsd:{acc:53.5,brier:.58,ll:.973},modelJ:{acc:51,brier:.6,ll:.998}},dis:{n:820,of:4107,bsd:330,bl:300,none:190,bl50:{n:200,bsd:70,bl:95}}};
  const h=F.mblHtml(M,null);assert(h.includes("berbeda arah</b> (820 dari 4.107 laga uji mundur): BSD benar <b>40,2%</b>, Model BL benar <b>36,6%</b>, keduanya salah 23,2%"),h.slice(h.indexOf("berbeda"),h.indexOf("berbeda")+260));

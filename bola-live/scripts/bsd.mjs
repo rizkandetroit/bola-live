@@ -1,6 +1,6 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
-import {sleep,tfetch,cleanKey,outDir,overDeadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir} from "./net.mjs";
+import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir} from "./net.mjs";
 import {fitModel,predictModel,rollingBacktest,score,disagree,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
 import {trainStack,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
@@ -475,9 +475,11 @@ async function main(){
       // V15.3: sampel 20 Nov menunjukkan ~30% laga bertanda has_xg=false tetap punya xG PERKIRAAN BSD. Jadi laga itu tidak dilewati,
       // hanya didahulukan belakangan: bertanda punya xG lebih dulu (terbaru dulu), sisanya menyusul.
       if((xg.v||1)<2){let back=0;for(const r of rows)if(r[8]===0&&xg.e[r[0]]===0&&r[0]%10!==0){delete xg.e[r[0]];back++}xg.v=2;deep.xgBack=back}   // kembalikan yang sempat dilewati
-      const want=rows.filter(r=>xg.e[r[0]]==null).sort((a,b)=>(b[8]===1)-(a[8]===1)||b[1]-a[1]).slice(0,Number(process.env.BL_XG_PER_RUN??200));
-      const chk=xg.chk||{n:0,hit:0,yes:0,yesHit:0};
-      await pool(want,async r=>{const o=await get(`${BASE}/events/${r[0]}/stats/`,{soft:true});deep.xg=(deep.xg||0)+1;const v=xgOf(o);xg.e[r[0]]=v||0;
+      // V22b: jatah dinaikkan 200 -> 600 per run berat, tapi berhenti lebih awal bila waktu run menipis
+      // (sisakan 4 menit bila hari ini model dilatih, 1,5 menit bila tidak) supaya latihan tidak pernah terpotong.
+      const want=rows.filter(r=>xg.e[r[0]]==null).sort((a,b)=>(b[8]===1)-(a[8]===1)||b[1]-a[1]).slice(0,Number(process.env.BL_XG_PER_RUN??600));
+      const chk=xg.chk||{n:0,hit:0,yes:0,yesHit:0},xgStop=deadline-(needModel?240e3:90e3);
+      await pool(want,async r=>{if(Date.now()>xgStop){deep.xgCut=(deep.xgCut||0)+1;return}const o=await get(`${BASE}/events/${r[0]}/stats/`,{soft:true});deep.xg=(deep.xg||0)+1;const v=xgOf(o);xg.e[r[0]]=v||0;
         if(r[8]===0){chk.n++;if(v)chk.hit++}else if(r[8]===1){chk.yes++;if(v)chk.yesHit++}});
       xg.chk=chk;deep.xgCheck=chk;}
     {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(xg.e))if(!keep.has(k))delete xg.e[k]}
