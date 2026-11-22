@@ -230,6 +230,8 @@ export function evalRisk(hist){
 // V15: penilaian langsung Model BL vs BSD pada laga yang sudah selesai (prediksi tercatat sebelum kickoff)
 // V22: rekap harian (ringkasan hasil prediksi, bukan data mentah): 3 hari terakhir menurut tanggal WITA kickoff.
 // Per hari: jumlah laga, berapa yang ditebak benar oleh BSD / Model BL / Gabungan, ringkasan per liga, dan daftar laga (2 hari terakhir, maks. 150).
+// V25 Favorit: tim yang lebih diunggulkan untuk "tidak kalah" (menang atau seri). s 0 = tuan rumah, 2 = tamu; null bila < min.
+export function favOf(p,min=80){if(!p||p.length!==3||p.some(x=>x==null))return null;const vh=p[0]+p[1],va=p[2]+p[1],home=vh>=va,v=home?vh:va;return v>=min?{s:home?0:2,v:Math.round(v*10)/10}:null}
 export function recapOf(hist,now,o={}){
   const days=o.days??3,maxM=o.maxM??150,W=8*36e5,top=a=>a&&a.length===3?a.indexOf(Math.max(...a)):null;
   const R=(hist||[]).filter(e=>e.r&&e.p&&e.u&&Date.parse(e.u)<=now);const by=new Map();
@@ -238,7 +240,10 @@ export function recapOf(hist,now,o={}){
   return{days:keys.map((d,i)=>{const L=by.get(d).sort((a,b)=>a.u.localeCompare(b.u)),res=e=>e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2;
     const cnt=k=>{const Q=L.filter(e=>e[k]);return[Q.length,Q.filter(e=>top(e[k])===res(e)).length]};
     const lg=new Map();for(const e of L){const g=lg.get(e.lg)||[e.lg,0,0,0,0,0,0];g[1]++;if(top(e.p)===res(e))g[2]++;if(e.bl){g[3]++;if(top(e.bl)===res(e))g[4]++}if(e.sk){g[5]++;if(top(e.sk)===res(e))g[6]++}lg.set(e.lg,g)}
-    return{d,bsd:cnt("p"),bl:cnt("bl"),sk:cnt("sk"),lg:[...lg.values()].sort((a,b)=>b[1]-a[1]).slice(0,15),
+    // V25: rapor Favorit per hari: [liga, tuan rumah, tamu, skor h, skor a, sisi favorit 0/2, peluang tidak kalah, 1 = liga kecil (tanpa odds)]
+    const F=L.map(e=>[e,favOf(e.p)]).filter(q=>q[1]).sort((a,b)=>b[1].v-a[1].v),fok=q=>q[1].s===0?q[0].r[0]>=q[0].r[1]:q[0].r[1]>=q[0].r[0];
+    const fv=F.length?{n:F.length,hit:F.filter(fok).length,m:F.slice(0,80).map(q=>[q[0].lg,q[0].h,q[0].a,q[0].r[0],q[0].r[1],q[1].s,q[1].v,q[0].o&&q[0].o.every(x=>x>1)?0:1])}:null;
+    return{d,fv,bsd:cnt("p"),bl:cnt("bl"),sk:cnt("sk"),lg:[...lg.values()].sort((a,b)=>b[1]-a[1]).slice(0,15),
       m:i<2?L.slice(0,maxM).map(e=>[e.lg,e.h,e.a,e.r[0],e.r[1],top(e.p),top(e.bl),top(e.sk)]):null}})};
 }
 // V24 "bedah meleset": bahan dari Match Center laga selesai (m/{id}.json): xG, kartu merah paling awal tiap tim,

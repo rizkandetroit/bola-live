@@ -7,7 +7,7 @@ import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
-import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib} from "./bsd.mjs";
+import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib,favOf,recapOf} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate} from "./highlightly.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
 import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";

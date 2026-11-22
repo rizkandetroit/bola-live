@@ -195,3 +195,19 @@ console.log("test-ui V24b ok");
  const e=F.bsdEvalHtml({updated:"2026-11-22T04:50:00Z",n:311,pending:5,acc:45,homeAcc:38.6,brier:.64,calib:[],span:{from:"2026-11-20T10:00:00Z",to:"2026-11-22T03:00:00Z"}});
  assert(e.includes("311 laga dinilai (20–22 Nov)")&&e.includes("Catatan langsung baru 3 hari"),e.slice(0,300))}
 console.log("test-ui V24c ok");
+// V25: tab Favorit
+{const F=new Function(pre+";return {favOf,stOk,favLine,favHead,favRaporHtml,favPrev,card,setS:function(o){Object.assign(S,o)},set:function(b,e){BT=b;EV=e}}")();
+ const fut=new Date(Date.now()+36e5).toISOString(),past=new Date(Date.now()-36e5).toISOString();
+ const mk=(p,o)=>({id:1,eid:1,status:"NS",utc:fut,league:"L",level:"Kuat",edge:20,pick:"h",home:{name:"FC Twente"},away:{name:"Willem II Tilburg"},p,...o});
+ const a=mk({h:88,d:8,a:4}),b=mk({h:10,d:12,a:78},{odds:{h:{o:5}}}),c=mk({h:50,d:25,a:25});
+ assert.equal(F.favOf(a).v,96);assert.equal(F.favOf(b).s,2);assert.equal(F.favOf(b).t.name,"Willem II Tilburg");assert.equal(F.favOf(c),null,"75%: bukan favorit");assert.equal(F.favOf({...a,np:1}),null);
+ F.setS({st:"FAV"});assert.equal(F.stOk(a),true);assert.equal(F.stOk(c),false);assert.equal(F.stOk({...a,status:"LIVE"}),false,"hanya yang belum main");assert.equal(F.stOk({...a,utc:past}),false,"kickoff lewat: keluar");
+ const l=F.favLine(a);assert(l.includes('FC Twente</b> tidak kalah <b class="fv">96%</b>')&&l.includes("menang 88%")&&l.includes("liga kecil"),l);assert(!F.favLine(b).includes("liga kecil"),"ada odds: bukan liga kecil");
+ assert(F.card(a).includes("tidak kalah"),"label di tab Favorit");F.setS({st:"NS"});assert.equal(F.stOk(c),true);assert(!F.card(a).includes("tidak kalah"),"tab lain: kartu tidak berubah");
+ F.set({days:90,dc:{all:{n:1353,hit:89.1,avg:86.4}}},{dc:{all:{n:86,hit:81.4,avg:85.8}},rk:{days:[{d:"2026-11-22",fv:{n:3,hit:3,m:[]}},{d:"2026-11-21",fv:{n:20,hit:18,m:[["Eredivisie","Feyenoord","Excelsior",2,3,0,92,0],["NPFL","Bendel","Doma",0,1,0,80,1]]}}]}});
+ const h=F.favHead([a,b],"2026-11-22");assert(h.includes("2 laga belum main")&&h.includes("89%</b> dari 1.353 laga")&&h.includes("Kemarin: Favorit tidak kalah <b>18 dari 20</b> (90%)")&&h.includes('data-n="e"'),h);
+ assert(!F.favHead([],"2026-11-24").includes("Kemarin"),"hari terakhir bukan kemarin: pakai tanggal");assert(F.favHead([],"2026-11-24").includes("22 Nov: Favorit"),"hari terakhir yang ada");
+ const r=F.favRaporHtml({days:[{d:"2026-11-21",fv:{n:2,hit:1,m:[["Eredivisie","Feyenoord","Excelsior",2,3,0,92,0],["NPFL","Bendel","Doma",0,0,2,80,1]]}}]});
+ assert(r.includes("Rapor Favorit")&&r.includes("tidak kalah 1/2 (50%)")&&r.includes("<b>Feyenoord</b> <small>kandang vs Excelsior")&&r.includes("❌")&&r.includes("<b>Doma</b> <small>tandang vs Bendel")&&r.includes("✅")&&r.includes("liga kecil"),r);
+ assert.equal(F.favRaporHtml({days:[{d:"x",fv:null}]}),"");assert.equal(F.favPrev("2026-11-22"),"2026-11-21")}
+console.log("test-ui V25 ok");
