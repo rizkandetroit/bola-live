@@ -811,10 +811,16 @@ function renderEval(){
   if(l&&l.n){h+=verdict(l)+mtab(l)+(l.n<100?'<p class="warn">Baru '+l.n+' laga.</p>':"")}else h+='<p class="cap">Belum ada laga yang selesai dinilai.</p>';
   h+=v10Comparison(EV.v10Comparison);h+='<p class="cap">Diperbarui '+tf.format(new Date(EV.updated))+" WITA.</p></div>";el.innerHTML=h
 }
+/* V24c: rentang catatan langsung. Catatan ini baru dimulai 20 Nov 2026; selama masih muda, tampilkan periode sebenarnya dan rujuk uji mundur. */
+var MON=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+function spanTxt(f,t){if(!f||!t)return"";var a=new Date(Date.parse(f)+8*36e5),b=new Date(Date.parse(t)+8*36e5),d=function(x){return x.getUTCDate()},m=function(x){return MON[x.getUTCMonth()]};
+  return a.toISOString().slice(0,10)===b.toISOString().slice(0,10)?d(a)+" "+m(a):(m(a)===m(b)?d(a)+"–"+d(b)+" "+m(b):d(a)+" "+m(a)+" – "+d(b)+" "+m(b))}
+function spanDays(f,t){if(!f||!t)return 0;var w=function(x){return Math.floor((Date.parse(x)+8*36e5)/864e5)};return w(t)-w(f)+1}   /* hari kalender WITA, inklusif */
+function youngNote(f,t){var n=spanDays(f,t);if(!n||n>=14)return"";return'<p class="warn">Catatan langsung baru '+n+' hari ('+spanTxt(f,t)+'), jadi angkanya masih mudah naik-turun: satu akhir pekan dengan banyak kejutan bisa menurunkannya beberapa poin. Pegangan utama tetap uji mundur'+(BT&&BT.n?' '+(BT.days||90)+' hari ('+BT.n.toLocaleString("id-ID")+' laga)':'')+'.</p>'}
 function bsdEvalHtml(e){
   if(!e||!e.n)return'<div class="evs"><h2>Akurasi prediksi BSD</h2><p class="cap">Prediksi BSD mulai dicatat sebelum kickoff. Penilaian muncul setelah laga yang tercatat selesai'+(e&&e.pending?" ("+e.pending+" laga menunggu hasil)":"")+'.</p></div>';
   var m=e.market,v=e.value,se=1.96*Math.sqrt(.25/e.n)*100;
-  var h='<div class="evs"><h2>Akurasi prediksi BSD <small>'+e.n+' laga dinilai · '+e.pending+' menunggu</small></h2>';
+  var sp=e.span||{},h='<div class="evs"><h2>Akurasi prediksi BSD <small>'+e.n+' laga dinilai'+(sp.from?' ('+spanTxt(sp.from,sp.to)+')':'')+' · '+e.pending+' menunggu</small></h2>'+youngNote(sp.from,sp.to);
   h+='<div class="kpi"><div class="k"><b>'+pc(e.acc)+'</b><span>Tebakan 1X2 tepat</span></div><div class="k"><b>'+pc(e.homeAcc)+'</b><span>Patokan: selalu tuan rumah</span></div><div class="k"><b>'+f3(e.brier)+'</b><span>Brier BSD (makin kecil makin baik)</span></div><div class="k"><b>'+(m?f3(m.brier):"-")+'</b><span>Brier pasar/odds</span></div></div>';
   var d=e.acc-e.homeAcc;h+='<p class="'+(d>se?"good":"warn")+'">Dari '+e.n+' laga, BSD tepat '+pc(e.acc)+' vs patokan '+pc(e.homeAcc)+'. '+(m?(e.brier<m.brier?"Brier BSD lebih baik dari harga pasar.":"Harga pasar (odds) masih lebih akurat dari BSD."):"")+' Selisih di bawah ±'+se.toFixed(0)+' poin belum bisa dibedakan dari kebetulan.</p>';
   h+='<table class="ev"><tr><th>Pasar</th><th>Laga</th><th>Akurasi</th></tr><tr><td>1X2 (BSD)</td><td>'+e.n+'</td><td>'+pc(e.acc)+'</td></tr>'+(m?'<tr><td>1X2 (favorit pasar)</td><td>'+m.n+'</td><td>'+pc(m.acc)+'</td></tr>':"")+(e.ou?'<tr><td>Over/under 2,5</td><td>'+e.ou.n+'</td><td>'+pc(e.ou.acc)+'</td></tr>':"")+(e.bt?'<tr><td>Kedua tim cetak gol</td><td>'+e.bt.n+'</td><td>'+pc(e.bt.acc)+'</td></tr>':"")+'</table>';
@@ -945,10 +951,10 @@ function facHtml(M){
 var DN=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"],MN=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 function dLabel(d){var t=new Date(d+"T12:00:00Z");return DN[t.getUTCDay()]+", "+t.getUTCDate()+" "+MN[t.getUTCMonth()]}
 function rkPct(c){return c&&c[0]?Math.round(c[1]/c[0]*100)+"% ("+c[1]+"/"+c[0]+")":"–"}
-/* V24: bedah meleset — kenapa tebakan salah (30 hari terakhir) */
+/* V24: bedah meleset — kenapa tebakan salah (maks. 30 hari; V24c: judul memakai periode sebenarnya) */
 var MISSN=[["apes","Kurang beruntung","tim yang dijagokan unggul peluang (xG) tapi tidak menang"],["merah","Kartu merah","tim yang dijagokan kena kartu merah sebelum menit 80"],["telat","Gol menit akhir","gol menit 85+ membalik hasil"],["tipis","Tipis","peluang kedua tim mirip; nyaris lempar koin"],["salah","Salah baca","lawan memang lebih baik (xG jauh lebih tinggi)"],["nodata","Tanpa data","statistik laga tidak tersedia"]];
 function missHtml(M){if(!M||!M.bsd||!M.bsd.miss)return"";var B=M.bsd,L=M.bl&&M.bl.miss?M.bl:null,q=function(S,k){return S&&S.miss?Math.round(S.c[k]/S.miss*100)+"%":"–"};
-  var h='<div class="evs"><h2>Bedah meleset <small>'+M.days+' hari terakhir</small></h2><p class="cap">Setiap tebakan yang salah diberi alasan dari data laga (xG, kartu merah, gol menit akhir). Bagian "kurang beruntung", "kartu merah", dan "gol menit akhir" di luar kendali model; "salah baca" adalah yang bisa diperbaiki.</p>';
+  var nd=spanDays(M.from,M.to),h='<div class="evs"><h2>Bedah meleset <small>'+(M.from&&nd<M.days?spanTxt(M.from,M.to)+' · '+B.n+' laga':M.days+' hari terakhir')+'</small></h2>'+youngNote(M.from,M.to)+'<p class="cap">Setiap tebakan yang salah diberi alasan dari data laga (xG, kartu merah, gol menit akhir). Bagian "kurang beruntung", "kartu merah", dan "gol menit akhir" di luar kendali model; "salah baca" adalah yang bisa diperbaiki.</p>';
   h+='<div class="ov"><table class="ev"><tr><th style="text-align:left">Alasan</th><th>BSD</th>'+(L?'<th>Model BL</th>':'')+'</tr>'+MISSN.map(function(r){return'<tr><td style="text-align:left" title="'+r[2]+'"><b>'+r[1]+'</b> <small>'+r[2]+'</small></td><td>'+B.c[r[0]]+' <small>('+q(B,r[0])+')</small></td>'+(L?'<td>'+L.c[r[0]]+' <small>('+q(L,r[0])+')</small></td>':'')+'</tr>'}).join("")+'</table></div>';
   h+='<p class="cap">BSD meleset '+B.miss+' dari '+B.n+' laga'+(L?', Model BL '+L.miss+' dari '+L.n:'')+'. '+Math.round(B.draw/B.miss*100)+'% tebakan BSD yang meleset berakhir seri (model hampir tidak pernah menebak seri).</p></div>';
   return h}

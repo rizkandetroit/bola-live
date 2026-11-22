@@ -260,8 +260,8 @@ export function missWhy(pick,r,f){
   const d=pick===0?h-a:a-h;return d>=.4?"apes":d<=-.4?"salah":"tipis"}
 export const MISS_KEYS=["apes","merah","telat","tipis","salah","nodata"];
 export function evalMiss(hist,now,days=30){
-  const pk=p=>p.indexOf(Math.max(...p)),Z=()=>({n:0,miss:0,draw:0,c:Object.fromEntries(MISS_KEYS.map(k=>[k,0]))}),out={days,bsd:Z(),bl:Z()};
-  for(const e of hist||[]){if(!e.r||now-Date.parse(e.u)>days*864e5)continue;const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2;
+  const pk=p=>p.indexOf(Math.max(...p)),Z=()=>({n:0,miss:0,draw:0,c:Object.fromEntries(MISS_KEYS.map(k=>[k,0]))}),out={days,bsd:Z(),bl:Z(),from:null,to:null};
+  for(const e of hist||[]){if(!e.r||now-Date.parse(e.u)>days*864e5)continue;if(e.p){if(!out.from||e.u<out.from)out.from=e.u;if(!out.to||e.u>out.to)out.to=e.u}const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2;
     for(const [k,src] of [["bsd","p"],["bl","bl"]]){const q=e[src];if(!q)continue;const S=out[k];S.n++;const w=missWhy(pk(q),e.r,e.f||null);if(!w)continue;S.miss++;S.c[w]++;if(o===1)S.draw++}}
   return out.bsd.n?out:null}
 // isi bahan bedah meleset sekali per laga, setelah laga selesai >= 3 jam (statistik final); dicoba sampai 4 hari
@@ -287,7 +287,8 @@ export function evalHistory(hist){
   const all=z(),lg={},bk=[[0,40],[40,50],[50,60],[60,70],[70,101]].map(([lo,hi])=>({lo,hi,n:0,hit:0,sum:0}));
   for(const e of R){add(all,e);(lg[e.lg]=lg[e.lg]||z(),add(lg[e.lg],e));const mx=Math.max(...e.p),o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,b=bk.find(b=>mx>=b.lo&&mx<b.hi);if(b){b.n++;b.sum+=mx;if(e.p.indexOf(mx)===o)b.hit++}}
   const byLeague={};for(const k in lg)if(lg[k].n>=5)byLeague[k]=fin(lg[k]);
-  return{...fin(all),byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
+  const us=R.map(e=>e.u).filter(Boolean).sort();   // V24c: rentang laga yang benar-benar dinilai (bukan klaim 30 hari)
+  return{...fin(all),span:us.length?{from:us[0],to:us[us.length-1]}:null,byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
 }
 
 // V13.3: uji mundur dari riwayat BSD (prediksi + hasil laga yang sudah selesai). Dicek 20 Nov 2026: angka prediksi BSD

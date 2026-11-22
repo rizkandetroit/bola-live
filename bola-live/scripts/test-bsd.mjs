@@ -7,7 +7,7 @@ import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
-import {missFacts,missWhy,evalMiss,fillMissFacts} from "./bsd.mjs";
+import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate} from "./highlightly.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
 import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
@@ -184,6 +184,9 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  assert.equal(H[2].f,undefined,"baru 2 jam: tunggu statistik final");assert.equal(H[3].f,null,"lewat 4 hari tanpa data: berhenti mencoba");
  const M=evalMiss(H,now);assert.equal(M.bsd.n,4,"hanya yang ada hasil");assert.equal(M.bsd.miss,3);assert.equal(M.bsd.c.telat,1);assert.equal(M.bsd.c.nodata,2);assert.equal(M.bsd.draw,1);assert.equal(evalMiss(H,now,3).bsd.n,3,"jendela hari");
  assert.equal(M.bl.n,2);assert.equal(M.bl.miss,2);assert.equal(M.bl.c.telat,1);assert.equal(evalMiss([],now),null);
+ // V24c: rentang sebenarnya dari laga yang dinilai
+ assert.equal(M.from,H[3].u);assert.equal(M.to,H[2].u);assert.equal(evalMiss(H,now,3).from,H[0].u,"jendela 3 hari: laga 120 jam lalu tidak dihitung");
+ {const ev=evalHistory(H);assert.deepEqual(ev.span,{from:H[3].u,to:H[2].u});assert.equal(evalHistory([]).span,null)}
  console.log("bedah meleset ok")}
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;

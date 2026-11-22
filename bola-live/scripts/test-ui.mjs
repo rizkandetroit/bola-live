@@ -183,3 +183,15 @@ console.log("render ok");
  assert(c.includes('Condong ke <b title="Club Tigres de la UANL">Tigres UANL</b>'),"nama pendek + title");
  assert.equal(F.cardDet({...x,bl:null,ab:null,src:"HL",p:{h:50,d:25,a:25}}),"","tanpa rincian: tidak ada Detail")}
 console.log("test-ui V24b ok");
+// V24c: periode catatan langsung ditulis apa adanya, bukan "30 hari terakhir"
+{const F=new Function(pre+";return {missHtml,bsdEvalHtml,spanTxt,spanDays,setBT:function(b){BT=b}}")();
+ assert.equal(F.spanTxt("2026-11-20T10:00:00Z","2026-11-22T01:00:00Z"),"20–22 Nov");assert.equal(F.spanTxt("2026-10-30T10:00:00Z","2026-11-02T01:00:00Z"),"30 Okt – 2 Nov");
+ assert.equal(F.spanTxt("2026-11-20T17:00:00Z","2026-11-20T18:00:00Z"),"21 Nov","pakai tanggal WITA");assert.equal(F.spanDays("2026-11-20T10:00:00Z","2026-11-22T01:00:00Z"),3,"hari kalender WITA");
+ F.setBT({n:4354,days:90});const Z={apes:1,merah:0,telat:0,tipis:0,salah:1,nodata:0};
+ const h=F.missHtml({days:30,from:"2026-11-20T10:00:00Z",to:"2026-11-22T03:00:00Z",bsd:{n:311,miss:2,draw:1,c:Z},bl:null});
+ assert(h.includes("Bedah meleset <small>20–22 Nov · 311 laga</small>")&&!h.includes("30 hari terakhir"),h.slice(0,200));assert(h.includes("Catatan langsung baru 3 hari")&&h.includes("uji mundur 90 hari (4.354 laga)"),"catatan muda");
+ const o=F.missHtml({days:30,from:"2026-10-01T10:00:00Z",to:"2026-11-22T03:00:00Z",bsd:{n:900,miss:2,draw:1,c:Z},bl:null});assert(o.includes("30 hari terakhir")&&!o.includes("Catatan langsung baru"),"catatan sudah panjang");
+ const l=F.missHtml({days:30,bsd:{n:5,miss:2,draw:1,c:Z},bl:null});assert(l.includes("30 hari terakhir"),"data lama tanpa rentang tetap jalan");
+ const e=F.bsdEvalHtml({updated:"2026-11-22T04:50:00Z",n:311,pending:5,acc:45,homeAcc:38.6,brier:.64,calib:[],span:{from:"2026-11-20T10:00:00Z",to:"2026-11-22T03:00:00Z"}});
+ assert(e.includes("311 laga dinilai (20–22 Nov)")&&e.includes("Catatan langsung baru 3 hari"),e.slice(0,300))}
+console.log("test-ui V24c ok");
