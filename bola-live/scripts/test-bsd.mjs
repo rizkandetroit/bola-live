@@ -200,6 +200,7 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  const d=recapOf(H,now).days[0];assert.equal(d.fv.n,2,"tanpa odds / tanpa Model BL / tanpa xG: tidak ikut");assert.equal(d.fv.hit,1,"tamu kalah 2-1: meleset");
  assert.deepEqual(d.fv.m[0],["L2","C","D",2,1,2,95,0],"urut peluang tertinggi");assert.deepEqual(d.fv.m[1],["L1","A","B",1,1,0,90,0]);
  assert.equal(recapOf([H[2]],now).days[0].fv,null,"tanpa favorit");
+ {const ev=evalHistory(H);assert.equal(ev.dc.all.n,5,"semua >=80%");assert.equal(ev.dcF.all.n,2,"hanya data lengkap");assert.equal(ev.dcF.all.hit,50)}
  const U=updateHistory([],[{eid:9,status:"NS",utc:"2026-11-23T10:00:00Z",league:"L",home:{name:"A"},away:{name:"B"},p:{h:80,d:12,a:8,xg:null}}],now);assert.equal(U[0].xq,0,"catat xq")}
 console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)

@@ -177,6 +177,7 @@ h2 small{font-size:12px;color:var(--mut);font-weight:400}
 @media (max-width:600px){.jmain .kpi{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:16px}.jmain .kpi .k{padding:10px 12px}.jmain .kpi .k b{font-size:22px}.jmain .kpi .k span{font-size:11px;line-height:1.3}}
 .lc{font-size:.85em;color:var(--mut);font-weight:400;opacity:.9}
 .acl.rsk{color:var(--A);font-weight:600}.acl.rsk:not(.hi){opacity:.85}.acl.mix b{color:var(--ink)}
+select#kl-sel,select#lgs,select#sl-lig{max-width:100%;text-overflow:ellipsis}   /* V26c: nama liga panjang tidak melebarkan halaman di HP */
 .tag.tw{font-size:10px;padding:1px 6px;margin:0 4px;vertical-align:middle;color:var(--A);border-color:var(--A)}
 .acl.fav{margin-top:6px;padding:6px 9px;border-radius:9px;background:var(--ok-soft);border:1px solid var(--okB);color:var(--ink)}.acl.fav .fv{color:var(--ok)}.acl.fav .mut{color:var(--mut)}
 .favh{padding:10px 12px;margin-bottom:10px}.favh .fht{font-weight:700;font-size:15px}.favh .fht small{font-weight:400;color:var(--mut);margin-left:6px}.favh .cap{margin-top:5px}.lnk{background:none;border:0;padding:0;color:var(--H);font:inherit;text-decoration:underline;cursor:pointer}
@@ -911,7 +912,7 @@ function favHead(L,td){var b=BT&&BT.dc&&BT.dc.all,r=EV&&EV.rk&&EV.rk.days,last=n
     +'</div>'}
 function favPrev(td){return new Date(Date.parse(td+"T12:00:00Z")-864e5).toISOString().slice(0,10)}
 function favRaporHtml(R){if(!R||!R.days)return"";var D2=R.days.filter(function(d){return d.fv});if(!D2.length)return"";
-  var b=BT&&BT.dc&&BT.dc.all,l=EV&&EV.dc&&EV.dc.all;
+  var b=BT&&BT.dc&&BT.dc.all,l=EV&&(EV.dcF||EV.dc)&&(EV.dcF||EV.dc).all;   /* V26c: catatan langsung memakai syarat data lengkap (sama dengan tab) */
   var h='<div class="evs"><h2>Rapor Favorit <small>tim dengan peluang tidak kalah ≥'+FAVMIN+'%, dicatat sebelum kickoff</small></h2>';
   h+='<p class="cap">'+(b&&b.n?'Uji mundur '+(BT.days||90)+' hari: '+Math.round(b.hit)+'% tidak kalah ('+b.n.toLocaleString("id-ID")+' laga, rata-rata peluang '+Math.round(b.avg)+'%). ':'')+(l&&l.n?'Catatan langsung: '+Math.round(l.hit)+'% ('+l.n+' laga, rata-rata peluang '+Math.round(l.avg)+'%).':'')+'</p>';
   D2.forEach(function(D,i){var f=D.fv,nm=function(m){return m[5]===0?m[1]:m[2]};
@@ -1197,7 +1198,7 @@ function renderKlSel(){
   var sel=$("#kl-sel");if(!KL.idx.length){$("#kl-body").innerHTML='<div class="em">Belum ada liga.</div>';return}
   if(KL.cur==null){var pref=KL.idx.find(function(l){return /premier league/i.test(l.name)&&/england/i.test(l.country)})||KL.idx[0];KL.cur=pref.id}
   var LV={};if(D)D.matches.forEach(function(x){if(x.status==="LIVE"&&x.lid!=null)LV[String(x.lid)]=(LV[String(x.lid)]||0)+1});
-  sel.innerHTML=KL.idx.map(function(l){var n=LV[String(l.id)];return'<option value="'+l.id+'"'+(l.id==KL.cur?" selected":"")+'>'+(n?"● LIVE "+n+" · ":"")+esc(lgLabel(l.name,l.country)!==l.name?lgLabel(l.name,l.country)+" · "+l.name:(l.country?l.country+" · ":"")+l.name)+'</option>'}).join("");
+  sel.innerHTML=KL.idx.map(function(l){var n=LV[String(l.id)];return'<option value="'+l.id+'"'+(l.id==KL.cur?" selected":"")+'>'+(n?"● LIVE "+n+" · ":"")+esc(lgLabel(l.name,l.country)!==l.name?lgLabel(l.name,l.country)+(lgLabel(l.name,l.country).indexOf(l.name)>-1?"":" · "+l.name):(l.country?l.country+" · ":"")+l.name)+'</option>'}).join("");
   showKl(KL.cur)
 }
 function zoneCls(z){return!z?"":z.type==="qualification"?"zq":z.type==="relegation"?"zr":z.type==="promotion"?"zo":"zp"}

@@ -221,4 +221,6 @@ console.log("test-ui V25 ok");
  assert.equal(F.lgName({league:"Liga 1 Indonesia",lc:""}),'<span title="Liga 1 Indonesia">Liga 1 Indonesia</span>');
  const T=(lg,n)=>F.teamTag({league:lg},{name:n});assert(T("Liga F","Real Madrid").includes("Putri"));assert(T("Serie C, Girone A","Juventus Next Gen U23").includes("Tim muda"));
  assert(T("Segunda División","Real Sociedad B").includes("Tim muda"));assert.equal(T("Eredivisie","Willem II Tilburg"),"","Willem II = tim utama");assert.equal(T("Eerste Divisie","Jong Ajax").includes("Tim muda"),true);assert.equal(T("La Liga","Barcelona"),"")}
+{const F=new Function(pre+";return {favRaporHtml,set:function(b,e){BT=b;EV=e}}")();F.set({days:90,dc:{all:{n:1353,hit:89.1,avg:86.4}}},{dc:{all:{n:86,hit:81.4,avg:85.8}},dcF:{all:{n:60,hit:85,avg:86}}});
+ const r=F.favRaporHtml({days:[{d:"2026-11-21",fv:{n:1,hit:1,m:[["L","A","B",1,0,0,90,0]]}}]});assert(r.includes("Catatan langsung: 85% (60 laga")&&!r.includes("81%"),"rapor memakai data lengkap")}
 console.log("test-ui V26 ok");

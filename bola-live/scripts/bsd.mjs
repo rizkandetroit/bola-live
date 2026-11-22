@@ -301,7 +301,7 @@ export function evalHistory(hist){
   for(const e of R){add(all,e);(lg[e.lg]=lg[e.lg]||z(),add(lg[e.lg],e));const mx=Math.max(...e.p),o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,b=bk.find(b=>mx>=b.lo&&mx<b.hi);if(b){b.n++;b.sum+=mx;if(e.p.indexOf(mx)===o)b.hit++}}
   const byLeague={};for(const k in lg)if(lg[k].n>=5)byLeague[k]=fin(lg[k]);
   const us=R.map(e=>e.u).filter(Boolean).sort();   // V24c: rentang laga yang benar-benar dinilai (bukan klaim 30 hari)
-  return{...fin(all),span:us.length?{from:us[0],to:us[us.length-1]}:null,dc:dcCalib(R),byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
+  return{...fin(all),span:us.length?{from:us[0],to:us[us.length-1]}:null,dc:dcCalib(R),dcF:dcCalib(R.filter(e=>!!e.bl&&!!(e.o&&e.o.every(x=>x>1))&&e.xq!==0)),byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
 }
 
 // V13.3: uji mundur dari riwayat BSD (prediksi + hasil laga yang sudah selesai). Dicek 20 Nov 2026: angka prediksi BSD
