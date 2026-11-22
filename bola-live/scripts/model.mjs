@@ -126,6 +126,14 @@ export function score(rows,key="p"){
     for(let k=0;k<3;k++)br+=(p[k]/100-(k===r.o?1:0))**2;ll-=Math.log(Math.max(p[r.o]/100,1e-6))}
   return n?{n,acc:acc/n*100,brier:br/n,ll:ll/n}:null;
 }
+// V22d: laga di mana dua sumber berbeda arah (tebakan peluang tertinggi tidak sama): siapa yang benar.
+// bl50 = bagian di mana sumber kedua (Model BL) cukup yakin (>= 50%) pada tebakannya.
+export function disagree(rows,ka="b",kb="p"){
+  const ix=p=>p.indexOf(Math.max(...p));let all=0,n=0,a=0,b=0,z=0,n5=0,a5=0,b5=0;
+  for(const r of rows){const pa=r[ka],pb=r[kb];if(!pa||!pb||r.o==null)continue;all++;const ia=ix(pa),ib=ix(pb);if(ia===ib)continue;n++;
+    if(ia===r.o)a++;else if(ib===r.o)b++;else z++;if(pb[ib]>=50){n5++;if(ia===r.o)a5++;if(ib===r.o)b5++}}
+  return n?{n,of:all,bsd:a,bl:b,none:z,bl50:{n:n5,bsd:a5,bl:b5}}:null;
+}
 // Bobot gabungan terbaik (linear) antara dua sumber peluang, dipilih dengan log loss.
 export function bestBlend(rows,ka,kb){
   const R=rows.filter(r=>r[ka]&&r[kb]);if(!R.length)return null;let best=null;

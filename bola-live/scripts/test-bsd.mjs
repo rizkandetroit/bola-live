@@ -7,7 +7,8 @@ import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
-import {kickModels,toRec as hlRec} from "./highlightly.mjs";
+import {kickModels,toRec as hlRec,hotOf,witaDate} from "./highlightly.mjs";
+import {disagree} from "./model.mjs";
 
 const here=fileURLToPath(new URL(".",import.meta.url));
 const S=JSON.parse(readFileSync(join(here,"fixtures/bsd-sample.json"),"utf8"));
@@ -140,6 +141,18 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  assert.deepEqual(before.p,other.p,"peluang laga selesai tidak bergantung pada hasil laga itu sendiri");
  assert.notDeepEqual(leak.p,before.p,"cara lama (model sekarang) memang terpengaruh hasilnya");
  console.log("Highlightly kickoff ok:",before.p.h,"/",before.p.d,"/",before.p.a,"vs bocor",leak.p.h)}
+// V22d: hemat kuota Highlightly — skor "hari ini" hanya untuk laga yang sedang berjalan, atau yang mestinya sudah selesai (maks 3 kali)
+{const now=Date.parse("2026-11-21T12:40:00Z"),m=(id,kick,desc)=>({id,date:new Date(now+kick*6e4).toISOString(),state:{description:desc}});
+ const M=[m(1,90,"Not started"),m(2,5,"Not started"),m(3,-30,"First half"),m(4,-140,"Second half"),m(5,-200,"Not started"),m(6,-60,"Finished"),m(7,-300,"Postponed"),m(8,-50*60,"Not started")];
+ const {live,late}=hotOf(M,now,{});assert.deepEqual(live.map(x=>x.id),[2,3,4],"belum mulai >10 menit lagi / selesai / ditunda: tidak");
+ assert.deepEqual(late.map(x=>x.id),[5],"lewat 150 menit tanpa hasil: ambil hasil; >36 jam: tidak");
+ assert.deepEqual(hotOf(M,now,{5:3}).late,[],"maksimal 3 kali per laga");
+ assert.equal(witaDate(Date.parse("2026-11-21T17:00:00Z")),"2026-11-22","laga Eropa 01.00 WITA = tanggal WITA besok");assert.equal(witaDate(Date.parse("2026-11-21T07:30:00Z")),"2026-11-21");
+ console.log("Highlightly hemat kuota: pemilihan laga ok")}
+// V22d: BSD vs Model BL berbeda arah
+{const r=(b,p,o)=>({b,p,o}),R=[r([50,30,20],[55,25,20],0),r([50,30,20],[30,25,45],0),r([50,30,20],[30,25,45],2),r([50,30,20],[30,25,45],1),r([20,30,50],[60,20,20],0),r([45,30,25],null,0)];
+ const D=disagree(R);assert.deepEqual({n:D.n,of:D.of,bsd:D.bsd,bl:D.bl,none:D.none},{n:4,of:5,bsd:1,bl:2,none:1});assert.deepEqual(D.bl50,{n:1,bsd:0,bl:1});
+ assert.equal(disagree([r([50,30,20],[50,30,20],0)]),null);console.log("beda arah ok")}
 
 // V13.5: pemain absen, prediksi gabungan, indikator risiko
 {const lu={unavailable_players:{home:[{name:"Alex Roldán",short_name:"A. Roldán",status:"injured",reason:"Calf"},{name:"Y Gómez",status:"suspended"}],away:[{short_name:"D. Luna",status:"doubtful"}]}};
@@ -284,6 +297,15 @@ sc("Highlightly: liga tambahan ikut tampil, Indonesia diprioritaskan, musim tahu
     {const st3=JSON.parse(readFileSync(join(r.out,"hl.json"),"utf8"));assert.equal(st3.calls.day,new Date().toISOString().slice(0,10),"hari kuota = tanggal UTC");
      st3.calls={day:"2000-01-01",n:90};st3.season={};st3.stand={};writeFileSync(join(r.out,"state3.json"),JSON.stringify(st3));hits.length=0;
      const r3=await run({},join(r.out,"state3.json"));assert.equal(r3.c,0,r3.e);assert(hits.some(h=>h.includes("leagueId=233958")),"hitungan hari lain tidak memblokir")}
+    // V22d: laga Indonesia sedang berjalan -> skor dari "hari ini" (tanggal WITA laga), TANPA detail tiap 40 menit; klasemen tidak diambil ulang tanpa laga baru selesai
+    {const st4=JSON.parse(readFileSync(join(r.out,"hl.json"),"utf8"));const ts=Date.now();for(const k of Object.keys(st4.season))st4.season[k].at=ts;for(const k of Object.keys(st4.stand))st4.stand[k]=ts;st4.today={};st4.calls.n=0;
+     const kick=ts-30*6e4,lv={id:999001,date:new Date(kick).toISOString(),round:"R1",state:{description:"First half",score:{current:"1 - 0"}},homeTeam:{id:1,name:"Live A",logo:null},awayTeam:{id:2,name:"Live B",logo:null},league:{logo:null}};
+     st4.matches["233958"].push(lv);writeFileSync(join(r.out,"state4.json"),JSON.stringify(st4));hits.length=0;
+     const r4=await run({},join(r.out,"state4.json"));assert.equal(r4.c,0,r4.e);
+     const wd=new Date(kick+8*36e5).toISOString().slice(0,10);
+     assert(hits.some(h=>h.startsWith("/football/matches?leagueId=233958&date="+wd)),"skor live dari daftar hari ini (tanggal WITA): "+hits.join(" "));
+     assert(!hits.some(h=>h.startsWith("/football/matches/999001")),"tidak ada detail selama live");assert(!hits.some(h=>h.startsWith("/football/standings")),"klasemen tidak diambil ulang: "+hits.join(" "));
+     assert(!hits.some(h=>h.includes("leagueId=234809&date=")),"liga tanpa laga berjalan tidak ikut diambil")}
     return all.matches.length+" laga, "+hits.length+" permintaan saat kuota dihemat";
   }finally{H.close()}
 });
@@ -390,7 +412,8 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
      const r4=await go();assert.equal(r4.c,0,r4.e);const M4=JSON.parse(readFileSync(join(r4.out,"model-bl.json"),"utf8")),u4=JSON.parse(readFileSync(join(r4.out,"all.json"),"utf8")).matches.find(x=>x.eid===U.id);
      assert.equal(M4.xrHist,0);assert.equal(M.xrHist,1);assert.equal(M4.cov.nXr,0,"tanpa line-up historis: "+JSON.stringify(M4.cov));assert.equal(M4.cov.gA,0);assert.equal(M4.cov.gD,0);
      assert(u4&&u4.bl&&u4.bl.ux===0,"koreksi line-up berbobot tidak dipakai: "+JSON.stringify(u4&&u4.bl));assert.equal(u4.bl.k[0],3,"3 pemain inti absen tetap terhitung");
-     assert(u4.bl.xg[0]<M4.pred[U.id].x[0],"serangan tuan rumah tetap dikoreksi turun (cara pemain inti)");assert(M4.stk&&M4.bt&&M4.bt.joined>=150,"latihan & uji mundur tetap jalan")}
+     assert(u4.bl.xg[0]<M4.pred[U.id].x[0],"serangan tuan rumah tetap dikoreksi turun (cara pemain inti)");assert(M4.stk&&M4.bt&&M4.bt.joined>=150,"latihan & uji mundur tetap jalan");
+     assert(M4.dis&&M4.dis.of===M4.bt.joined&&M4.dis.n>0&&M4.dis.bsd+M4.dis.bl+M4.dis.none===M4.dis.n,"statistik beda arah: "+JSON.stringify(M4.dis))}
     return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
   }finally{H.close()}
 });

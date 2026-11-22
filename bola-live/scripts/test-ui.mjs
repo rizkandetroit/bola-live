@@ -138,3 +138,17 @@ assert(!/fetch\([^)]*Date\.now\(\)/.test(js),"tidak ada lagi unduhan dengan ?Dat
 assert(html.includes('http-equiv="Content-Security-Policy"'));
 console.log("OK G. Bookmaker, mode netral, unduhan hemat, CSP");
 console.log("render ok");
+// V22d: label "menunggu data", jumlah pemain inti di baris Absen, statistik beda arah di Evaluasi
+{const F=new Function(pre+";return {fresh,stt,absLine,mblHtml}")(),N=Date.parse("2026-11-21T12:00:00Z"),m=(id,u)=>({id,status:"NS",utc:u,score:[null,null],home:{name:"A"},away:{name:"B"}});
+ const r=F.fresh([m("a","2026-11-21T11:50:00Z"),m("b","2026-11-21T11:00:00Z")],N),g=id=>r.find(x=>x.id===id);
+ assert.equal(g("a").pend,1);assert.equal(g("a").pendLate,0);assert(F.stt(g("a")).includes("baru mulai"));
+ assert.equal(g("b").pendLate,1);assert(F.stt(g("b")).includes("menunggu data")&&!F.stt(g("b")).includes("baru mulai"),"lewat 20 menit tanpa data");
+ const x={status:"NS",home:{name:"Lorient"},away:{name:"Rennes"},ab:{h:[["B. Fadiga","i"],["I. Baldé","i"],["S. Touré","i"],["P. Katseris","i"]],a:[["P. Frankowski","i"]],nh:4,na:1},bl:{k:[2,0],src:"abs"}};
+ const L=F.absLine(x);assert(L.includes("<b>Lorient</b> 4, <b class=\"ki\">2 inti</b> (B. Fadiga, I. Baldé, …)"),L);assert(L.includes("<b>Rennes</b> 1 (P. Frankowski)")&&!L.includes("0 inti"),L);
+ assert(F.absLine({...x,bl:{k:[2,1],src:"xi"}}).includes("2 inti tak main"),"line-up resmi");assert(!F.absLine({...x,bl:null}).includes("inti</b>"),"tanpa Model BL: seperti biasa");
+ const M={updated:"2026-11-22T00:00:00Z",temp:1,xgCov:40,cfg:{xga:.7},hfa:.18,rest:{own:0,opp:0},cov:{nXr:0,gA:0,gD:0,nZv:10},xrHist:0,core:{own:.035,opp:.025},w:1,useful:false,
+   bt:{days:90,joined:4107,bsd:{acc:53.5,brier:.58,ll:.973},modelJ:{acc:51,brier:.6,ll:.998}},dis:{n:820,of:4107,bsd:330,bl:300,none:190,bl50:{n:200,bsd:70,bl:95}}};
+ const h=F.mblHtml(M,null);assert(h.includes("berbeda arah</b> (820 dari 4.107 laga uji mundur): BSD benar <b>40,2%</b>, Model BL benar <b>36,6%</b>, keduanya salah 23,2%"),h.slice(h.indexOf("berbeda"),h.indexOf("berbeda")+260));
+ assert(h.includes("BL benar 47,5%, BSD 35,0% (200 laga)"));assert(h.includes("dimatikan sementara"),"catatan line-up dimatikan");
+ assert(!F.mblHtml({...M,dis:null},null).includes("berbeda arah"));
+ console.log("OK V22d: menunggu data, pemain inti absen, beda arah")}
