@@ -212,3 +212,13 @@ console.log("test-ui V24c ok");
  assert(r.includes("Rapor Favorit")&&r.includes("tidak kalah 1/2 (50%)")&&r.includes("<b>Feyenoord</b> <small>kandang vs Excelsior")&&r.includes("❌")&&r.includes("<b>Doma</b> <small>tandang vs Bendel")&&r.includes("✅"),r);
  assert.equal(F.favRaporHtml({days:[{d:"x",fv:null}]}),"");assert.equal(F.favPrev("2026-11-22"),"2026-11-21")}
 console.log("test-ui V25 ok");
+// V26: nama liga versi Indonesia, tanda putri / tim muda
+{const F=new Function(pre+";return {lgLabel,lgName,teamTag,card}")();
+ assert.equal(F.lgLabel("Stoiximan Super League"),"Liga Yunani");assert.equal(F.lgLabel("Premier League","England"),"Liga Inggris");assert.equal(F.lgLabel("Liga 1 Indonesia"),"Liga 1 Indonesia","tidak dikenal: tetap");
+ assert.equal(F.lgLabel("Super League","Switzerland"),"Liga Swiss");assert.equal(F.lgLabel("Conference League"),"Liga Konferensi Eropa");assert.equal(F.lgLabel("Liga F"),"Liga Spanyol Putri");
+ assert.equal(F.lgName({league:"Trendyol 1. Lig",lc:"Turkey"}),'<span title="Trendyol 1. Lig">Liga 2 Turki</span> <span class="lc">Trendyol 1. Lig</span>');
+ assert.equal(F.lgName({league:"Championship",lc:"England"}),'<span title="Championship">Divisi 2 Inggris (Championship)</span>',"nama resmi sudah di dalam label");
+ assert.equal(F.lgName({league:"Liga 1 Indonesia",lc:""}),'<span title="Liga 1 Indonesia">Liga 1 Indonesia</span>');
+ const T=(lg,n)=>F.teamTag({league:lg},{name:n});assert(T("Liga F","Real Madrid").includes("Putri"));assert(T("Serie C, Girone A","Juventus Next Gen U23").includes("Tim muda"));
+ assert(T("Segunda División","Real Sociedad B").includes("Tim muda"));assert.equal(T("Eredivisie","Willem II Tilburg"),"","Willem II = tim utama");assert.equal(T("Eerste Divisie","Jong Ajax").includes("Tim muda"),true);assert.equal(T("La Liga","Barcelona"),"")}
+console.log("test-ui V26 ok");
