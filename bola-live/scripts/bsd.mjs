@@ -165,7 +165,7 @@ export function updateHistory(hist,matches,now){
       const v=bestVal(m);
       H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:[m.p.h,m.p.d,m.p.a],ou:m.p.ou??null,bt:m.p.bt??null,
         o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:(e&&e.o)||null,v:v,r:e&&e.r||null,
-        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null,sk:m.sk?[m.sk.h,m.sk.d,m.sk.a]:(e&&e.sk)||null,lu:m.bl&&m.bl.lu?m.bl.lu:(e&&e.lu)||null});
+        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null,sk:m.sk?[m.sk.h,m.sk.d,m.sk.a]:(e&&e.sk)||null,lu:m.bl&&m.bl.lu?m.bl.lu:(e&&e.lu)||null,xq:m.p.xg!=null?1:0});   // V25c: xq = BSD punya xG (syarat data lengkap tab Favorit)
     }
     // V22c: skor akhir BSD = skor 90 menit (gol perpanjangan waktu terpisah di m.et). Saat laga baru selesai BSD kadang sempat
     // memberi skor termasuk perpanjangan, lalu mengoreksinya -> hasil diperbarui selama 48 jam setelah kickoff, bukan dicatat sekali.
@@ -241,7 +241,8 @@ export function recapOf(hist,now,o={}){
     const cnt=k=>{const Q=L.filter(e=>e[k]);return[Q.length,Q.filter(e=>top(e[k])===res(e)).length]};
     const lg=new Map();for(const e of L){const g=lg.get(e.lg)||[e.lg,0,0,0,0,0,0];g[1]++;if(top(e.p)===res(e))g[2]++;if(e.bl){g[3]++;if(top(e.bl)===res(e))g[4]++}if(e.sk){g[5]++;if(top(e.sk)===res(e))g[6]++}lg.set(e.lg,g)}
     // V25: rapor Favorit per hari: [liga, tuan rumah, tamu, skor h, skor a, sisi favorit 0/2, peluang tidak kalah, 1 = liga kecil (tanpa odds)]
-    const F=L.map(e=>[e,favOf(e.p)]).filter(q=>q[1]).sort((a,b)=>b[1].v-a[1].v),fok=q=>q[1].s===0?q[0].r[0]>=q[0].r[1]:q[0].r[1]>=q[0].r[0];
+    const full=e=>!!e.bl&&!!(e.o&&e.o.every(x=>x>1))&&e.xq!==0;   // V25c: sama dengan syarat tab Favorit (catatan lama tanpa xq tetap ikut)
+    const F=L.filter(full).map(e=>[e,favOf(e.p)]).filter(q=>q[1]).sort((a,b)=>b[1].v-a[1].v),fok=q=>q[1].s===0?q[0].r[0]>=q[0].r[1]:q[0].r[1]>=q[0].r[0];
     const fv=F.length?{n:F.length,hit:F.filter(fok).length,m:F.slice(0,80).map(q=>[q[0].lg,q[0].h,q[0].a,q[0].r[0],q[0].r[1],q[1].s,q[1].v,q[0].o&&q[0].o.every(x=>x>1)?0:1])}:null;
     return{d,fv,bsd:cnt("p"),bl:cnt("bl"),sk:cnt("sk"),lg:[...lg.values()].sort((a,b)=>b[1]-a[1]).slice(0,15),
       m:i<2?L.slice(0,maxM).map(e=>[e.lg,e.h,e.a,e.r[0],e.r[1],top(e.p),top(e.bl),top(e.sk)]):null}})};

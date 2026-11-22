@@ -194,6 +194,13 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  const c=dcCalib(R);assert.equal(c.all.n,5,"hanya >=80% yang sudah selesai");assert.equal(c.all.hit,80);
  assert.deepEqual(c.b.map(b=>b.n),[0,0,4,1]);assert.equal(c.b[2].hit,75,"90-95: 3 dari 4 tidak kalah (tamu seri dihitung aman)");assert.equal(c.b[3].hit,100);
  assert.equal(c.all.avg,(90+90+90+95+90)/5);assert.equal(evalHistory(R.filter(e=>e.r)).dc.all.n,5,"ikut di evalHistory/backtest")}
+{assert.deepEqual(favOf([70,20,10]),{s:0,v:90});assert.deepEqual(favOf([5,10,85]),{s:2,v:95});assert.equal(favOf([50,25,25]),null);assert.equal(favOf([50,25,25],70).v,75);assert.equal(favOf(null),null);
+ const now=Date.parse("2026-11-22T12:00:00Z"),o=[1.5,4,6],bl=[60,25,15],H=[{id:1,lg:"L1",h:"A",a:"B",u:"2026-11-21T10:00:00Z",p:[70,20,10],r:[1,1],o,bl,xq:1},{id:2,lg:"L2",h:"C",a:"D",u:"2026-11-21T11:00:00Z",p:[5,10,85],r:[2,1],o,bl},{id:3,lg:"L1",h:"E",a:"F",u:"2026-11-21T12:00:00Z",p:[45,30,25],r:[0,0],o,bl},
+   {id:4,lg:"L3",h:"G",a:"H",u:"2026-11-21T13:00:00Z",p:[88,8,4],r:[0,1],o:null,bl,xq:1},{id:5,lg:"L3",h:"I",a:"J",u:"2026-11-21T14:00:00Z",p:[88,8,4],r:[0,1],o,bl:null},{id:6,lg:"L4",h:"K",a:"L",u:"2026-11-21T15:00:00Z",p:[88,8,4],r:[0,1],o,bl,xq:0}];
+ const d=recapOf(H,now).days[0];assert.equal(d.fv.n,2,"tanpa odds / tanpa Model BL / tanpa xG: tidak ikut");assert.equal(d.fv.hit,1,"tamu kalah 2-1: meleset");
+ assert.deepEqual(d.fv.m[0],["L2","C","D",2,1,2,95,0],"urut peluang tertinggi");assert.deepEqual(d.fv.m[1],["L1","A","B",1,1,0,90,0]);
+ assert.equal(recapOf([H[2]],now).days[0].fv,null,"tanpa favorit");
+ const U=updateHistory([],[{eid:9,status:"NS",utc:"2026-11-23T10:00:00Z",league:"L",home:{name:"A"},away:{name:"B"},p:{h:80,d:12,a:8,xg:null}}],now);assert.equal(U[0].xq,0,"catat xq")}
 console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;
