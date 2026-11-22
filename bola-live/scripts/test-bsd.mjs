@@ -9,7 +9,7 @@ import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
 import {missFacts,missWhy,evalMiss,fillMissFacts} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate} from "./highlightly.mjs";
-import {disagree} from "./model.mjs";
+import {disagree,experiments,YOUTH} from "./model.mjs";
 import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
 
 const here=fileURLToPath(new URL(".",import.meta.url));
@@ -185,6 +185,18 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  const M=evalMiss(H,now);assert.equal(M.bsd.n,4,"hanya yang ada hasil");assert.equal(M.bsd.miss,3);assert.equal(M.bsd.c.telat,1);assert.equal(M.bsd.c.nodata,2);assert.equal(M.bsd.draw,1);assert.equal(evalMiss(H,now,3).bsd.n,3,"jendela hari");
  assert.equal(M.bl.n,2);assert.equal(M.bl.miss,2);assert.equal(M.bl.c.telat,1);assert.equal(evalMiss([],now),null);
  console.log("bedah meleset ok")}
+// V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
+{let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;
+ for(let k=0;k<1200;k++){const y=k%5===0,h=y?900+k%7:k%40,a=y?950+k%5:40+k%30;
+   // laga biasa: BSD cukup tepat; laga tim muda: BSD terlalu yakin (hasil acak); laga berimbang (k%3==1): seri lebih sering dari perkiraan
+   let b,o;if(y){b=[65,20,15];o=rnd()<.4?0:rnd()<.5?1:2}else if(k%3===1){b=[37,34,29];o=rnd()<.45?1:rnd()<.5?0:2}else{b=[55,25,20];const u=rnd();o=u<.55?0:u<.8?1:2}
+   R.push({t:k*36e5,h,a,o,b,p:b})}
+ const X=experiments(R,nm);assert(X&&X.youth.n===240&&X.youth.of===1200,JSON.stringify(X&&X.youth));
+ assert(X.youth.accB<X.youth.accBo,"tim muda lebih sulit");assert(X.youth.T>1&&X.youth.gain>0,"melunakkan peluang membantu: "+JSON.stringify(X.youth));
+ assert(X.draw.th&&X.draw.gain>0&&X.draw.hold.nDraw>0,"aturan seri membantu pada data ini: "+JSON.stringify(X.draw));
+ assert.equal(experiments(R.slice(0,100),nm),null,"data terlalu sedikit");
+ for(const n of ["Jong Ajax","Club NXT U23","Real Madrid Castilla","Juventus Next Gen U23"])assert(YOUTH.test(n),n);for(const n of ["Ajax","Bilbao","Club Brugge KV"])assert(!YOUTH.test(n),n);
+ console.log("uji coba ok:",JSON.stringify(X.draw))}
 
 // V13.5: pemain absen, prediksi gabungan, indikator risiko
 {const lu={unavailable_players:{home:[{name:"Alex Roldán",short_name:"A. Roldán",status:"injured",reason:"Calf"},{name:"Y Gómez",status:"suspended"}],away:[{short_name:"D. Luna",status:"doubtful"}]}};

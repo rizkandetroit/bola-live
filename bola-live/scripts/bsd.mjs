@@ -1,7 +1,7 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir} from "./net.mjs";
-import {fitModel,predictModel,rollingBacktest,score,disagree,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
+import {fitModel,predictModel,rollingBacktest,score,disagree,experiments,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
 import {trainStack,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow} from "./players.mjs";
@@ -584,6 +584,8 @@ async function main(){
       const TT=best?bestTemp(best.rb):1;if(best)for(const r of best.rb)r.p=temper(r.p,TT);   // kalibrasi suhu dari uji mundur
       const bsdP=new Map((btEnt||[]).map(e=>[e.id,e.p]));
       const J=best?best.rb.filter(r=>bsdP.has(r.id)).map(r=>({...r,b:bsdP.get(r.id)})):[];
+      // V24b: nama tim (untuk uji tim muda/cadangan) dari laga uji mundur + laga tayang
+      const NM=new Map();for(const e of btE||[]){if(e.home_team_id!=null)NM.set(e.home_team_id,e.home_team);if(e.away_team_id!=null)NM.set(e.away_team_id,e.away_team)}for(const m of every){if(m.hid!=null)NM.set(m.hid,m.home.name);if(m.aid!=null)NM.set(m.aid,m.away.name)}
       const half=J.length?J.map(r=>r.t).sort((a,b)=>a-b)[J.length>>1]:0,J1=J.filter(r=>r.t<half),J2=J.filter(r=>r.t>=half);
       const w1=bestBlend(J1,"b","p"),wa=bestBlend(J,"b","p");   // w = bobot BSD
       const mixS=(R,w)=>score(R.map(r=>({o:r.o,q:r.b.map((x,i)=>w*x+(1-w)*r.p[i])})),"q");
@@ -610,7 +612,7 @@ async function main(){
         pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,n:q.n,f:{tb:fe.tb?fe.tb.map(r2):null,nc:fe.nc||null,eu:fe.eu||null,tr:fe.tr||null,sr}}}
       MB={updated:new Date(now).toISOString(),temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
-        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,xrHist:XRH?1:0,v20,stk:STK,blLg,dis:J.length?disagree(J):null,tbl,fac,pred};   // V22d: dis = BSD vs BL berbeda arah
+        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,xrHist:XRH?1:0,v20,stk:STK,blLg,dis:J.length?disagree(J):null,exp:J.length?experiments(J,id=>NM.get(id)||""):null,tbl,fac,pred};   // V22d: dis = BSD vs BL berbeda arah
       // ringkasan per tim untuk tampilan (Tahap 4): peringkat kekuatan, keberuntungan musim ini, data pemain
       try{const lk=luckOf(ms,now),TS={};const lgs=new Set(every.map(m=>m.lid).filter(x=>x!=null));
         for(const [id,t] of M.team){if(!lgs.has(t.lg)||t.n<4)continue;const R=strengthRanks(M,t.lg),L=lk[id],S=teamSummary(PS.t[id],VA.p),Lg=M.lg.get(t.lg)||{A:0,D:0};

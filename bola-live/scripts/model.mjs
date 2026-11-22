@@ -134,6 +134,33 @@ export function disagree(rows,ka="b",kb="p"){
     if(ia===r.o)a++;else if(ib===r.o)b++;else z++;if(pb[ib]>=50){n5++;if(ia===r.o)a5++;if(ib===r.o)b5++}}
   return n?{n,of:all,bsd:a,bl:b,none:z,bl50:{n:n5,bsd:a5,bl:b5}}:null;
 }
+// V24b: uji coba (belum mengubah prediksi). rows: baris uji mundur {t,h,a,o,b (BSD %),p (BL %)}; name(id) -> nama tim.
+// 1) Tim muda/cadangan (Jong, U21/U23, II, B, NXT, ...): apakah lebih sulit ditebak, dan apakah peluang BSD perlu "dilunakkan".
+// 2) Aturan tebak seri: tebak seri bila peluang tertinggi < thr dan peluang seri >= dmin. Setelan dipilih di paruh pertama, dinilai di paruh kedua.
+export const YOUTH=/(^|\s)(jong|u-?1[7-9]|u-?2[0-3]|ii|b|nxt|next gen|reserves?|youth|primavera|castilla|sub-?2[0-3])(\s|$)/i;
+export function experiments(rows,name){
+  const R=(rows||[]).filter(r=>r.b&&r.o!=null).slice().sort((a,b)=>a.t-b.t);if(R.length<200)return null;
+  const ix=p=>p.indexOf(Math.max(...p)),acc=(L,k)=>L.length?L.filter(r=>r[k]&&ix(r[k])===r.o).length/L.filter(r=>r[k]).length*100:null;
+  const flat=(p,T)=>{const q=p.map(x=>Math.pow(Math.max(x,.01)/100,1/T)),s=q[0]+q[1]+q[2];return q.map(x=>x/s)};
+  const ll=(L,T)=>L.length?-L.reduce((s,r)=>s+Math.log(Math.max(flat(r.b,T)[r.o],1e-6)),0)/L.length:null;
+  const half=Math.floor(R.length/2),A=R.slice(0,half),B=R.slice(half);
+  // 1) tim muda/cadangan
+  const isY=r=>YOUTH.test(String(name(r.h)||"").trim())||YOUTH.test(String(name(r.a)||"").trim());
+  const Y=R.filter(isY),N=R.filter(r=>!isY(r)),TS=[1,1.1,1.2,1.3,1.45,1.6];
+  let youth={n:Y.length,of:R.length,accB:acc(Y,"b"),accL:acc(Y,"p"),accBo:acc(N,"b"),accLo:acc(N,"p"),llB:ll(Y,1),llBo:ll(N,1)};
+  const YA=A.filter(isY),YB=B.filter(isY);
+  if(YA.length>=40&&YB.length>=40){let T=1,bl=ll(YA,1);for(const t of TS){const v=ll(YA,t);if(v<bl-1e-9){bl=v;T=t}}youth.T=T;youth.hold={n:YB.length,ll1:ll(YB,1),llT:ll(YB,T)};youth.gain=youth.hold.ll1-youth.hold.llT}
+  // 2) aturan tebak seri (untuk BSD)
+  const pickD=(p,th,dm)=>Math.max(...p)<th&&p[1]>=dm?1:ix(p);
+  const hits=(L,th,dm)=>L.filter(r=>pickD(r.b,th,dm)===r.o).length;
+  let best={th:0,dm:101,h:hits(A,0,101)};for(const th of [36,38,40,42,45])for(const dm of [27,29,31,33]){const h=hits(A,th,dm);if(h>best.h)best={th,dm,h}}
+  const nD=B.filter(r=>pickD(r.b,best.th,best.dm)===1&&ix(r.b)!==1).length,draw={th:best.th||null,dm:best.th?best.dm:null,hold:{n:B.length,base:hits(B,0,101)/B.length*100,rule:hits(B,best.th,best.dm)/B.length*100,nDraw:nD}};
+  draw.gain=draw.hold.rule-draw.hold.base;
+  const r1=x=>x==null?null:Math.round(x*1000)/1000;
+  for(const k of ["accB","accL","accBo","accLo","llB","llBo","gain"])if(youth[k]!=null)youth[k]=r1(youth[k]);
+  if(youth.hold){youth.hold.ll1=r1(youth.hold.ll1);youth.hold.llT=r1(youth.hold.llT)}
+  draw.hold.base=r1(draw.hold.base);draw.hold.rule=r1(draw.hold.rule);draw.gain=r1(draw.gain);
+  return{youth,draw}}
 // Bobot gabungan terbaik (linear) antara dua sumber peluang, dipilih dengan log loss.
 export function bestBlend(rows,ka,kb){
   const R=rows.filter(r=>r[ka]&&r[kb]);if(!R.length)return null;let best=null;

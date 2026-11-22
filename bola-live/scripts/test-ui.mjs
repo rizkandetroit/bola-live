@@ -159,3 +159,9 @@ console.log("render ok");
  assert(h.includes("Bedah meleset")&&h.includes("<b>Kurang beruntung</b>")&&h.includes("12 <small>(22%)</small>")&&h.includes("BSD meleset 55 dari 100 laga, Model BL 50 dari 90")&&h.includes("36% tebakan BSD"),h.slice(0,600));
  assert.equal(F.missHtml(null),"");assert.equal(F.missHtml({days:30,bsd:Z(10,0,0,{})}),"");
  console.log("OK V24: bedah meleset")}
+// V24b: uji coba di Evaluasi
+{const F=new Function(pre+";return {mblHtml}")();const M={updated:"2026-11-22T00:00:00Z",temp:1,xgCov:40,cfg:{xga:.7},hfa:.18,rest:{own:0,opp:0},cov:{nXr:0,gA:0,gD:0},xrHist:0,core:{own:.035,opp:.025},w:1,useful:false,
+   bt:{days:90,joined:4107,bsd:{acc:53.5,brier:.58,ll:.973},modelJ:{acc:51,brier:.6,ll:.998}},exp:{youth:{n:180,of:4107,accB:44.4,accL:41.1,accBo:53.9,accLo:51.4,T:1.2,gain:.006,hold:{n:90,ll1:1.05,llT:1.044}},draw:{th:40,dm:31,gain:.5,hold:{n:2053,base:54.1,rule:54.6,nDraw:31}}}};
+ const h=F.mblHtml(M,null);assert(h.includes("Uji coba (belum dipakai)")&&h.includes("Tim muda/cadangan")&&h.includes("BSD tepat 44,4% (laga lain 53,9%)")&&h.includes("memperbaiki log loss")&&h.includes("akurasi 54,1% → 54,6%"),h.slice(h.indexOf("Uji coba"),h.indexOf("Uji coba")+700));
+ const h2=F.mblHtml({...M,exp:{youth:{n:0},draw:{th:null,dm:null,gain:0,hold:{n:2000,base:54,rule:54,nDraw:0}}}},null);assert(h2.includes("model tetap tidak menebak seri"));
+ console.log("OK V24b: uji coba")}
