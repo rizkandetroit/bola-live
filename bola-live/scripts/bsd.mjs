@@ -273,6 +273,13 @@ export function evalBL(hist){const R=(hist||[]).filter(e=>e.r&&e.p&&e.bl);if(!R.
   const sc=k=>{let a=0,b=0,l=0;for(const e of R){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e[k].map(x=>x/100);if(p.indexOf(Math.max(...p))===o)a++;b+=p.reduce((s,x,i)=>s+(x-(i===o?1:0))**2,0);l-=Math.log(Math.max(p[o],1e-6))}return{acc:a/R.length*100,brier:b/R.length,ll:l/R.length}};
   const R2=(hist||[]).filter(e=>e.r&&e.p&&e.sk),sc2=k=>{let a=0,l=0;for(const e of R2){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e[k].map(x=>x/100);if(p.indexOf(Math.max(...p))===o)a++;l-=Math.log(Math.max(p[o],1e-6))}return{acc:a/R2.length*100,ll:l/R2.length}};
   return{n:R.length,model:sc("bl"),bsd:sc("p"),sk:R2.length?{n:R2.length,stack:sc2("sk"),bsd:sc2("p")}:{n:0}}}   // V21: penilaian langsung lapisan koreksi
+// V25 (Favorit): kalibrasi "tidak kalah" (menang atau seri) untuk tim yang lebih diunggulkan.
+// Dipakai untuk membuktikan angka >=80% sebelum tab Favorit tayang. hit = tim itu tidak kalah.
+export function dcCalib(rows){const B=[[80,85],[85,90],[90,95],[95,101]].map(([lo,hi])=>({lo,hi,n:0,hit:0,sum:0})),all={n:0,hit:0,sum:0};
+  for(const e of rows||[]){if(!e||!e.r||!e.p||e.p.length!==3)continue;const [h,d,a]=e.p,vh=h+d,va=a+d,home=vh>=va,v=home?vh:va;if(!(v>=80))continue;
+    const ok=home?e.r[0]>=e.r[1]:e.r[1]>=e.r[0],b=B.find(b=>v>=b.lo&&v<b.hi);if(!b)continue;b.n++;b.sum+=v;all.n++;all.sum+=v;if(ok){b.hit++;all.hit++}}
+  const f=q=>({n:q.n,avg:q.n?Math.round(q.sum/q.n*10)/10:null,hit:q.n?Math.round(q.hit/q.n*1000)/10:null});
+  return{all:f(all),b:B.map(q=>({lo:q.lo,hi:q.hi,...f(q)}))}}
 export function evalHistory(hist){
   const R=(hist||[]).filter(e=>e.r&&e.p),z=()=>({n:0,hit:0,br:0,ll:0,home:0,ouN:0,ouHit:0,btN:0,btHit:0,bets:0,profit:0,mkN:0,mkHit:0,mkBr:0});
   const add=(s,e)=>{const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e.p.map(x=>x/100),pk=p.indexOf(Math.max(...p));
@@ -288,7 +295,7 @@ export function evalHistory(hist){
   for(const e of R){add(all,e);(lg[e.lg]=lg[e.lg]||z(),add(lg[e.lg],e));const mx=Math.max(...e.p),o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,b=bk.find(b=>mx>=b.lo&&mx<b.hi);if(b){b.n++;b.sum+=mx;if(e.p.indexOf(mx)===o)b.hit++}}
   const byLeague={};for(const k in lg)if(lg[k].n>=5)byLeague[k]=fin(lg[k]);
   const us=R.map(e=>e.u).filter(Boolean).sort();   // V24c: rentang laga yang benar-benar dinilai (bukan klaim 30 hari)
-  return{...fin(all),span:us.length?{from:us[0],to:us[us.length-1]}:null,byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
+  return{...fin(all),span:us.length?{from:us[0],to:us[us.length-1]}:null,dc:dcCalib(R),byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
 }
 
 // V13.3: uji mundur dari riwayat BSD (prediksi + hasil laga yang sudah selesai). Dicek 20 Nov 2026: angka prediksi BSD
@@ -444,7 +451,7 @@ async function main(){
   const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial);
   let btEnt=null,btE=[];
   {const BTD=Number(process.env.BSD_BACKTEST_DAYS??90);let prev=await pullS("bsd-backtest.json");
-    const fresh=prev&&prev.n&&now-Date.parse(prev.updated)<20*36e5;
+    const fresh=prev&&prev.n&&prev.dc&&now-Date.parse(prev.updated)<20*36e5;   // V25: ringkasan lama tanpa dc -> hitung ulang sekali
     if(process.env.BSD_BACKTEST!=="0"&&DEEP&&!LIGHT&&!fatal&&(!fresh||needModel)&&!overDeadline()){
       const P2=[],E2=[];
       for(let k=BTD;k>0&&!fatal&&!overDeadline();k-=7){

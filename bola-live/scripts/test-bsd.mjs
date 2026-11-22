@@ -7,7 +7,7 @@ import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
-import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory} from "./bsd.mjs";
+import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate} from "./highlightly.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
 import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
@@ -188,6 +188,13 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  assert.equal(M.from,H[3].u);assert.equal(M.to,H[2].u);assert.equal(evalMiss(H,now,3).from,H[0].u,"jendela 3 hari: laga 120 jam lalu tidak dihitung");
  {const ev=evalHistory(H);assert.deepEqual(ev.span,{from:H[3].u,to:H[2].u});assert.equal(evalHistory([]).span,null)}
  console.log("bedah meleset ok")}
+// V25: kalibrasi "tidak kalah" untuk tab Favorit
+{const E=(p,r)=>({p,r,u:"2026-11-20T10:00:00Z"});
+ const R=[E([70,20,10],[1,1]),E([70,20,10],[0,1]),E([10,10,80],[0,2]),E([5,10,85],[1,1]),E([50,25,25],[0,3]),E([60,30,10],[2,0]),E([30,40,30],[0,0]),E([45,40,15],null)];
+ const c=dcCalib(R);assert.equal(c.all.n,5,"hanya >=80% yang sudah selesai");assert.equal(c.all.hit,80);
+ assert.deepEqual(c.b.map(b=>b.n),[0,0,4,1]);assert.equal(c.b[2].hit,75,"90-95: 3 dari 4 tidak kalah (tamu seri dihitung aman)");assert.equal(c.b[3].hit,100);
+ assert.equal(c.all.avg,(90+90+90+95+90)/5);assert.equal(evalHistory(R.filter(e=>e.r)).dc.all.n,5,"ikut di evalHistory/backtest")}
+console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;
  for(let k=0;k<1200;k++){const y=k%5===0,h=y?900+k%7:k%40,a=y?950+k%5:40+k%30;
