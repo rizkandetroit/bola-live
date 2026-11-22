@@ -125,7 +125,7 @@ console.log("OK F. Evaluasi: baris ringkas, subset xG, peringatan sampel kecil")
  const a=mk({h:34.8,d:40.3,a:25}),b=mk({h:45,d:30,a:25}),c=mk({h:45,d:30,a:25},{h:30,d:41,a:29,u:1}),e=mk({h:40,d:40,a:20});
  assert.equal(F.drawTop(a),true);assert.equal(F.drawTop(b),false);assert.equal(F.drawTop(c),true,"ikut angka Gabungan bila aktif");assert.equal(F.drawTop(e),false,"seri sama besar: tetap condong");
  assert.equal(F.drawTop({...c,sk:{...c.sk,u:0}}),false,"Gabungan belum lolos: pakai BSD");assert.equal(F.drawTop(mk({h:null,d:null,a:null})),false);
- const ca=card(a),cb=card(b);assert(ca.includes("Berimbang: <b>seri</b> paling mungkin")&&!ca.includes("Condong ke <b>"),"kartu seri");assert(cb.includes("Condong ke <b>Alpha</b>"),"kartu biasa tetap")}
+ const ca=card(a),cb=card(b);assert(ca.includes("Berimbang: <b>seri</b> paling mungkin")&&!ca.includes("Condong ke <b>"),"kartu seri");assert(cb.includes("Condong ke <b title=\"Alpha\">Alpha</b>"),"kartu biasa tetap")}
 // V22: rekap harian & akurasi Model BL per liga di kartu
 {const F=new Function(pre+";return {rekapHtml,btLine,set:function(b,m){BT=b;MBL=m}}")();
  const h=F.rekapHtml({days:[{d:"2026-11-21",bsd:[9,5],bl:[9,4],sk:[0,0],lg:[["Eerste Divisie",9,5,9,4,0,0]],m:[["Eerste Divisie","Heracles","Jong <PSV>",2,1,0,0,null]]}]});
@@ -165,3 +165,21 @@ console.log("render ok");
  const h=F.mblHtml(M,null);assert(h.includes("Uji coba (belum dipakai)")&&h.includes("Tim muda/cadangan")&&h.includes("BSD tepat 44,4% (laga lain 53,9%)")&&h.includes("memperbaiki log loss")&&h.includes("akurasi 54,1% → 54,6%"),h.slice(h.indexOf("Uji coba"),h.indexOf("Uji coba")+700));
  const h2=F.mblHtml({...M,exp:{youth:{n:0},draw:{th:null,dm:null,gain:0,hold:{n:2000,base:54,rule:54,nDraw:0}}}},null);assert(h2.includes("model tetap tidak menebak seri"));
  console.log("OK V24b: uji coba")}
+// V24b: kartu ringkas di HP — nama pendek, line-up bahasa sederhana, rincian dilipat
+{const F=new Function(pre+";return {shortNm,blWhy,blLine,cardDet,card,set:function(b,m){BT=b;MBL=m}}")();
+ assert.equal(F.shortNm("Arsenal"),"Arsenal");assert.equal(F.shortNm("Gwangju FC"),"Gwangju FC","pendek: tidak diubah");
+ assert.equal(F.shortNm("Club Tigres de la UANL"),"Tigres UANL");assert.equal(F.shortNm("Real Sociedad de Fútbol"),"Real Sociedad");assert.equal(F.shortNm("Sporting Clube de Braga"),"Sporting Braga");assert.equal(F.shortNm("Racing Club de Avellaneda"),"Avellaneda");
+ assert.equal(F.shortNm("Olympique Lyonnais Groupe"),"Groupe");assert.equal(F.shortNm("Bucheon FC 1995"),"Bucheon FC 1995");
+ assert.equal(F.shortNm("Borussia Mönchengladbach"),"Borussia Mönchengladbach","tanpa kata umum: tetap utuh");
+ const x={id:9,eid:9,status:"NS",level:"Tipis",edge:9,pick:"h",league:"Liga MX",utc:"2026-11-22T12:00:00Z",src:"BSD",home:{name:"Club Tigres de la UANL"},away:{name:"Club América"},p:{h:50,d:25,a:25},
+  bl:{h:48,d:27,a:25,xg:[1.4,1],ms:[1,0],ou:45,bt:44,lu:[.82,.95,1,1],mi:[["Gignac","Brunetta"],[]],src:"xi"},ab:{h:[["Gignac","i"]],a:[],nh:1,na:0}};
+ const w=F.blWhy(x);assert(w.includes("Line-up <b>Tigres UANL</b>: serangan melemah, pertahanan biasa · tanpa Gignac, Brunetta"),w);assert(w.includes("serang 82%, bertahan 95%"),"persen tetap di title");
+ assert(!w.includes("Club América"),"tim lengkap tidak ditulis");assert(!F.blLine(x).includes("Line-up"),"baris Model BL tidak memuat line-up lagi");
+ assert(F.blWhy({...x,bl:{...x.bl,lu:[1.15,.85,1,1]}}).includes("serangan lebih kuat, pertahanan melemah"));
+ F.set({days:90,byLeague:{"Liga MX":{n:60,acc:52}}},null);
+ const c=F.card(x),d=c.indexOf('<details class="cdt"');assert(d>0,"ada Detail");
+ assert(c.indexOf("Akurasi liga ini")>d&&c.indexOf("Line-up <b>")>d&&c.indexOf("Gignac (")>d,"line-up, absen, akurasi di dalam Detail");
+ assert(c.includes("(line-up, absen, akurasi liga)"),"ringkasan isi Detail");assert(c.indexOf("Model BL:")<d,"Model BL tetap terlihat");
+ assert(c.includes('Condong ke <b title="Club Tigres de la UANL">Tigres UANL</b>'),"nama pendek + title");
+ assert.equal(F.cardDet({...x,bl:null,ab:null,src:"HL",p:{h:50,d:25,a:25}}),"","tanpa rincian: tidak ada Detail")}
+console.log("test-ui V24b ok");
