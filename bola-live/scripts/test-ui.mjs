@@ -119,7 +119,7 @@ console.log("OK F. Evaluasi: baris ringkas, subset xG, peringatan sampel kecil")
 {const F=new Function(pre+";return {dp,pkD,cfTag,whyLine,pb}")();const x={status:"NS",level:"Kuat",edge:20,pick:"h",home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25},sk:{h:30,d:28,a:42,u:1},cf:{k:"terbuka",hit:41.5,n:400},why:["Klasemen menipu: <A>"]};
  assert.equal(F.dp(x),x.sk);assert.equal(F.pkD(x).name,"B");assert(F.pb(x).includes("Gabungan")&&F.pb(x).includes("42%"));assert(F.cfTag(x).includes("Terbuka · 42% menang"));assert.equal(F.cfTag({...x,cf:{...x.cf,k:"jelas"}}).includes("Unggul jelas · 42% menang"),true,"bukan Favorit jelas lagi");
  assert(F.whyLine(x).includes("&lt;A&gt;"),"alasan di-escape");const y={...x,sk:{...x.sk,u:0}};assert.equal(F.dp(y),x.p);assert(!F.pb(y).includes("Gabungan"));
- assert(F.cfTag({...x,cf:null}).includes("Kuat 20"),"tanpa label: tingkat lama")}
+ assert(F.cfTag({...x,cf:null}).includes(">Keunggulan kuat<")&&!F.cfTag({...x,cf:null}).includes("Kuat 20"),"tanpa label: kata biasa, tanpa angka mentah")}
 // V22c: seri peluang tertinggi -> kartu menulis "Berimbang: seri paling mungkin", bukan "Condong ke <tim>"
 {const F=new Function(pre+";return {drawTop}")(),mk=(p,sk)=>({status:"NS",level:"Tipis",edge:9,pick:"h",home:{name:"Alpha"},away:{name:"Beta"},p,sk,league:"L",utc:"2026-11-22T12:00:00Z",eid:5,id:5});
  const a=mk({h:34.8,d:40.3,a:25}),b=mk({h:45,d:30,a:25}),c=mk({h:45,d:30,a:25},{h:30,d:41,a:29,u:1}),e=mk({h:40,d:40,a:20});
@@ -260,3 +260,12 @@ console.log("test-ui V32 ok");
  assert((h.match(/<td class="s">-<\/td>/g)||[]).length===3,"data kurang -> strip");
  const G=new Function(pre+";KL.tm={};return {klTable}")();assert(!G.klTable(R).includes(">Kuat<"),"tanpa data: kolom disembunyikan")}
 console.log("test-ui V33 ok");
+{// V34: klasemen — Poin tepat setelah Tim, nama pendek; ROI tersembunyi di mode netral; label kalibrasi; o2 koma
+ const F=new Function(pre+";KL.tm={};return {klTable,ctab,o2}")();
+ const R=[{position:1,team_id:7,team_name:"Brighton & Hove Albion",played:11,won:7,drawn:1,lost:3,gf:26,ga:9,gd:17,xgd:3,pts:22,form:"WWLWW"}];
+ const h=F.klTable(R),ths=[...h.matchAll(/<th[^>]*>([^<]*)<\/th>/g)].map(m=>m[1]);assert.deepEqual(ths.slice(0,3),["#","Tim","Poin"],"urutan kolom: "+ths);
+ assert(/<td class="t">.*<td><b>22<\/b>/.test(h),"poin langsung setelah tim");assert(h.includes('class="sn"')&&h.includes(">Brighton & Hove Albion<".replace("&","&amp;")),"nama penuh + pendek");
+ const c=F.ctab([{lo:0,hi:40,n:1,avg:30,hit:31},{lo:60,hi:70,n:1,avg:65,hit:66},{lo:70,hi:101,n:1,avg:80,hit:82}]);assert(c.includes("di bawah 40%")&&c.includes("60–70%")&&c.includes("70% ke atas")&&!c.includes("101"),"label kalibrasi");
+ assert.equal(F.o2(1.744),"1,74");assert.equal(F.o2(null),"-");
+ assert(/NEUTRAL\?'':'<th>ROI value/.test(html),"ROI ikut mode netral")}
+console.log("test-ui V34 ok");

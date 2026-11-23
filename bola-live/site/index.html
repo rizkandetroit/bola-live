@@ -178,6 +178,11 @@ h2 small{font-size:12px;color:var(--mut);font-weight:400}
 .lc{font-size:.85em;color:var(--mut);font-weight:400;opacity:.9}
 .acl.rsk{color:var(--A);font-weight:600}.acl.rsk:not(.hi){opacity:.85}.acl.mix b{color:var(--ink)}
 select#kl-sel,select#lgs,select#sl-lig{max-width:100%;text-overflow:ellipsis}
+/* V34: klasemen HP — # dan Tim tetap di kiri saat tabel digeser, Poin langsung setelah Tim, nama pendek */
+.klw table.kl tr>:nth-child(1){position:sticky;left:0;z-index:1;background:var(--bg)}.klw table.kl tr>:nth-child(2){position:sticky;left:var(--klc1,30px);z-index:1;background:var(--bg);box-shadow:4px 0 6px -4px rgba(0,0,0,.35)}
+.klw table.kl .sn{display:none}.klhint{display:none}
+@media(max-width:600px){.klw table.kl .fn{display:none}.klw table.kl .sn{display:inline}.klhint{display:block;font-size:11.5px;color:var(--mut);margin:2px 0 6px}}
+.more{background:var(--pn);border:1px solid var(--ln2);color:var(--ink);border-radius:10px;padding:10px 18px;font:inherit;cursor:pointer}.more:hover{background:var(--pn3)}
 .kq.up{color:var(--good,#16a34a);font-weight:600}.kq.dn{color:var(--bad,#dc2626);font-weight:600}   /* V26c: nama liga panjang tidak melebarkan halaman di HP */
 .tag.tw{font-size:10px;padding:1px 6px;margin:0 4px;vertical-align:middle;color:var(--A);border-color:var(--A)}
 .acl.fav{margin-top:6px;padding:6px 9px;border-radius:9px;background:var(--ok-soft);border:1px solid var(--okB);color:var(--ink)}.acl.fav .fv{color:var(--ok)}.acl.fav .mut{color:var(--mut)}
@@ -558,7 +563,7 @@ table.kl td b{font-family:var(--mono)}
   <!-- LIVE TAB (BSD) -->
   <div id="v-s" hidden>
     <h2>Skor Live <small id="sl-updated"></small></h2>
-    <p class="cap">Sumber: BSD (sports.bzzoiro.com). Data server diperbarui tiap ±5 menit oleh GitHub Actions; halaman ini memuat ulang tiap 30 detik. Klik laga untuk Match Center.</p>
+    <p class="cap">Sumber: BSD (sports.bzzoiro.com). Data diperbarui otomatis tiap ±5 menit; halaman ini memuat ulang sendiri tiap 1 menit. Ketuk laga untuk melihat detailnya.</p>
     <div class="ctl"><select id="sl-lig" aria-label="Liga"><option value="">Semua liga</option></select>
       <div class="seg" id="sl-st"><button data-sl="LIVE" class="on">Live</button><button data-sl="TODAY">Hari ini</button><button data-sl="FT">Selesai</button></div></div>
     <div class="kpi" id="sl-kpi"></div>
@@ -622,7 +627,7 @@ var SNX=/^(fc|cf|sc|afc|ac|as|sd|cd|sk|fk|nk|bk|if|ik|sv|club|clube|f[uú]tbol|f
 function shortNm(n){n=String(n||"").trim();if(n.length<=16)return n;var w=n.split(/\s+/).filter(function(t){return!SNX.test(t.replace(/\.$/,""))});if(!w.length)return n;var r=w.join(" ");if(r.length<=16)return r;if(w.length>1&&SNG.test(w[0]))return w[w.length-1];return r}
 /* V26b: "Favorit jelas" -> "Unggul jelas" agar tidak tertukar dengan tab Favorit; persen = tim unggulan benar-benar menang */
 var CFN={jelas:["Unggul jelas",4],cukup:["Cukup",2],terbuka:["Terbuka",1]};
-function cfTag(x){var c=x.cf;if(!c||!CFN[c.k]||x.status!=="NS")return'<span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span>';
+function cfTag(x){var c=x.cf;if(!c||!CFN[c.k]||x.status!=="NS")return'<span class="tag l'+LV[x.level]+'" title="Keunggulan '+x.level.toLowerCase()+': selisih peluang tim unggulan '+x.edge.toFixed(0)+' poin">Keunggulan '+x.level.toLowerCase()+'</span>';   /* V34: tanpa angka mentah */
   return'<span class="tag l'+CFN[c.k][1]+'" title="Label keyakinan. '+(c.hit!=null?'Pada uji mundur '+c.n+' laga berlabel ini, tim unggulan benar-benar menang '+String(c.hit).replace(".",",")+'% (rata-rata kelompok, bukan angka laga ini). ':'')+'Keunggulan BSD: '+x.level+' '+x.edge.toFixed(0)+'">'+CFN[c.k][0]+(c.hit!=null?' · '+Math.round(c.hit)+'% menang':'')+'</span>'}
 function whyLine(x){if(!x.why||!x.why.length||x.status!=="NS")return"";return'<div class="acl why2">Alasan: '+x.why.map(esc).join(" · ")+'</div>'}
 function pb(x){
@@ -826,7 +831,7 @@ function mtab(e){
   return'<table class="ev"><tr><th>Model</th><th>Akurasi 1X2</th><th>Brier (kecil = baik)</th><th>Log loss (kecil = baik)</th></tr>'+r.map(function(x){return'<tr><td>'+x[0]+'</td><td>'+pc(x[1].acc)+'</td><td>'+f3(x[1].brier)+'</td><td>'+f3(x[1].ll)+'</td></tr>'}).join("")+'<tr><td>Patokan: selalu tebak tuan rumah</td><td>'+pc(e.homeAcc)+'</td><td>-</td><td>-</td></tr></table>'
 }
 function ltab(by){var k=Object.keys(by);if(!k.length)return"";return'<table class="ev"><tr><th>Liga</th><th>Laga</th><th>Poisson</th><th>Elo</th><th>Gabungan</th><th>Selalu tuan rumah</th></tr>'+k.map(function(l){var e=by[l];return'<tr><td>'+esc(l)+'</td><td>'+e.n+'</td><td>'+pc(e.pp.acc)+'</td><td>'+pc(e.pe.acc)+'</td><td>'+pc(e.pb.acc)+'</td><td>'+pc(e.homeAcc)+'</td></tr>'}).join("")+'</table>'}
-function ctab(c){return'<table class="ev"><tr><th>Keyakinan model</th><th>Laga</th><th>Rata-rata</th><th>Yang tepat</th></tr>'+c.map(function(b){return'<tr><td>'+(b.lo===0?"di bawah 40%":b.lo===60?"60% ke atas":b.lo+"-"+b.hi+"%")+'</td><td>'+b.n+'</td><td>'+pc(b.avg)+'</td><td>'+pc(b.hit)+'</td></tr>'}).join("")+'</table>'}
+function ctab(c){return'<table class="ev"><tr><th>Keyakinan model</th><th>Laga</th><th>Rata-rata</th><th>Yang tepat</th></tr>'+c.map(function(b){return'<tr><td>'+(b.lo===0?"di bawah "+b.hi+"%":b.hi>100?b.lo+"% ke atas":b.lo+"–"+b.hi+"%")+'</td><td>'+b.n+'</td><td>'+pc(b.avg)+'</td><td>'+pc(b.hit)+'</td></tr>'}).join("")+'</table>'}
 function verdict(e){if(!e.n)return"";var se=1.96*Math.sqrt(.25/e.n)*100,m=e.pk||e.pp,d=m.acc-e.homeAcc,fr=e.fr||{brier:m.brier},t="Dari "+e.n+" laga, model utama tepat "+pc(m.acc)+" dan tebakan selalu tuan rumah "+pc(e.homeAcc)+". ";t+=d>0?"Model unggul "+d.toFixed(1).replace(".",",")+"%. ":"Model belum mengalahkan tebakan sederhana itu. ";t+="Selisih di bawah sekitar "+se.toFixed(0)+" poin belum bisa dibedakan dari kebetulan. ";t+=m.brier<fr.brier?"Brier model lebih baik dari patokan.":"Brier model belum lebih baik dari patokan.";return'<p class="'+(d>se&&m.brier<fr.brier?"good":"warn")+'">'+t+'</p>'}
 function binsec(b){if(!b.ou&&!b.bt)return"";var r=[["Over 2,5 gol",b.ou],["Kedua tim mencetak gol",b.bt]].filter(function(x){return x[1]});return'<h2>Over/under 2,5 dan kedua tim mencetak gol</h2><table class="ev"><tr><th>Pasar</th><th>Laga</th><th>Terjadi</th><th>Akurasi</th><th>Brier model</th><th>Brier patokan</th></tr>'+r.map(function(x){return'<tr><td>'+x[0]+'</td><td>'+x[1].n+'</td><td>'+pc(x[1].rate)+'</td><td>'+pc(x[1].acc)+'</td><td>'+f3(x[1].brier)+'</td><td>'+f3(x[1].base)+'</td></tr>'}).join("")+'</table>'}
 function xgSub(c){var q=c&&c.xgSubset;if(!q||!q.n)return'<p class="cap">Komponen xG belum aktif di sampel uji ini.</p>';var r=function(l,m){return'<tr><td>'+l+'</td><td>'+m.n+'</td><td>'+pc(m.acc)+'</td><td>'+f3(m.brier)+'</td><td>'+f3(m.ll)+'</td></tr>'};return'<h2>Hanya laga saat xG aktif ('+q.n+' laga)</h2>'+(q.n<30?'<p class="warn">Sampel masih kecil ('+q.n+' laga); perbandingan ini bisa berubah seiring data bertambah.</p>':"")+'<div class="ov"><table class="ev"><tr><th>Versi</th><th>Laga</th><th>Akurasi</th><th>Brier ↓</th><th>Log Loss ↓</th></tr>'+r("V9 (gol + Elo saja)",q.v9)+r("V10-ringkas (gol + xG + Elo)",q.lite)+r("V10 penuh",q.v10)+'</table></div>'}
@@ -856,7 +861,7 @@ function bsdEvalHtml(e){
   h+=mktHtml(m)+segHtml(e.seg,"catatan langsung");   /* V29b */
   h+='<h2>Kalibrasi</h2>'+ctab(e.calib);
   var L=Object.keys(e.byLeague||{}).sort(function(a,b){return e.byLeague[b].n-e.byLeague[a].n});
-  if(L.length)h+='<h2>Per liga (min. 5 laga)</h2><div class="ov"><table class="ev"><tr><th>Liga</th><th>Laga</th><th>Akurasi</th><th>Selalu tuan rumah</th><th>Brier</th><th>ROI value</th></tr>'+L.map(function(k){var q=e.byLeague[k];return'<tr><td>'+esc(k)+'</td><td>'+q.n+'</td><td>'+pc(q.acc)+'</td><td>'+pc(q.homeAcc)+'</td><td>'+f3(q.brier)+'</td><td>'+(q.value&&q.value.bets?pc(q.value.roi):"-")+'</td></tr>'}).join("")+'</table></div>';
+  if(L.length)h+='<h2>Per liga (min. 5 laga)</h2><div class="ov"><table class="ev"><tr><th>Liga</th><th>Laga</th><th>Akurasi</th><th>Selalu tuan rumah</th><th>Brier</th>'+(NEUTRAL?'':'<th>ROI value</th>')+'</tr>'+L.map(function(k){var q=e.byLeague[k];return'<tr><td>'+esc(lgLabel(k))+'</td><td>'+q.n+'</td><td>'+pc(q.acc)+'</td><td>'+pc(q.homeAcc)+'</td><td>'+f3(q.brier)+'</td>'+(NEUTRAL?'':'<td>'+(q.value&&q.value.bets?pc(q.value.roi):"-")+'</td>')+'</tr>'}).join("")+'</table></div>';
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
 function loadEval(){var gj=function(f){return fetch(f,NC).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
@@ -929,7 +934,7 @@ function dataQ(x){var lgN=BT&&BT.byLeague&&BT.byLeague[x.league]&&BT.byLeague[x.
   return{n:L.filter(function(q){return q[1]}).length,L:L}}
 function dqLine(x){var q=dataQ(x);return'<div class="acl dq" title="Makin lengkap datanya, makin kokoh dasar prediksi. Line-up resmi biasanya baru ada ±1 jam sebelum kickoff.">Kelengkapan data: <b>'+q.n+'/5</b> · '+q.L.map(function(r){return(r[1]?"✓ ":"✗ ")+r[0]}).join(" · ")+'</div>'}
 function cardDet(x){var a=blWhy(x),b=absLine(x),c=btLine(x),dq=x.p&&!x.np&&x.status==="NS"?dqLine(x):""   /* V31b: hanya sebelum kickoff — setelah mulai, Model BL & harga pasar memang tidak lagi disimpan di kartu */,v=x.p&&x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"";
-  if(!(a+b+c+v+dq))return"";var k=[];if(dq)k.push("data "+dataQ(x).n+"/5");if(a)k.push("line-up");if(b)k.push("absen");if(c)k.push("akurasi liga");if(v)k.push("V10");var id="cd-"+(x.id!=null?x.id:x.eid);
+  if(!(a+b+c+v+dq))return"";var k=[];if(dq&&dataQ(x).n)k.push("data "+dataQ(x).n+"/5");if(a)k.push("line-up");if(b)k.push("absen");if(c)k.push("akurasi liga");if(v)k.push("V10");var id="cd-"+(x.id!=null?x.id:x.eid);
   return'<details class="cdt" data-id="'+esc(id)+'"'+(OPEN[id]?" open":"")+'><summary>Detail <span>('+k.join(", ")+')</span></summary>'+dq+a+b+c+v+'</details>'}
 /* V30: tanda "rawan seri" — hanya tampil bila aturan lolos uji mundur (M.drw.rule.pass) */
 function drawRisk(x){var R=MBL&&MBL.drw&&MBL.drw.rule;if(!R||!R.pass||x.status!=="NS"||!x.p||x.p.h==null||x.np)return"";var b=x.p,p=x.bl;
@@ -1073,7 +1078,7 @@ function btHtml(b){
   h+='<p class="'+(d>se?"good":"warn")+'">Dari '+b.n.toLocaleString("id-ID")+' laga ('+(b.from?df.format(new Date(b.from)):"")+' sampai '+(b.to?df.format(new Date(b.to)):"")+'), BSD tepat '+pc(b.acc)+', '+(Math.abs(d)<.05?'sama dengan':d>0?'lebih baik '+d.toFixed(1).replace(".",",")+' poin dari':'lebih buruk '+(-d).toFixed(1).replace(".",",")+' poin dari')+' patokan "selalu tuan rumah"'+(d>0&&d<=se?' (selisihnya masih bisa kebetulan)':'')+'. Brier '+f3(b.brier)+(b.rps!=null?', RPS '+f3(b.rps):'')+' (makin kecil makin baik). Angka prediksi BSD sudah dicek tidak berubah setelah kickoff.</p>'+segHtml(b.seg,"uji mundur");
   if(b.calib&&b.calib.length)h+='<h2>Kalibrasi <small>apakah keyakinan model sesuai kenyataan</small></h2><div class="ov"><table class="ev"><tr><th>Keyakinan model</th><th>Laga</th><th>Rata-rata model</th><th>Kenyataan tepat</th></tr>'+b.calib.filter(function(c){return c.n}).map(function(c){var g=c.hit!=null&&c.avg!=null?c.hit-c.avg:0;return'<tr><td>'+c.lo+'–'+(c.hi>100?100:c.hi)+'%</td><td>'+c.n+'</td><td>'+pc(c.avg)+'</td><td class="'+(Math.abs(g)<=5?"good":"warn")+'">'+pc(c.hit)+'</td></tr>'}).join("")+'</table></div><p class="cap">Model yang jujur: saat ia bilang 60%, tebakannya tepat sekitar 6 dari 10 kali. Selisih lebih dari 5 poin ditandai.</p>';
   var L=Object.keys(b.byLeague||{}).map(function(k){var q=b.byLeague[k];return{k:k,q:q}}).filter(function(o){return o.q.n>=20}).sort(function(a,c){return c.q.n-a.q.n});
-  if(L.length)h+='<h2>Per liga <small>minimal 20 laga · '+L.length+' liga</small></h2><div class="ov"><table class="ev"><tr><th style="text-align:left">Liga</th><th>Laga</th><th>1X2 tepat</th><th>Tuan rumah</th><th>O/U 2,5</th><th>BTTS</th><th>Brier</th></tr>'+L.map(function(o){var q=o.q,c=btCls(q);return'<tr><td style="text-align:left">'+esc(o.k)+(C[o.k]?' <small>'+esc(C[o.k])+'</small>':"")+'</td><td>'+q.n+'</td><td class="'+c+'">'+pc(q.acc)+'</td><td>'+pc(q.homeAcc)+'</td><td>'+(q.ou?pc(q.ou.acc):"-")+'</td><td>'+(q.bt?pc(q.bt.acc):"-")+'</td><td>'+f3(q.brier)+'</td></tr>'}).join("")+'</table></div><p class="cap">Hijau: tepat 55% ke atas. Merah: di bawah 45%. Liga dengan laga sedikit lebih untung-untungan.</p>';
+  if(L.length)h+='<h2>Per liga <small>minimal 20 laga · '+L.length+' liga</small></h2><div class="ov"><table class="ev"><tr><th style="text-align:left">Liga</th><th>Laga</th><th>1X2 tepat</th><th>Tuan rumah</th><th>O/U 2,5</th><th>BTTS</th><th>Brier</th></tr>'+L.map(function(o){var q=o.q,c=btCls(q);return'<tr><td style="text-align:left">'+esc(lgLabel(o.k,C[o.k]))+(C[o.k]&&lgLabel(o.k,C[o.k])===o.k?' <small>'+esc(C[o.k])+'</small>':"")+'</td><td>'+q.n+'</td><td class="'+c+'">'+pc(q.acc)+'</td><td>'+pc(q.homeAcc)+'</td><td>'+(q.ou?pc(q.ou.acc):"-")+'</td><td>'+(q.bt?pc(q.bt.acc):"-")+'</td><td>'+f3(q.brier)+'</td></tr>'}).join("")+'</table></div><p class="cap">Hijau: tepat 55% ke atas. Merah: di bawah 45%. Liga dengan laga sedikit lebih untung-untungan.</p>';
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(b.updated))+' WITA, dihitung ulang sekali sehari.</p></div>'
 }
 function nav(v){VIEW=v;$("#v-j").hidden=v!=="j";$("#v-s").hidden=v!=="s";$("#v-k").hidden=v!=="k";$("#v-e").hidden=v!=="e";$("#v-p").hidden=v!=="p";if(v==="k")loadKl();[].forEach.call(document.querySelectorAll("#nv button"),function(b){b.className=b.dataset.n===v?"on":""});if(v==="e")loadEval();if(v==="p")loadPitch();if(v==="s")renderLive()}
@@ -1132,7 +1137,9 @@ function draw(){
   var q=S.q.trim().toLowerCase();
   var L=M.filter(function(x){return(S.lg==="Semua"||x.league===S.lg)&&stOk(x)&&(!q||(x.home.name+" "+x.away.name+" "+x.league+" "+lgLabel(x.league,x.lc)).toLowerCase().indexOf(q)>-1)});
   L=dateStrip(L,td,dkf2);
+  var fk=[S.st,S.lg,S.dt,S.q,S.v,S.so].join("|");if(fk!==S.fk){S.fk=fk;S.lim=60}var nAll=L.length;   /* V34: gambar 60 laga dulu, sisanya lewat tombol */
   L.sort(S.st==="FAV"?function(a,b){return favOf(b).v-favOf(a).v||a.utc.localeCompare(b.utc)}:S.so==="jam"?function(a,b){return a.utc.localeCompare(b.utc)}:function(a,b){return(b.edge||0)-(a.edge||0)});
+  if(L.length>S.lim)L=L.slice(0,S.lim);
   var groups={},order=[];L.forEach(function(x){var k=dkf2.format(new Date(x.utc));if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(x)});
   var h=(S.st==="FAV"?favHead(L,td):catHtml(q))+(D.extra&&S.st!=="FAV"?'<p class="cap">Belum ada laga yang akan tayang pada sisa bulan ini.</p>':"");
   order.sort().forEach(function(k){
@@ -1140,6 +1147,7 @@ function draw(){
     if(S.v==="list"){var bl={},ol=[];groups[k].forEach(function(x){if(!bl[x.league]){bl[x.league]=[];ol.push(x.league)}bl[x.league].push(x)});h+=ol.map(function(l){return'<div class="plg">'+cr(bl[l][0].lgc,"lgc")+lgName(bl[l][0])+'<span>'+bl[l].length+'</span></div>'+bl[l].map(prow).join("")}).join("");return}
     h+=S.v==="card"?'<div class="g">'+groups[k].map(function(x){return card(x)}).join("")+'</div>':'<div class="ov"><div class="tb">'+groups[k].map(row).join("")+'</div></div>'
   });
+  if(nAll>L.length)h+='<div style="text-align:center;margin:14px 0"><button class="more" data-more="1">Tampilkan 60 laga lagi <small>(sisa '+(nAll-L.length)+')</small></button></div>';
   $("#list").innerHTML=(S.st==="FAV"&&!L.length?h+'<div class="em">Belum ada laga dengan peluang tidak kalah ≥'+FAVMIN+'%'+(S.dt?' pada tanggal ini':'')+(S.lg!=="Semua"?' untuk '+esc(S.lg):'')+'.</div>':h)||'<div class="em">'+(S.dt?"Tidak ada pertandingan pada tanggal ini"+(S.lg!=="Semua"?" untuk "+esc(S.lg):"")+".":"Tidak ada pertandingan pada tab ini.")+'</div>';
   if(wide()&&!MC.id){var f=M.find(function(x){return x.status==="LIVE"&&x.eid})||L.find(function(x){return x.eid})||top.find(function(x){return x.eid});if(f)openMC(f.eid)}
   stamp()
@@ -1149,6 +1157,7 @@ document.addEventListener("toggle",function(e){var t=e.target;if(t.classList&&(t
 document.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;if(b.dataset.n){nav(b.dataset.n);return}if(!D)return;if(b.dataset.v){S.v=b.dataset.v;save()}else if(b.dataset.k){S[b.dataset.k]=b.dataset.val}else return;draw()});
 document.addEventListener("change",function(e){if(e.target.id==="lgs"){S.lg=e.target.value;draw()}
   if(e.target.id==="dsi"&&e.target.value){var v=e.target.value,td=new Intl.DateTimeFormat("en-CA",{timeZone:TZ}).format(new Date());if(S.st==="FAV"){S.dt=v<td?"":v;draw();return}S.dt=v;if(v<td)S.st="FT";else if(v>td)S.st="NS";draw()}});
+document.addEventListener("click",function(e){var b=e.target.closest("[data-more]");if(!b||!D)return;S.lim+=60;draw()});
 document.addEventListener("click",function(e){var c=e.target.closest("#dscal");if(!c)return;var i=$("#dsi");if(!i)return;try{if(i.showPicker){i.showPicker();return}}catch(x){}i.focus();i.click()});
 
 function demo(){
@@ -1161,18 +1170,19 @@ function fj(u){return fetch(u,NC).then(function(r){if(!r.ok)throw 0;return r.jso
 function load(){Promise.all([Promise.resolve(null),Promise.resolve(null),fj("all.json").catch(function(){return null})]).then(function(a){
   var j=a[0],w=a[1],al=a[2];
   if(!j&&!al)throw 0;
+  if(D&&al&&D.allInfo&&al.updated===D.allInfo.updated&&Date.now()-(D._t||0)<3e5)return;   /* V34: data belum berubah -> tidak gambar ulang */
   if(!j)j={updated:al.updated,week:al.week,matches:[],errors:[]};
   if(w&&w.matches){j.matches=j.matches.concat(w.matches);j.worldInfo=w;j.errors=(j.errors||[]).concat((w.errors||[]).map(function(e){return"dunia "+e}))}
   if(al&&al.links){var byId={};j.matches.forEach(function(x){byId[x.id]=x});al.links.forEach(function(k){var x=byId[k.oid];if(x){x.eid=k.eid;x.lid=k.lid;x.hid=k.hid;x.aid=k.aid;if(k.odds)x.odds=k.odds;if(k.dx)x.dx=1;if(k.rl)x.rl=k.rl;if(k.bp)x.bp=k.bp}})}
   if(al&&al.matches){j.matches=j.matches.concat(al.matches);j.allInfo=al;j.errors=(j.errors||[]).concat((al.errors||[]).map(function(e){return"semua liga "+e}))}
-  j.matches=fresh(j.matches);D=j;DEMO=false;draw();if(VIEW==="s")renderLive();if(VIEW==="k"&&KL.idx)renderKlSel()
+  j.matches=fresh(j.matches);j._t=Date.now();D=j;DEMO=false;draw();if(VIEW==="s")renderLive();if(VIEW==="k"&&KL.idx)renderKlSel()
 }).catch(function(){if(!D){D=demo();DEMO=true;draw()}})}
 /* ============================================================
    V12 — INTEGRASI PENUH BSD: Live, Klasemen, Match Center
    ============================================================ */
 var IMG="https://sports.bzzoiro.com/img/";
 var MC={id:null,tab:"sum",d:null},KL={idx:null,cur:null,cache:{},tm:null},SLF={st:"LIVE",lg:""};
-function o2(v){return v==null?"-":Number(v).toFixed(2)}
+function o2(v){return v==null?"-":Number(v).toFixed(2).replace(".",",")}
 function oddLine(x){if(NEUTRAL)return"";
   var o=x.odds;if(!o)return"";
   var c=[["1",o.h],["X",o.d],["2",o.a],["O2,5",o.o25],["U2,5",o.u25],["BTTS",o.by]].filter(function(q){return q[1]});
@@ -1205,10 +1215,11 @@ function renderLive(){
   var M=D.matches.filter(function(x){return x.src==="BSD"||x.status==="LIVE"});
   var lgs=Array.from(new Set(M.map(function(x){return x.league}))).sort();
   var sel=$("#sl-lig");if(sel&&sel.options){sel.innerHTML='<option value="">Semua liga</option>'+lgs.map(function(l){return'<option value="'+esc(l)+'"'+(l===SLF.lg?" selected":"")+'>'+esc(lgLabel(l))+'</option>'}).join("")}
+  if(!SLF.u&&SLF.st==="LIVE"&&!M.some(function(x){return x.status==="LIVE"}))SLF.st="TODAY";   /* V34: tidak ada laga live -> buka "Hari ini" */
   var L=M.filter(function(x){if(SLF.lg&&x.league!==SLF.lg)return false;if(SLF.st==="LIVE")return x.status==="LIVE";if(SLF.st==="FT")return x.status==="FT";return dk.format(new Date(x.utc))===td});
   L.sort(function(a,b){return a.utc.localeCompare(b.utc)});
   var nl=M.filter(function(x){return x.status==="LIVE"}).length,nt=M.filter(function(x){return dk.format(new Date(x.utc))===td}).length;
-  $("#sl-kpi").innerHTML='<div class="k lv"><b>'+nl+'</b><span>Sedang live</span></div><div class="k"><b>'+nt+'</b><span>Laga hari ini</span></div><div class="k"><b>'+M.filter(function(x){return x.status==="FT"}).length+'</b><span>Selesai (jendela)</span></div><div class="k"><b>'+lgs.length+'</b><span>Liga</span></div>';
+  $("#sl-kpi").innerHTML='<div class="k lv"><b>'+nl+'</b><span>Sedang live</span></div><div class="k"><b>'+nt+'</b><span>Total hari ini</span></div><div class="k"><b>'+M.filter(function(x){return x.status==="FT"}).length+'</b><span>Selesai (7 hari)</span></div><div class="k"><b>'+lgs.length+'</b><span>Liga</span></div>';
   var up=$("#sl-updated");if(up&&D.allInfo)up.textContent="· data "+tf.format(new Date(D.allInfo.updated))+" WITA";
   [].forEach.call(document.querySelectorAll("#sl-st button"),function(b){b.className=b.dataset.sl===SLF.st?"on":""});
   if(!L.length){$("#sl-list").innerHTML='<div class="em">'+(SLF.st==="LIVE"?"Tidak ada laga live saat ini.":"Tidak ada pertandingan.")+'</div>';return}
@@ -1245,10 +1256,10 @@ function kuatTd(r){var T=tmOf(r);if(!T||T.sr==null)return'<td class="s">-</td>';
 function luckTd(r){var L=luckV(tmOf(r));if(!L)return'<td class="s">-</td>';var v=Math.round(L.v*10)/10,c=v>=3?" up":v<=-3?" dn":"";
   return'<td title="Dalam '+L.n+' laga ber-xG: poin nyata '+L.p+', poin wajar dari peluang yang diciptakan & kebobolan '+String(Math.round(L.x*10)/10).replace(".",",")+'. '+(v>=3?'Lebih beruntung dari permainannya — rawan turun.':v<=-3?'Kurang beruntung — permainannya lebih baik dari poinnya.':'Poin sesuai permainan.')+'"><span class="kq'+c+'">'+(v>0?"+":"")+String(v.toFixed(1)).replace(".",",")+'</span></td>'}
 function klTable(rows){var X=KL.tm&&rows.some(function(r){var T=tmOf(r);return T&&(T.sr!=null||luckV(T))});
-  return'<div class="ov"><table class="kl"><tr><th>#</th><th style="text-align:left">Tim</th><th>M</th><th>Mn</th><th>S</th><th>K</th><th>Gol</th><th>SG</th><th>xG±</th>'+(X?'<th title="Peringkat kekuatan asli menurut Model BL">Kuat</th><th title="Poin nyata dikurangi poin wajar dari xG">Untung</th>':'')+'<th>Poin</th><th>Form</th></tr>'+rows.map(function(r){
+  return'<div class="ov klw"><table class="kl"><tr><th>#</th><th style="text-align:left">Tim</th><th>Poin</th><th>M</th><th>Mn</th><th>S</th><th>K</th><th>Gol</th><th>SG</th><th>xG±</th>'+(X?'<th title="Peringkat kekuatan asli menurut Model BL">Kuat</th><th title="Poin nyata dikurangi poin wajar dari xG">Untung</th>':'')+'<th>Form</th></tr>'+rows.map(function(r){
     var mv=r.mv?'<small class="mv '+(r.mv>0?"up":"dn")+'" title="'+(r.mv>0?"Naik ":"Turun ")+Math.abs(r.mv)+' posisi dari klasemen resmi">'+(r.mv>0?"▲":"▼")+Math.abs(r.mv)+'</small>':"";
     var lb=r.lv?(r.lv.k==="live"?' <span class="st lv" title="Sedang bertanding vs '+esc(r.lv.vs)+'">'+esc(r.lv.s)+(r.lv.ht?" HT":r.lv.min!=null?" "+r.lv.min+"\'":"")+'</span>':' <span class="lvft" title="Selesai vs '+esc(r.lv.vs)+', belum masuk klasemen resmi">'+esc(r.lv.s)+' FT</span>'):(r.live?' <span class="st lv">live</span>':"");
-    return'<tr class="'+zoneCls(r.zone)+(r.lv?" klv":"")+'" title="'+esc(r.zone?r.zone.label:"")+'"><td>'+esc(r.position)+mv+'</td><td class="t">'+cr(r.logo||IMG+"team/"+r.team_id+"/")+esc(r.team_name)+lb+'</td><td>'+r.played+'</td><td>'+r.won+'</td><td>'+r.drawn+'</td><td>'+r.lost+'</td><td>'+r.gf+':'+r.ga+'</td><td>'+(r.gd>0?"+":"")+r.gd+'</td><td>'+(r.xgd==null?"-":(r.xgd>0?"+":"")+Number(r.xgd).toFixed(1))+'</td>'+(X?kuatTd(r)+luckTd(r):'')+'<td><b>'+r.pts+'</b>'+(r.dp!=null?'<small class="dp">+'+r.dp+'</small>':"")+'</td><td>'+frm(r.form)+'</td></tr>'}).join("")+'</table></div>'
+    return'<tr class="'+zoneCls(r.zone)+(r.lv?" klv":"")+'" title="'+esc(r.zone?r.zone.label:"")+'"><td>'+esc(r.position)+mv+'</td><td class="t">'+cr(r.logo||IMG+"team/"+r.team_id+"/")+'<span class="fn">'+esc(r.team_name)+'</span><span class="sn" title="'+esc(r.team_name)+'">'+esc(shortNm(r.team_name))+'</span>'+lb+'</td><td><b>'+r.pts+'</b>'+(r.dp!=null?'<small class="dp">+'+r.dp+'</small>':"")+'</td><td>'+r.played+'</td><td>'+r.won+'</td><td>'+r.drawn+'</td><td>'+r.lost+'</td><td>'+r.gf+':'+r.ga+'</td><td>'+(r.gd>0?"+":"")+r.gd+'</td><td>'+(r.xgd==null?"-":(r.xgd>0?"+":"")+Number(r.xgd).toFixed(1))+'</td>'+(X?kuatTd(r)+luckTd(r):'')+'<td>'+frm(r.form)+'</td></tr>'}).join("")+'</table></div>'
 }
 function legend(z){if(!z||!z.length)return"";return'<p class="cap">'+z.map(function(q){return'<span class="'+zoneCls(q)+'" style="padding-left:7px;margin-right:10px">'+esc(q.label)+' ('+q.from+'–'+q.to+')</span>'}).join("")+'</p>'}
 function topList(t,lab,unit){if(!t||!t.length)return"";return'<div><h3>'+lab+'</h3><table class="kl">'+t.slice(0,10).map(function(p){return'<tr><td>'+p.rank+'</td><td class="t">'+cr(IMG+"player/"+p.player_id+"/?sor=true&bg=transparent")+esc(p.player_name)+' <small class="s">'+esc(p.team_name||"")+'</small></td><td><b>'+p.value+'</b> '+unit+'</td></tr>'}).join("")+'</table></div>'}
@@ -1282,13 +1293,14 @@ function showKl(id){
   var go=function(o){
     var h='<p class="cap">'+esc(o.name)+(o.season?" · "+esc(o.season.name):"")+' · diperbarui '+tf.format(new Date(o.updated))+' WITA'+(o.src&&/dihitung/.test(o.src)?' · klasemen dihitung dari hasil laga':'')+'</p>';
     var nl=0,nf=0,tb="",lv=function(rows,z){var q=KL.off?null:liveRows(rows,o,z);if(!q){var c=liveRows(rows,o,z);if(c){nl+=c.nl;nf+=c.nf}return rows}nl+=q.nl;nf+=q.nf;return q.rows};
-    if(o.standings&&o.standings.length){var zz=Array.isArray(o.zones)?o.zones:null;tb+=klTable(lv(o.standings,zz))+legend(zz)}
+    if(o.standings&&o.standings.length){var zz=Array.isArray(o.zones)?o.zones:null;tb+='<p class="klhint">Geser tabel ke kanan untuk kolom lainnya →</p>'+klTable(lv(o.standings,zz))+legend(zz)}
     else if(o.groups){Object.keys(o.groups).forEach(function(g){var rows=Array.isArray(o.groups[g])?o.groups[g]:(o.groups[g]&&o.groups[g].standings)||[];if(rows.length)tb+='<h3>'+esc(g)+'</h3>'+klTable(lv(rows,null))})}
     if(nl||nf)h+='<div class="klbar"><span><span class="dt"></span><b>'+(KL.off?"Klasemen resmi":"Klasemen live")+'</b> · '+(nl?nl+" laga sedang berjalan":"")+(nl&&nf?", ":"")+(nf?nf+" laga baru selesai":"")+(KL.off?" belum dihitung":" ikut dihitung")+'. '+(KL.off?"":"Urutan sementara: poin, selisih gol, gol; posisi resmi bisa beda karena aturan liga.")+'</span><button id="kltg">'+(KL.off?"Lihat klasemen live":"Lihat klasemen resmi")+'</button></div>';
     if(tb){h+=tb;if(KL.tm&&/<th title="Peringkat kekuatan/.test(tb))h+='<p class="cap"><b>Kuat</b> = peringkat kekuatan asli menurut Model BL (1 = terkuat; hijau = lebih kuat dari posisinya, merah = posisinya lebih tinggi dari kekuatannya). <b>Untung</b> = poin nyata dikurangi poin wajar dari xG (+3 ke atas: banyak untung, rawan turun; −3 ke bawah: kurang beruntung, cenderung naik). Ketuk angka untuk penjelasan.</p>'}
     else h+='<div class="em">Kompetisi ini tidak punya tabel klasemen (mis. piala/persahabatan).</div>';
     var T=o.top||{};h+='<div class="lineupcols" style="margin-top:14px">'+topList(T.scorers,"Top skor","gol")+topList(T.assists,"Top assist","assist")+topList(T.yellowcards,"Kartu kuning","")+topList(T.redcards,"Kartu merah","")+'</div>';
-    b.innerHTML=h
+    b.innerHTML=h;
+    [].forEach.call(b.querySelectorAll(".klw table.kl"),function(t){var c=t.rows[0]&&t.rows[0].cells[0];if(c)t.style.setProperty("--klc1",c.getBoundingClientRect().width+"px")})   /* V34: kolom Tim menempel tepat di samping kolom # */
   };
   var c=KL.cache[id];if(c){go(c);if(Date.now()-c._t<6e5)return}else b.innerHTML='<div class="em">Memuat...</div>';
   fj("lg/"+id+".json").then(function(o){o._t=Date.now();KL.cache[id]=o;if(KL.cur===id)go(o)}).catch(function(){if(!c)b.innerHTML='<div class="em">Data liga ini belum tersedia.</div>'})
@@ -1377,7 +1389,8 @@ function predHtml(p,x){
   if(!p||!p.markets)return x&&!x.np?pb(x):'<div class="em">BSD tidak memberi prediksi untuk laga ini.</div>';
   var m=p.markets,mr=m.match_result||{},ou=m.over_under||{},c=m.corners||{};
   return'<div class="pb"><i class="h" style="width:'+mr.prob_home+'%"></i><i class="d" style="width:'+mr.prob_draw+'%"></i><i class="a" style="width:'+mr.prob_away+'%"></i></div><div class="pl"><span class="h">'+Math.round(mr.prob_home)+'%</span><span class="d">Seri '+Math.round(mr.prob_draw)+'%</span><span class="a">'+Math.round(mr.prob_away)+'%</span></div>'
-   +'<div class="mcg"><div>Skor paling mungkin<b>'+esc((m.score||{}).most_likely||"-")+'</b></div><div>xG model<b>'+o2((m.expected_goals||{}).home)+' - '+o2((m.expected_goals||{}).away)+'</b></div><div>Over 1,5 / 2,5 / 3,5<b>'+[ou.prob_over_15,ou.prob_over_25,ou.prob_over_35].map(function(v){return v==null?"-":Math.round(v)}).join(" / ")+'%</b></div><div>Kedua tim cetak gol<b>'+((m.btts||{}).prob_yes==null?"-":Math.round(m.btts.prob_yes)+"%")+'</b></div><div>Draw no bet (tuan rumah)<b>'+((m.draw_no_bet||{}).prob_home==null?"-":Math.round(m.draw_no_bet.prob_home)+"%")+'</b></div><div>Pojok over 8,5 / 9,5<b>'+(c.prob_over_85==null?"-":Math.round(c.prob_over_85)+" / "+Math.round(c.prob_over_95)+"%")+'</b></div><div>Keyakinan model<b>'+(p.model&&p.model.confidence!=null?Math.round(p.model.confidence*100)+"%":"-")+'</b></div></div><p class="cap">'+(MC.d&&MC.d.src==="HL"?"Prediksi model Highlightly":"Prediksi model BSD")+' · diperbarui '+(p.updated_at?tf.format(new Date(p.updated_at))+" WITA":"-")+'. Perkiraan statistik, bukan jaminan.</p>'
+   +(x&&x.bl&&x.status==="NS"?'<div class="acl bl">Model BL: <b>'+Math.round(x.bl.h)+'</b> / '+Math.round(x.bl.d)+' / <b>'+Math.round(x.bl.a)+'</b>'+(x.bl.xg?' · xG '+o2(x.bl.xg[0])+' - '+o2(x.bl.xg[1]):'')+'</div>':'')
+   +'<div class="mcg"><div>Skor paling mungkin<b>'+(x&&x.bl&&x.bl.ms?esc(x.bl.ms[0]+"-"+x.bl.ms[1])+' <small>(Model BL; BSD '+esc((m.score||{}).most_likely||"-")+')</small>':esc((m.score||{}).most_likely||"-"))+'</b></div><div>xG BSD<b>'+o2((m.expected_goals||{}).home)+' - '+o2((m.expected_goals||{}).away)+'</b></div><div>Over 1,5 / 2,5 / 3,5<b>'+[ou.prob_over_15,ou.prob_over_25,ou.prob_over_35].map(function(v){return v==null?"-":Math.round(v)}).join(" / ")+'%</b></div><div>Kedua tim cetak gol<b>'+((m.btts||{}).prob_yes==null?"-":Math.round(m.btts.prob_yes)+"%")+'</b></div><div>Draw no bet (tuan rumah)<b>'+((m.draw_no_bet||{}).prob_home==null?"-":Math.round(m.draw_no_bet.prob_home)+"%")+'</b></div><div>Pojok over 8,5 / 9,5<b>'+(c.prob_over_85==null?"-":Math.round(c.prob_over_85)+" / "+Math.round(c.prob_over_95)+"%")+'</b></div><div>Keyakinan model<b>'+(p.model&&p.model.confidence!=null?Math.round(p.model.confidence*100)+"%":"-")+'</b></div></div><p class="cap">'+(MC.d&&MC.d.src==="HL"?"Prediksi model Highlightly":"Prediksi model BSD")+' · diperbarui '+(p.updated_at?tf.format(new Date(p.updated_at))+" WITA":"-")+'. Perkiraan statistik, bukan jaminan.</p>'
 }
 function formBox(f,lab){if(!f||!f.overall)return"";var o=f.overall;return'<div><b>'+esc(f.team_name||lab)+'</b> '+frm(String(o.form||"").split("").join(""))+'<div class="mcg"><div>M-S-K<b>'+o.won+'-'+o.drawn+'-'+o.lost+'</b></div><div>Gol<b>'+o.goals_for+':'+o.goals_against+'</b></div><div>Poin/laga<b>'+o2(o.points_per_match)+'</b></div>'+(o.stats&&o.stats.ball_possession?'<div>Penguasaan<b>'+Math.round(o.stats.ball_possession.average)+'%</b></div>':"")+(o.stats&&o.stats.expected_goals?'<div>xG/laga<b>'+o2(o.stats.expected_goals.average)+'</b></div>':"")+'</div></div>'}
 function h2hHtml(h,x){if(!h||!h.total_matches)return'<div class="em">Belum ada pertemuan sebelumnya.</div>';
@@ -1440,7 +1453,7 @@ document.addEventListener("click",function(e){
   var m=t.closest("[data-mc]")||t.closest("[data-mcrow]");if(m){var id=m.dataset.mc||m.dataset.mcrow;if(id){e.stopPropagation();openMC(id)}return}
   if(t.closest("[data-mcx]")||t.id==="mc"){closeMC();return}
   var tb=t.closest("[data-mct]");if(tb){MC.tab=tb.dataset.mct;drawMC(findM(MC.id),MC.d);return}
-  var sl=t.closest("[data-sl]");if(sl){SLF.st=sl.dataset.sl;renderLive();return}
+  var sl=t.closest("[data-sl]");if(sl){SLF.st=sl.dataset.sl;SLF.u=1;renderLive();return}
   var hb=t.closest("[data-hs]");if(hb){S.hs=hb.dataset.hs;draw();return}
 },true);
 document.addEventListener("change",function(e){if(e.target.id==="sl-lig"){SLF.lg=e.target.value;renderLive()}if(e.target.id==="kl-sel"){var v=e.target.value;showKl(/^\d+$/.test(v)?Number(v):v)}});
