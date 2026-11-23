@@ -11,7 +11,7 @@ import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib,favOf,recap
 import {kickModels,toRec as hlRec,hotOf,witaDate,HL_LEAGUES,pickLeague} from "./highlightly.mjs";
 import {lineupFeatures,lineupExp,drawExp,drawShift,luckOf} from "./model.mjs";
 import {applyStack} from "./stack.mjs";
-import {ACT} from "./bsd.mjs";
+import {ACT,ftSlim,carryFT} from "./bsd.mjs";
 import {factorTests as facT} from "./factors.mjs";
 import {trainLean} from "./stack.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
@@ -284,6 +284,15 @@ console.log("OK    V32: jalur pemasangan (sakelar mati)");
  const A=luckOf(ms,now),B=luckOf(ms,now,200,new Map([[10,1],[11,1],[12,9]]));assert.equal(A[10].n,3);assert.equal(B[10].n,2,"laga piala/Eropa tidak ikut");
  const H=updateHistory([{id:5,u:"2026-11-28T15:00:00Z",p:[40,30,30]}],[{eid:5,utc:"2026-11-28T15:00:00Z",status:"FT",score:[2,1],home:{name:"A"},away:{name:"B"}}],now);assert(!H.find(e=>e.id===5).r,"skor laga yang belum jadwalnya tidak dicatat")}
 console.log("OK    V34d: keberuntungan per liga & hasil janggal");
+await (async()=>{// V38: detail laga selesai dibawa (ramping) selama masih di jadwal
+ const full={id:7,status:"FT",updated:"x",info:{travel:10},h2h:{total_matches:9,recent_matches:[1,2,3,4,5,6,7,8]},stats:{stats:{home:{xg:{actual:1}}},momentum:[{m:1,v:2}],average_positions:{big:1},xg_per_minute:[1,2]},lineups:{lineup_status:"confirmed"},incidents:[{type:"goal"}],commentary:[1,2,3],odds:{a:1},player_stats:[{pid:1}],meta:{x:1},tv:[1]};
+ const sl=ftSlim(full);assert(sl.arc===1&&!sl.commentary&&!sl.odds&&!sl.meta&&!sl.stats.average_positions&&sl.stats.momentum.length===1&&sl.h2h.recent_matches.length===6&&sl.player_stats.length===1&&sl.incidents.length===1,"ramping");
+ assert(JSON.stringify(sl).length<JSON.stringify(full).length);
+ const every=[{eid:7,status:"FT"},{eid:8,status:"FT"},{eid:9,status:"NS"},{eid:"hl1",status:"FT",src:"HL"},{eid:10,status:"FT"}],have=new Set([10]),W={};
+ const n=await carryFT(every,have,async id=>id===7?full:id===8?null:{status:"FT",arc:1,id},(id,o)=>{W[id]=o});
+ assert.equal(n,1);assert(have.has(7)&&!have.has(8)&&!have.has(9)&&W[7].arc===1&&!W[7].commentary,"hanya FT yang ada filenya");
+ const h2=new Set();assert.equal(await carryFT(every,h2,async id=>({status:"FT",arc:1,id}),()=>{},{max:1}),1,"batas")})();
+console.log("OK    V38: detail laga selesai tetap tersedia");
 console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;

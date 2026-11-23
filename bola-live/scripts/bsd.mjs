@@ -1,6 +1,6 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
-import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir} from "./net.mjs";
+import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir,prevDir} from "./net.mjs";
 import {fitModel,predictModel,rollingBacktest,score,rps,disagree,experiments,lineupExp,drawExp,drawShift,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
 import {trainStack,trainLean,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
@@ -143,6 +143,15 @@ export const trimCmp=c=>{ if(!c||!c.markets)return null;
 const fSec=o=>o&&typeof o==="object"?{matches:o.matches,won:o.won,drawn:o.drawn,lost:o.lost,goals_for:o.goals_for,goals_against:o.goals_against,form:o.form,points_per_match:o.points_per_match,
   stats:o.stats?{ball_possession:o.stats.ball_possession?{average:o.stats.ball_possession.average}:undefined,expected_goals:o.stats.expected_goals?{average:o.stats.expected_goals.average}:undefined}:undefined}:null;
 export const slimForm=f=>f&&f.overall?{team_id:f.team_id,team_name:f.team_name,overall:fSec(f.overall),home:fSec(f.home),away:fSec(f.away),vs_stronger:fSec(f.vs_stronger),vs_weaker:fSec(f.vs_weaker)}:null;
+// V38: versi ramping detail laga selesai (tanpa komentar/odds/meta) untuk disimpan selama laga masih ada di jadwal
+export function ftSlim(o){if(!o)return null;const st=o.stats,h=o.h2h;
+  return{id:o.id,updated:o.updated,status:"FT",arc:1,info:o.info||null,h2h:h?{...h,recent_matches:(h.recent_matches||[]).slice(0,6)}:null,pred:o.pred||null,
+    stats:st?{stats:st.stats||null,xg_estimated:st.xg_estimated??null,shotmap:st.shotmap||null,momentum:st.momentum||null}:null,lineups:o.lineups||null,incidents:o.incidents||null,player_stats:o.player_stats||null}}
+// bawa detail laga selesai dari run sebelumnya (lokal; cadangan situs tayang dibatasi) — read(id) -> objek atau null
+export async function carryFT(every,have,read,write,{max=Infinity}={}){let n=0;
+  const ft=every.filter(m=>m.status==="FT"&&m.eid!=null&&!have.has(m.eid)&&m.src!=="HL"&&!String(m.eid).startsWith("hl"));
+  for(const m of ft){if(n>=max)break;const o=await read(m.eid);if(o&&o.status==="FT"){write(m.eid,o.arc?o:ftSlim(o));have.add(m.eid);n++}}
+  return n}
 const slimPS=ps=>(ps&&ps.player_stats||[]).filter(p=>p.minutes_played>0).map(p=>({pid:p.player_id,tid:p.team_id,min:p.minutes_played,r:p.rating,g:p.goals,as:p.goal_assist,xg:p.expected_goals,xa:p.expected_assists,sh:p.total_shots,sot:p.shots_on_target,kp:p.key_pass,pa:p.total_pass,acc:p.accurate_pass,tk:p.won_tackle,int:p.interception,sv:p.saves,yc:p.yellow_card,rc:p.red_card}));
 
 // Value hanya dihitung bila peluang model >= 20%, odds <= 5 dan value >= 2% (tim yang sangat tidak diunggulkan terlalu peka terhadap galat model).
@@ -451,6 +460,17 @@ async function main(){
       const prev=await pull("m/index.json"),want=new Set(focusOf(every,now,false).map(m=>m.eid));
       await pool(((prev&&prev.ids)||[]).filter(i=>want.has(i)&&!hotIds.has(i)).slice(0,MAXD),async id=>{const o=await pull("m/"+id+".json");if(o){writeFileSync(dir+"m/"+id+".json",JSON.stringify(o));have.add(id);deep.carried++;const ab=absOf(o.lineups),m=every.find(x=>x.eid===id);if(ab&&m)m.ab=ab}});
     }
+    // V38: detail laga selesai tetap tersedia selama laga itu masih ada di jadwal (dibawa dari run sebelumnya, versi ramping);
+    // heavy: isi mundur bertahap laga selesai yang belum punya detail (maks BSD_FT_FILL per run)
+    {const pd=prevDir();let net=0;const NETMAX=Number(process.env.BSD_FT_NET??120);
+      const read=async id=>{if(pd){try{return JSON.parse(readFileSync(pd+"m/"+id+".json","utf8"))}catch(e){return null}}if(net>=NETMAX)return null;net++;return await pull("m/"+id+".json")};
+      deep.ftKeep=await carryFT(every,have,read,(id,o)=>writeFileSync(dir+"m/"+id+".json",JSON.stringify(o)));
+      if(!LIGHT&&!overDeadline()){const fill=every.filter(m=>m.status==="FT"&&m.eid!=null&&!have.has(m.eid)&&m.src!=="HL"&&!String(m.eid).startsWith("hl")&&now-Date.parse(m.utc)>3*36e5).slice(0,Number(process.env.BSD_FT_FILL??40));
+        await pool(fill,async m=>{const id=m.eid,g=p=>get(`${BASE}/events/${id}/${p}`,{soft:true}),e=EV.get(id)||{};const [stats,lineups,inc,ps]=await Promise.all([g("stats/"),g("lineups/"),g("incidents/"),g("player-stats/")]);
+          if(!stats&&!(inc&&inc.incidents))return;
+          const o=ftSlim({id,updated:new Date(now).toISOString(),status:"FT",info:{venue_id:e.venue_id,referee_id:e.referee_id,weather:e.weather||null,derby:e.is_local_derby,neutral:e.is_neutral_ground,travel:e.travel_distance_km,round:e.round_label||null},
+            h2h:e.head_to_head||null,pred:P.get(id)||null,stats,lineups,incidents:inc&&inc.incidents||null,player_stats:ps?slimPS(ps):null});
+          writeFileSync(dir+"m/"+id+".json",JSON.stringify(o));have.add(id);deep.ftFill=(deep.ftFill||0)+1})}}
     for(const m of every)if(have.has(m.eid))m.dx=1;
     writeFileSync(dir+"m/index.json",JSON.stringify({updated:new Date(now).toISOString(),ids:[...have]}));
   }
