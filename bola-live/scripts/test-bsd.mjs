@@ -219,13 +219,26 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
    const st=(subA?.6:0)-(subH?.6:0),u=rnd(),o=u<.36+st*.5?0:u<.64+st*.3?1:2;   // line-up lemah -> peluang turun
    E[id]={t:1e9+i*3600,h,a,s:[sh,sa],r:[...row(h,sh),...row(a,sa)]};R.push({id,b:[40,28,32],p:[40,28,32],o,t:1e9+i*3600});id++}
  const F=lineupFeatures(E);assert(F.size>500,"fitur terbentuk: "+F.size);
- const first=Object.keys(E)[0];assert(!F.has(first),"laga pertama: belum ada riwayat pemain");
+ const first=Object.keys(E)[0];assert(!F.has(first)||F.get(first).only,"laga pertama: belum ada riwayat pemain");
  // tanpa bocor: mengubah rating laga X sendiri tidak mengubah fitur laga X
  const k=String(600),f0=F.get(k);const E2=JSON.parse(JSON.stringify(E));E2[k].r=E2[k].r.map(r=>(r[3]=10,r));const f1=lineupFeatures(E2).get(k);
  assert(f0&&f1&&Math.abs(f0.dh-f1.dh)<1e-12&&Math.abs(f0.da-f1.da)<1e-12,"rating laga itu sendiri tidak dipakai");
  const X=lineupExp(R,E);assert(X.n>=400&&X.bsd&&X.bsd.beta>0&&X.bsd.gain>0,"efek line-up tertangkap: "+JSON.stringify(X.bsd));
  assert.equal(lineupExp(R.slice(0,50),E).note,"belum cukup laga");assert.equal(lineupExp(R,{}),null)}
 console.log("OK    V28: koreksi line-up tahap 2 (uji coba, tanpa bocor)");
+{// V31: kiper cadangan & beban menit
+ const E={},R=[];let id=1;const D=86400;
+ for(let i=0;i<30;i++){const t=1e9+i*7*D,gk=i>=20&&i%2===0?199:101;   // tim 1: kiper utama 101, sesekali cadangan 199 setelah laga ke-20
+   const sh=[gk,...Array.from({length:10},(_,k)=>102+k)],sa=[301,...Array.from({length:10},(_,k)=>302+k)];
+   const row=(ids,team)=>ids.map(p=>[p,team,90,70,0,0,0,0,0,0,(p===101||p===199||p===301)?3:0]);
+   E[id]={t,h:1,a:2,s:[sh,sa],r:[...row(sh,1),...row(sa,2)]};R.push({id,b:[50,25,25],o:gk===199?2:0,t});
+   if(i===5){E[id+100]={t:t+2*D,h:1,a:3,s:[sh,sa.map(p=>p+500)],r:[...row(sh,1)]};E[id+101]={t:t+4*D,h:1,a:4,s:[sh,sa.map(p=>p+600)],r:[...row(sh,1)]}}
+   id++}
+ const F=lineupFeatures(E);const lateBackup=[...F.entries()].filter(([k,f])=>f.gk&&f.gk[0]===1).map(([k])=>+k);
+ assert(lateBackup.length>=2&&lateBackup.every(k=>k>20),"kiper cadangan terdeteksi setelah kiper utama mapan: "+lateBackup);
+ assert(F.get("107")&&F.get("107").fat[0]>=150,"beban menit: 2 laga dalam 8 hari -> tinggi: "+JSON.stringify(F.get("107")));
+ const X=lineupExp(R,E);assert(X.fac&&X.fac.kiperCadangan&&X.fac.kiperCadangan.win===0&&X.fac.kiperUtama.n>10,"uji faktor kiper: "+JSON.stringify(X.fac))}
+console.log("OK    V31: kiper cadangan & beban menit");
 {// V29: koreksi terarah menemukan bias pelatih baru & habis Eropa yang ditanam
  let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
  for(let i=0;i<3000;i++){const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28];

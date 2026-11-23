@@ -255,20 +255,34 @@ export function matchFeatures(ms,o={}){
 // Lalu diuji: apakah menggeser peluang BSD / Model BL sebesar exp(beta*(dqH-dqA)) memperbaiki log loss pada separuh laga terakhir.
 export function lineupFeatures(E,minKnown=7){
   const L=Object.entries(E||{}).filter(([,e])=>e&&Array.isArray(e.s)&&e.s.length===2&&Array.isArray(e.r)&&e.r.length).map(([id,e])=>({id:String(id),...e})).sort((a,b)=>a.t-b.t);
-  const P=new Map(),T=new Map(),F=new Map();
+  const P=new Map(),T=new Map(),F=new Map(),TG=new Map();
   const val=pid=>{const q=P.get(pid);return q&&q.n>=2&&q.m>0?q.s/q.m:null};
+  // V31: kiper (pemain yang pernah mencatat penyelamatan) & beban menit 8 hari terakhir per starter
+  const isGK=pid=>{const q=P.get(pid);return!!(q&&q.sv>0)};
+  const load=(ids,t)=>{let s=0,k=0;for(const p of ids){const q=P.get(p);if(!q)continue;k++;for(const [tt,mm] of q.rec)if(t-tt<=8*86400&&t>tt)s+=mm}return k>=7?s/k:null};
+  const gkSide=(ids,team)=>{const g=ids.find(isGK);if(g==null)return null;const H=TG.get(team)||[];if(H.length<5)return{g,backup:null};
+    const c=new Map();for(const x of H.slice(-8))c.set(x,(c.get(x)||0)+1);const top=[...c].sort((a,b)=>b[1]-a[1])[0][0];return{g,backup:g!==top&&(c.get(g)||0)<=1?1:0}};
   for(const e of L){
+    const gh=gkSide(e.s[0],e.h),ga=gkSide(e.s[1],e.a),fh=load(e.s[0],e.t),fa=load(e.s[1],e.t);
     const side=(ids,team)=>{const v=ids.map(val).filter(x=>x!=null);if(v.length<minKnown)return null;const Q=v.reduce((a,b)=>a+b,0)/v.length;
       const H=T.get(team)||[];const typ=H.length>=3?H.slice(-8).reduce((a,b)=>a+b,0)/Math.min(8,H.length):null;return{Q,typ,known:v.length}};
     const h=side(e.s[0],e.h),a=side(e.s[1],e.a);
-    if(h&&a&&h.typ!=null&&a.typ!=null)F.set(e.id,{dh:h.Q-h.typ,da:a.Q-a.typ,t:e.t});
+    const ex={gk:[gh&&gh.backup,ga&&ga.backup],fat:[fh,fa]};
+    if(h&&a&&h.typ!=null&&a.typ!=null)F.set(e.id,{dh:h.Q-h.typ,da:a.Q-a.typ,t:e.t,...ex});else F.set(e.id,{t:e.t,...ex,only:1});
+    if(gh)TG.set(e.h,[...(TG.get(e.h)||[]),gh.g].slice(-12));if(ga)TG.set(e.a,[...(TG.get(e.a)||[]),ga.g].slice(-12));
     if(h)T.set(e.h,[...(T.get(e.h)||[]),h.Q].slice(-12));if(a)T.set(e.a,[...(T.get(e.a)||[]),a.Q].slice(-12));
-    for(const r of e.r){if(r[3]<0||r[2]<20)continue;const q=P.get(r[0])||{n:0,s:0,m:0};q.n++;q.s+=r[3]/10*r[2];q.m+=r[2];P.set(r[0],q)}}
+    for(const r of e.r){const q=P.get(r[0])||{n:0,s:0,m:0,sv:0,rec:[]};if(r[10]>0)q.sv++;q.rec.push([e.t,r[2]]);if(q.rec.length>6)q.rec.shift();
+      if(!(r[3]<0||r[2]<20)){q.n++;q.s+=r[3]/10*r[2];q.m+=r[2]}P.set(r[0],q)}}
   return F}
 export function lineupExp(rows,E){
   const F=lineupFeatures(E);if(!F.size)return null;
-  const R=(rows||[]).filter(r=>r&&r.b&&r.o!=null&&F.has(String(r.id))).map(r=>({...r,f:F.get(String(r.id))})).sort((a,b)=>a.f.t-b.f.t);
-  const out={feat:F.size,n:R.length};if(R.length<200)return{...out,note:"belum cukup laga"};
+  // V31: uji faktor kiper cadangan & beban menit tinggi (tim yang terkena vs peluang menang BSD)
+  const fac2=(()=>{const G={};const add=(k,win,b)=>{const g=G[k]=G[k]||{n:0,w:0,b:0};g.n++;g.w+=win;g.b+=b};
+    for(const r of rows||[]){const f=F.get(String(r&&r.id));if(!f||!r.b||r.o==null)continue;for(const s of [0,1]){const win=r.o===(s?2:0)?1:0,b=r.b[s?2:0]/100;
+      if(f.gk&&f.gk[s]===1)add("kiperCadangan",win,b);if(f.gk&&f.gk[s]===0)add("kiperUtama",win,b);if(f.fat&&f.fat[s]!=null&&f.fat[s]>=150)add("bebanTinggi",win,b);if(f.fat&&f.fat[s]!=null&&f.fat[s]<60)add("segar",win,b)}}
+    const o={};for(const [k,g] of Object.entries(G)){const w=g.w/g.n,b=g.b/g.n;o[k]={n:g.n,win:Math.round(w*1000)/10,bsd:Math.round(b*1000)/10,gap:Math.round((w-b)*1000)/10,se:Math.round(Math.sqrt(Math.max(w*(1-w),.05)/g.n)*1000)/10}}return o})();
+  const R=(rows||[]).filter(r=>r&&r.b&&r.o!=null&&F.has(String(r.id))&&!F.get(String(r.id)).only).map(r=>({...r,f:F.get(String(r.id))})).sort((a,b)=>a.f.t-b.f.t);
+  const out={feat:F.size,n:R.length,fac:fac2};if(R.length<200)return{...out,note:"belum cukup laga"};
   const adj=(p,z,beta)=>{const q=[p[0]*Math.exp(beta*z),p[1],p[2]*Math.exp(-beta*z)].map(x=>Math.max(x,1e-6)),s=q[0]+q[1]+q[2];return q.map(x=>x/s)};
   const ll=(L,k,beta)=>-L.reduce((s,r)=>s+Math.log(adj(r[k].map(x=>x/100),r.f.dh-r.f.da,beta)[r.o]),0)/L.length;
   const acc=(L,k,beta)=>L.filter(r=>{const q=adj(r[k].map(x=>x/100),r.f.dh-r.f.da,beta);return q.indexOf(Math.max(...q))===r.o}).length/L.length*100;

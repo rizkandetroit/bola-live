@@ -244,3 +244,7 @@ console.log("test-ui V29 ok");
  F.set({drw:{rule:{th:40,dm:28,pass:true,test:{n:300,draw:36.1,base:26.4}}}});assert(F.drawRisk(x).includes("Rawan seri")&&F.drawRisk(x).includes("36,1%"));
  assert.equal(F.drawRisk({...x,p:{h:55,d:25,a:20}}),"","tidak berimbang");F.set({drw:{rule:{th:40,dm:28,pass:false,test:{}}}});assert.equal(F.drawRisk(x),"","belum lolos: tidak tampil")}
 console.log("test-ui V30 ok");
+{const F=new Function(pre+";return {mblHtml}")();const M={updated:"2026-11-22T00:00:00Z",temp:1,xgCov:40,cfg:{xga:.7},hfa:.18,rest:{own:0,opp:0},cov:{nXr:0,gA:0,gD:0},xrHist:0,core:{own:.035,opp:.025},w:1,useful:false,bt:{days:90,joined:4107,bsd:{acc:53.5,brier:.58,ll:.973},modelJ:{acc:51,brier:.6,ll:.998}},
+  lu2:{n:50,note:"belum cukup laga",fac:{kiperCadangan:{n:40,win:20,bsd:35,gap:-15,se:6.3},kiperUtama:{n:900,win:45,bsd:44,gap:1,se:1.7},segar:{n:5,win:1,bsd:1,gap:0,se:1}}}};
+ const h=F.mblHtml(M,null);assert(h.includes("Kiper cadangan turun")&&h.includes("-15 *")&&!h.includes("Starter rata-rata &lt; 60")&&!h.includes("< 60 menit"),h.slice(h.indexOf("Kondisi"),h.indexOf("Kondisi")+600))}
+console.log("test-ui V31 ok");
