@@ -465,7 +465,7 @@ async function main(){
     {const pd=prevDir();let net=0;const NETMAX=Number(process.env.BSD_FT_NET??120);
       const read=async id=>{if(pd){try{return JSON.parse(readFileSync(pd+"m/"+id+".json","utf8"))}catch(e){return null}}if(net>=NETMAX)return null;net++;return await pull("m/"+id+".json")};
       deep.ftKeep=await carryFT(every,have,read,(id,o)=>writeFileSync(dir+"m/"+id+".json",JSON.stringify(o)));
-      if(!LIGHT&&!overDeadline()){const fill=every.filter(m=>m.status==="FT"&&m.eid!=null&&!have.has(m.eid)&&m.src!=="HL"&&!String(m.eid).startsWith("hl")&&now-Date.parse(m.utc)>3*36e5).slice(0,Number(process.env.BSD_FT_FILL??40));
+      if(!LIGHT&&!overDeadline()){const fill=every.filter(m=>m.status==="FT"&&m.eid!=null&&!have.has(m.eid)&&m.src!=="HL"&&!String(m.eid).startsWith("hl")&&now-Date.parse(m.utc)>3*36e5).slice(0,Number(process.env.BSD_FT_FILL??100));
         await pool(fill,async m=>{const id=m.eid,g=p=>get(`${BASE}/events/${id}/${p}`,{soft:true}),e=EV.get(id)||{};const [stats,lineups,inc,ps]=await Promise.all([g("stats/"),g("lineups/"),g("incidents/"),g("player-stats/")]);
           if(!stats&&!(inc&&inc.incidents))return;
           const o=ftSlim({id,updated:new Date(now).toISOString(),status:"FT",info:{venue_id:e.venue_id,referee_id:e.referee_id,weather:e.weather||null,derby:e.is_local_derby,neutral:e.is_neutral_ground,travel:e.travel_distance_km,round:e.round_label||null},
