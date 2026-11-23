@@ -945,7 +945,7 @@ function cardDet(x){var a=blWhy(x),b=absLine(x),c=btLine(x),dq=x.p&&!x.np&&x.sta
 /* V30: tanda "rawan seri" — hanya tampil bila aturan lolos uji mundur (M.drw.rule.pass) */
 function drawRisk(x){var R=MBL&&MBL.drw&&MBL.drw.rule;if(!R||!R.pass||x.status!=="NS"||!x.p||x.p.h==null||x.np)return"";var b=x.p,p=x.bl;
   if(!(Math.max(b.h,b.a)<R.th&&b.d>=R.dm&&(!p||p.d>=R.dm-2)))return"";
-  return'<div class="acl dr">⚖️ <b>Rawan seri:</b> pada uji mundur, laga seberimbang ini berakhir seri '+pc(R.test.draw)+' (rata-rata semua laga '+pc(R.test.base)+').</div>'}
+  return'<div class="acl dr">⚖️ <b>Rawan seri:</b> pada uji mundur, laga seberimbang ini berakhir seri '+pc(R.test.draw)+' (rata-rata semua laga '+pc(R.test.base)+(R.test.bsdD!=null?'; BSD sendiri sudah memperkirakan ±'+pc(R.test.bsdD):'')+').</div>'}   /* V35c: jujur soal tambahan di atas BSD */
 function riskLine(x){var r=riskOf(x);if(!r.length)return"";return'<div class="acl rsk'+(r.length>1?" hi":"")+'">'+(r.length>1?"⚠ Rawan meleset":"⚠ Waspada")+': '+r.join(", ")+'</div>'}
 function mixLine(x){if(NEUTRAL)return"";var m=EV&&EV.move&&EV.move.mix;if(!m||!m.ok||x.status!=="NS"||!x.p||x.np)return"";var mk=x.pin&&dvg(x.pin.c);if(!mk)return"";
   var w=m.w,q=[x.p.h,x.p.d,x.p.a].map(function(v,i){return w*v+(1-w)*mk[i]}),t=q[0]+q[1]+q[2];q=q.map(function(v){return Math.round(v/t*100)});

@@ -197,7 +197,7 @@ async function main(){
     if(rows&&rows.length){writeFileSync(dir+"lg/hl"+lg.id+".json",JSON.stringify({id:"hl"+lg.id,name:lg.name,country:lg.country,season:{name:String((S.season[String(lg.id)]&&S.season[String(lg.id)].yr)||yr)},grouped:new Set(rows.map(r=>r.grp)).size>1,standings:new Set(rows.map(r=>r.grp)).size>1?[]:rows,groups:new Set(rows.map(r=>r.grp)).size>1?rows.reduce((o,r)=>{(o[r.grp]=o[r.grp]||[]).push(r);return o},{}):null,zones:null,top:{},updated:new Date(calc?now:(S.stand[String(lg.id)]||now)).toISOString(),src:calc?"dihitung Bola Live dari hasil laga Highlightly":"Highlightly"}))}
   }
   all.matches=all.matches.concat(out).sort((a,b)=>a.utc.localeCompare(b.utc));
-  all.hl={calls,left,leagues:LGS.length,matches:out.length,withPred:out.filter(m=>!m.np).length,errors};
+  all.hl={calls,left,today:S.calls.n,cap:Number(process.env.HL_DAY_CAP??90),day:S.calls.day,leagues:LGS.length,matches:out.length,withPred:out.filter(m=>!m.np).length,errors};
   if(errors.length)all.errors=(all.errors||[]).concat(errors.slice(0,5).map(e=>"Highlightly: "+e));
   writeFileSync(allPath,JSON.stringify(all));
   // leagues.json: tambahkan liga Indonesia di urutan teratas
