@@ -10,6 +10,7 @@ import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummar
 import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib,favOf,recapOf} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate,HL_LEAGUES,pickLeague} from "./highlightly.mjs";
 import {lineupFeatures,lineupExp} from "./model.mjs";
+import {trainLean} from "./stack.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
 import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
 
@@ -224,6 +225,20 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  const X=lineupExp(R,E);assert(X.n>=400&&X.bsd&&X.bsd.beta>0&&X.bsd.gain>0,"efek line-up tertangkap: "+JSON.stringify(X.bsd));
  assert.equal(lineupExp(R.slice(0,50),E).note,"belum cukup laga");assert.equal(lineupExp(R,{}),null)}
 console.log("OK    V28: koreksi line-up tahap 2 (uji coba, tanpa bocor)");
+{// V29: koreksi terarah menemukan bias pelatih baru & habis Eropa yang ditanam
+ let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
+ for(let i=0;i<3000;i++){const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28];
+   const z=-.5*(nc[0]-nc[1])+.5*(eu[0]-eu[1]),e=[Math.exp(Math.log(.45)+z),.27,Math.exp(Math.log(.28)-z)],t=e[0]+e[1]+e[2],u=rnd()*t,o=u<e[0]?0:u<e[0]+e[1]?1:2;
+   R.push({o,b,p:[60,20,20],l:1+(i%5),t:i,tb:null,nc,eu})}
+ const L=trainLean(R);assert(L.m.th[1]<-.2&&L.m.th[2]>.2,"arah koreksi benar: "+JSON.stringify(L.m.th));assert(L.on,"lolos pada data yang biasnya nyata");
+ assert(L.test.lean.ll<L.test.bsd.ll);const N=trainLean(R.map(r=>({...r,nc:[0,0],eu:[0,0]})));assert(!N.on,"tanpa bias: tidak lolos");
+ assert.equal(trainLean(R.slice(0,100)).on,false)}
+console.log("OK    V29: koreksi terarah BSD");
+{// V29b: RPS & kelompok liga & pembanding pasar di evaluasi
+ const H=[{lg:"Premier League",u:"2026-11-20T10:00:00Z",p:[60,25,15],r:[1,0],o:[1.6,4,6]},{lg:"Coupe de France",u:"2026-11-20T11:00:00Z",p:[60,25,15],r:[0,0]},{lg:"Liga X",u:"2026-11-20T12:00:00Z",p:[40,30,30],r:[0,2]}];
+ const ev=evalHistory(H);assert(Math.abs(ev.rps-((.4**2+.15**2)/2+(.6**2+.15**2)/2+(.4**2+.7**2)/2)/3)<1e-9,"RPS benar: "+ev.rps);
+ assert.equal(ev.seg.top5.n,1);assert.equal(ev.seg.piala.n,1);assert.equal(ev.seg.lain.n,1);assert(ev.market&&ev.market.n===1&&ev.market.bsdRps!=null&&ev.market.bsdAcc===100)}
+console.log("OK    V29b: RPS, kelompok liga, pembanding pasar");
 console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;

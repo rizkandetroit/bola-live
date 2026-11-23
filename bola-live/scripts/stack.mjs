@@ -110,3 +110,14 @@ export function trainMarket(rows,o={}){
   let ball=best;if(on){let bl2=Infinity;for(let b=0;b<=1.0001;b+=.05){const s=scoreP(R,r=>poolMarket(r.q,r.m,b));if(s.ll<bl2){bl2=s.ll;ball=Math.round(b*100)/100}}}
   return{on,n:R.length,nTest:te.length,beta:on?ball:0,test:{with:s1,without:s0}};
 }
+
+// V29 (uji coba): koreksi TERARAH atas BSD — tanpa Model BL dan tanpa parameter per liga, hanya:
+//   suhu global (t0), kecenderungan seri global (d0), dan 3 pola yang terbukti di uji faktor:
+//   klasemen (selisih poin per laga), pelatih baru, habis laga Eropa. Total 6 angka -> sulit "hafal" data.
+// Dinilai sama seperti V21: belajar 70% awal, uji 30% akhir, lolos bila log loss < BSD - 0,002.
+export function trainLean(rows){
+  const R=(rows||[]).map(r=>({...r,p:null}));const T=trainStack(R,{kL:1e9});
+  if(!T||!T.m)return T?{on:false,n:T.n,why:T.why||null}:null;
+  const r4=x=>Math.round(x*1e4)/1e4,te=T.test||{};
+  return{on:T.on,n:T.n,nTest:T.nTest,test:{lean:te.stack,bsd:te.bsd},m:{t0:T.m.t0,d0:T.m.d0,th:T.m.th.map(r4)}};
+}

@@ -121,10 +121,12 @@ export function rollingBacktest(ms,from,to,o={},stepD=7){
   return out;
 }
 
+// V29b: RPS (ranked probability score) = ukuran baku prediksi sepak bola; menghargai "hampir benar" (tebak menang, hasil seri) lebih dari "salah jauh".
+export function rps(p,o){const c1=p[0]-(o===0?1:0),c2=p[0]+p[1]-(o<=1?1:0);return(c1*c1+c2*c2)/2}
 export function score(rows,key="p"){
-  let n=0,acc=0,br=0,ll=0;for(const r of rows){const p=r[key];if(!p)continue;n++;const pk=p.indexOf(Math.max(...p));if(pk===r.o)acc++;
-    for(let k=0;k<3;k++)br+=(p[k]/100-(k===r.o?1:0))**2;ll-=Math.log(Math.max(p[r.o]/100,1e-6))}
-  return n?{n,acc:acc/n*100,brier:br/n,ll:ll/n}:null;
+  let n=0,acc=0,br=0,ll=0,rp=0;for(const r of rows){const p=r[key];if(!p)continue;n++;const pk=p.indexOf(Math.max(...p));if(pk===r.o)acc++;
+    for(let k=0;k<3;k++)br+=(p[k]/100-(k===r.o?1:0))**2;ll-=Math.log(Math.max(p[r.o]/100,1e-6));rp+=rps(p.map(x=>x/100),r.o)}
+  return n?{n,acc:acc/n*100,brier:br/n,ll:ll/n,rps:rp/n}:null;
 }
 // V22d: laga di mana dua sumber berbeda arah (tebakan peluang tertinggi tidak sama): siapa yang benar.
 // bl50 = bagian di mana sumber kedua (Model BL) cukup yakin (>= 50%) pada tebakannya.

@@ -1,9 +1,9 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir} from "./net.mjs";
-import {fitModel,predictModel,rollingBacktest,score,disagree,experiments,lineupExp,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
+import {fitModel,predictModel,rollingBacktest,score,rps,disagree,experiments,lineupExp,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
-import {trainStack,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
+import {trainStack,trainLean,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow} from "./players.mjs";
 import {level,r1} from "./lib.mjs";
 
@@ -287,21 +287,25 @@ export function dcCalib(rows){const B=[[80,85],[85,90],[90,95],[95,101]].map(([l
   const f=q=>({n:q.n,avg:q.n?Math.round(q.sum/q.n*10)/10:null,hit:q.n?Math.round(q.hit/q.n*1000)/10:null});
   return{all:f(all),b:B.map(q=>({lo:q.lo,hi:q.hi,...f(q)}))}}
 export function evalHistory(hist){
-  const R=(hist||[]).filter(e=>e.r&&e.p),z=()=>({n:0,hit:0,br:0,ll:0,home:0,ouN:0,ouHit:0,btN:0,btHit:0,bets:0,profit:0,mkN:0,mkHit:0,mkBr:0});
+  const R=(hist||[]).filter(e=>e.r&&e.p),z=()=>({n:0,hit:0,br:0,ll:0,rp:0,home:0,ouN:0,ouHit:0,btN:0,btHit:0,bets:0,profit:0,mkN:0,mkHit:0,mkBr:0,mkRp:0,mkBRp:0,mkBHit:0});
   const add=(s,e)=>{const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e.p.map(x=>x/100),pk=p.indexOf(Math.max(...p));
-    s.n++;if(pk===o)s.hit++;if(o===0)s.home++;s.br+=p.reduce((a,x,i)=>a+(x-(i===o?1:0))**2,0);s.ll+=-LG(Math.max(1e-6,p[o]));
+    s.n++;if(pk===o)s.hit++;if(o===0)s.home++;s.br+=p.reduce((a,x,i)=>a+(x-(i===o?1:0))**2,0);s.ll+=-LG(Math.max(1e-6,p[o]));s.rp+=rps(p,o);
     const g=e.r[0]+e.r[1];if(e.ou!=null){s.ouN++;if((e.ou>=50)===(g>2.5))s.ouHit++}
     if(e.bt!=null){s.btN++;if((e.bt>=50)===(e.r[0]>0&&e.r[1]>0))s.btHit++}
-    if(e.o&&e.o.every(x=>x>1)){const q=e.o.map(x=>1/x),t=q[0]+q[1]+q[2],m=q.map(x=>x/t),mk=m.indexOf(Math.max(...m));s.mkN++;if(mk===o)s.mkHit++;s.mkBr+=m.reduce((a,x,i)=>a+(x-(i===o?1:0))**2,0)}
+    if(e.o&&e.o.every(x=>x>1)){const q=e.o.map(x=>1/x),t=q[0]+q[1]+q[2],m=q.map(x=>x/t),mk=m.indexOf(Math.max(...m));s.mkN++;if(mk===o)s.mkHit++;s.mkBr+=m.reduce((a,x,i)=>a+(x-(i===o?1:0))**2,0);s.mkRp+=rps(m,o);s.mkBRp+=rps(p,o);if(pk===o)s.mkBHit++}   // V29b: BSD vs pasar pada laga yang sama
     if(e.v&&e.v[1]>0){s.bets++;s.profit+=e.v[0]===o?e.v[2]-1:-1}};
-  const fin=s=>({n:s.n,acc:s.n?s.hit/s.n*100:null,brier:s.n?s.br/s.n:null,ll:s.n?s.ll/s.n:null,homeAcc:s.n?s.home/s.n*100:null,
+  const fin=s=>({n:s.n,acc:s.n?s.hit/s.n*100:null,brier:s.n?s.br/s.n:null,ll:s.n?s.ll/s.n:null,rps:s.n?s.rp/s.n:null,homeAcc:s.n?s.home/s.n*100:null,
     ou:s.ouN?{n:s.ouN,acc:s.ouHit/s.ouN*100}:null,bt:s.btN?{n:s.btN,acc:s.btHit/s.btN*100}:null,
-    market:s.mkN?{n:s.mkN,acc:s.mkHit/s.mkN*100,brier:s.mkBr/s.mkN}:null,value:{bets:s.bets,profit:Math.round(s.profit*100)/100,roi:s.bets?s.profit/s.bets*100:null}});
+    market:s.mkN?{n:s.mkN,acc:s.mkHit/s.mkN*100,brier:s.mkBr/s.mkN,rps:s.mkRp/s.mkN,bsdRps:s.mkBRp/s.mkN,bsdAcc:s.mkBHit/s.mkN*100}:null,value:{bets:s.bets,profit:Math.round(s.profit*100)/100,roi:s.bets?s.profit/s.bets*100:null}});
   const all=z(),lg={},bk=[[0,40],[40,50],[50,60],[60,70],[70,101]].map(([lo,hi])=>({lo,hi,n:0,hit:0,sum:0}));
   for(const e of R){add(all,e);(lg[e.lg]=lg[e.lg]||z(),add(lg[e.lg],e));const mx=Math.max(...e.p),o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,b=bk.find(b=>mx>=b.lo&&mx<b.hi);if(b){b.n++;b.sum+=mx;if(e.p.indexOf(mx)===o)b.hit++}}
   const byLeague={};for(const k in lg)if(lg[k].n>=5)byLeague[k]=fin(lg[k]);
+  // V29b: ketajaman per kelompok liga (liga top Eropa, kompetisi antarklub Eropa/benua, piala, liga putri/tim muda, lainnya)
+  const SEG=[["top5",/^(Premier League|La Liga|Serie A|Bundesliga|Ligue 1)$/],["eropa",EU_RE],["piala",/cup|coupe|copa|taça|taca|pokal|puchar|piala|beker|kupa|fa trophy/i],["putri",/liga f|nwsl|women|femin|frauen|wsl/i]];
+  const seg={};for(const e of R){const n=String(e.lg||"");const k=(SEG.find(([,re])=>re.test(n))||["lain"])[0];add(seg[k]=seg[k]||z(),e)}
+  const segOut={};for(const k in seg){const f=fin(seg[k]);segOut[k]={n:f.n,acc:f.acc,ll:f.ll,rps:f.rps,brier:f.brier}}
   const us=R.map(e=>e.u).filter(Boolean).sort();   // V24c: rentang laga yang benar-benar dinilai (bukan klaim 30 hari)
-  return{...fin(all),span:us.length?{from:us[0],to:us[us.length-1]}:null,dc:dcCalib(R),dcF:dcCalib(R.filter(e=>!!e.bl&&!!(e.o&&e.o.every(x=>x>1))&&e.xq!==0)),byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
+  return{...fin(all),span:us.length?{from:us[0],to:us[us.length-1]}:null,seg:segOut,dc:dcCalib(R),dcF:dcCalib(R.filter(e=>!!e.bl&&!!(e.o&&e.o.every(x=>x>1))&&e.xq!==0)),byLeague,calib:bk.map(b=>({lo:b.lo,hi:b.hi,n:b.n,avg:b.n?b.sum/b.n:null,hit:b.n?b.hit/b.n*100:null})),pending:(hist||[]).filter(e=>!e.r).length};
 }
 
 // V13.3: uji mundur dari riwayat BSD (prediksi + hasil laga yang sudah selesai). Dicek 20 Nov 2026: angka prediksi BSD
@@ -610,7 +614,7 @@ async function main(){
       const blLg={};{const top=a=>a.indexOf(Math.max(...a)),G=new Map();for(const r of J){const g=G.get(r.l)||[0,0,0];g[0]++;if(top(r.b)===r.o)g[1]++;if(top(r.p)===r.o)g[2]++;G.set(r.l,g)}
         for(const [l,g] of G)if(g[0]>=20)blLg[l]=[g[0],Math.round(g[1]/g[0]*1000)/10,Math.round(g[2]/g[0]*1000)/10]}
       // V21: lapisan koreksi BSD (diuji pada 30% laga terakhir; aktif hanya bila lebih baik dari BSD & gabungan lama)
-      let STK=null;try{const SR=J.map(r=>{const f=FE.get(r.id)||{};return{o:r.o,b:r.b,p:r.p,l:r.l,t:r.t,tb:f.tb||null,nc:f.nc||null,eu:f.eu||null}});STK=trainStack(SR);
+      let STK=null;try{const SR=J.map(r=>{const f=FE.get(r.id)||{};return{o:r.o,b:r.b,p:r.p,l:r.l,t:r.t,tb:f.tb||null,nc:f.nc||null,eu:f.eu||null}});STK=trainStack(SR);try{STK.lean=trainLean(SR)}catch(e){errors.push("koreksi terarah: "+e.message)}   // V29 uji coba
         // odds pasar (internal): bobot dipelajari dari riwayat prediksi yang sudah punya peluang koreksi + odds sebelum kickoff
         const H0=await pullS("bsd-history.json");const MR=(Array.isArray(H0)?H0:[]).filter(e=>e.r&&e.sk).map(e=>({o:e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,t:Date.parse(e.u),q:e.sk,m:marketP(e.pc||e.po||e.o)}));
         STK.mk=trainMarket(MR);STK.updated=new Date(now).toISOString()}catch(e){errors.push("lapisan koreksi: "+e.message)}

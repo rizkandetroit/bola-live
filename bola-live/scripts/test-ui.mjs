@@ -179,9 +179,9 @@ console.log("render ok");
  F.set({days:90,byLeague:{"Liga MX":{n:60,acc:52}}},null);
  const c=F.card(x),d=c.indexOf('<details class="cdt"');assert(d>0,"ada Detail");
  assert(c.indexOf("Akurasi liga ini")>d&&c.indexOf("Line-up <b>")>d&&c.indexOf("Gignac (")>d,"line-up, absen, akurasi di dalam Detail");
- assert(c.includes("(line-up, absen, akurasi liga)"),"ringkasan isi Detail");assert(c.indexOf("Model BL:")<d,"Model BL tetap terlihat");
+ assert(c.includes(", line-up, absen, akurasi liga)")&&c.includes("(data "),"ringkasan isi Detail");assert(c.indexOf("Model BL:")<d,"Model BL tetap terlihat");
  assert(c.includes('Condong ke <b title="Club Tigres de la UANL">Tigres UANL</b>'),"nama pendek + title");
- assert.equal(F.cardDet({...x,bl:null,ab:null,src:"HL",p:{h:50,d:25,a:25}}),"","tanpa rincian: tidak ada Detail")}
+ {const d0=F.cardDet({...x,bl:null,ab:null,src:"HL",p:{h:50,d:25,a:25}});assert(d0.includes("(data ")&&!d0.includes("line-up,"),"tanpa rincian: hanya kelengkapan data")}}
 console.log("test-ui V24b ok");
 // V24c: periode catatan langsung ditulis apa adanya, bukan "30 hari terakhir"
 {const F=new Function(pre+";return {missHtml,bsdEvalHtml,spanTxt,spanDays,setBT:function(b){BT=b}}")();
@@ -231,3 +231,12 @@ console.log("test-ui V26 ok");
  let h="";try{h=F.mblHtml(M,null)}catch(e){h=String(e)}
  assert(h.includes("Koreksi line-up tahap 2")&&h.includes("1.200 laga")&&h.includes("(lolos)")&&h.includes("(belum lolos)"),h.slice(0,400))}
 console.log("test-ui V28 ok");
+// V29: RPS per kelompok, pembanding pasar, kelengkapan data
+{const F=new Function(pre+";return {segHtml,mktHtml,dataQ,dqLine,cardDet,set:function(b){BT=b}}")();
+ const S={top5:{n:400,acc:55,rps:.19},piala:{n:60,acc:48,rps:.22},lain:{n:900,acc:51,rps:.2},putri:{n:5,acc:60,rps:.1}};
+ const h=F.segHtml(S,"uji mundur");assert(h.includes("5 liga top Eropa")&&h.includes("Piala domestik")&&!h.includes("Liga putri")&&h.includes("0,190"),h);assert.equal(F.segHtml({lain:S.lain},"x"),"");
+ assert(F.mktHtml({n:300,acc:49,rps:.2,bsdRps:.199,bsdAcc:50}).includes("BSD setara atau lebih tajam"));assert.equal(F.mktHtml(null),"");
+ F.set({byLeague:{L:{n:40}}});const x={league:"L",src:"BSD",status:"NS",p:{h:50,d:25,a:25,xg:[1,1]},bl:{h:1,d:1,a:1,src:"xi"},odds:{h:{o:2}},home:{name:"A"},away:{name:"B"}};
+ assert.equal(F.dataQ(x).n,5);assert.equal(F.dataQ({...x,odds:null,bl:null,p:{h:1,d:1,a:1,xg:null}}).n,1);
+ const d=F.cardDet(x);assert(d.includes("data 5/5")&&d.includes("Kelengkapan data: <b>5/5</b>"),d.slice(0,300))}
+console.log("test-ui V29 ok");
