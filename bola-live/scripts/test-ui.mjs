@@ -301,7 +301,7 @@ console.log("test-ui V34e ok");
  assert(/baru ganti pelatih.*🟢 terbukti/.test(t),"pelatih baru = terbukti");assert(/3 pertemuan|12 pertemuan.*⚪ sudah diperhitungkan BSD/.test(t),"H2H = sudah diperhitungkan");
  assert(/3 hari lagi main di .*kemungkinan rotasi/.test(t),"Everton main Eropa 3 hari lagi");assert(/berbeda arah|sepakat/.test(t));assert(/Harga pasar bergeser ke arah Everton/.test(t),"pasar ke Everton: "+t.match(/Harga pasar[^.]*/));
  assert(/Klasemen|kekuatan asli #6 dari 20/.test(t));assert(/Line-up resmi belum keluar/.test(t));assert(!/undefined|NaN/.test(t),"tanpa undefined/NaN: "+(t.match(/.{40}(undefined|NaN).{20}/)||[""])[0]);
- const y={...x,status:"FT"};assert(/hanya untuk laga yang belum dimulai/.test(F.anHtml(y,d)));const z={...x,np:1};assert(/Belum ada prediksi/.test(F.anHtml(z,null)));
+ const y={...x,status:"FT",score:[null,null]};assert(/Skor akhir belum tersedia/.test(F.anHtml(y,d)));const z={...x,np:1};assert(/Belum ada prediksi/.test(F.anHtml(z,null)));
  const w=F.anHtml(x,null).replace(/<[^>]+>/g," ");assert(!/undefined|NaN/.test(w),"tanpa detail tetap rapi")}
 console.log("test-ui V35 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
@@ -319,3 +319,15 @@ console.log("test-ui V35c ok");
  const e=F.liveProb({...x,min:90,score:[0,0]},[0,0]);assert(e[1]>85,"menit 90 imbang -> seri besar: "+e);
  const u=F.anHtml({...x,src:"HL",pend:1,min:null},null).replace(/<[^>]+>/g," ");assert(/Baru mulai/.test(u)&&/baru dimulai/.test(u)&&!/undefined|NaN/.test(u))}
 console.log("test-ui V36 ok");
+
+{// V37: bedah sesudah laga
+ const F=new Function(pre+`;return {anHtml,whyMiss}`)();
+ const x={eid:5,src:"BSD",status:"FT",score:[0,1],home:{name:"Brentford"},away:{name:"Everton"},p:{h:41,d:27,a:32},pm:{p:[46,26,28],bl:[48,25,27]}};
+ const d={stats:{stats:{home:{xg:{actual:1.9},total_shots:15,shots_on_target:6},away:{xg:{actual:.5},total_shots:5,shots_on_target:2}}},incidents:[{type:"goal",minute:70,player:"I. Ndiaye",is_home:false,home_score:0,away_score:1}]};
+ const t=F.anHtml(x,d).replace(/<[^>]+>/g," ").replace(/\s+/g," ");if(process.env.SHOW_AN)console.log(t);
+ assert(/Selesai · Brentford 0-1 Everton — Everton menang/.test(t));assert(/BSD: 46 \/ 26 \/ 28 → menebak menang Brentford ❌ meleset/.test(t));assert(/Model BL: 48/.test(t));
+ assert(/Everton menang beruntung/.test(t));assert(/Kurang beruntung/.test(t));assert(!/undefined|NaN/.test(t),t);
+ assert.equal(F.whyMiss(0,[0,1],[1.9,.5],[null,null],null),"apes");assert.equal(F.whyMiss(0,[0,1],[1,1],[60,null],null),"merah");assert.equal(F.whyMiss(0,[1,1],[1.2,1],[null,null],[1,0]),"telat");assert.equal(F.whyMiss(0,[1,0],[1,1],[null,null],null),null);
+ const ok=F.anHtml({...x,score:[2,0]},d).replace(/<[^>]+>/g," ");assert(/✅ benar/.test(ok)&&/sesuai hasil/.test(ok));
+ const nd=F.anHtml({...x,pm:null,src:"HL",p:{h:60,d:25,a:15}},null).replace(/<[^>]+>/g," ");assert(/xG tidak tersedia/.test(nd)&&!/undefined|NaN/.test(nd))}
+console.log("test-ui V37 ok");

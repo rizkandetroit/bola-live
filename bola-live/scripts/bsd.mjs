@@ -680,7 +680,9 @@ async function main(){
   // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
   let hist=[];{if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
     else{const h=await readState("bsd-history.json");if(Array.isArray(h))hist=h}}
-  if(!fatal&&events.length){hist=updateHistory(hist,every,now);deep.missF=fillMissFacts(hist,now,id=>{try{return JSON.parse(readFileSync(dir+"m/"+id+".json","utf8"))}catch(e){return null}});
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now);
+    // V37 (Analisa Tahap 3): tebakan yang dicatat sebelum kickoff ikut ditempel ke laga selesai, untuk bedah sesudah laga
+    {const HM=new Map(hist.map(e=>[e.id,e]));for(const m of matches){if(m.status!=="FT"||!m.eid)continue;const e=HM.get(m.eid);if(e&&e.p)m.pm={p:e.p,bl:e.bl||null}}}deep.missF=fillMissFacts(hist,now,id=>{try{return JSON.parse(readFileSync(dir+"m/"+id+".json","utf8"))}catch(e){return null}});
     writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now),miss:evalMiss(hist,now)}))}
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,

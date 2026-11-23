@@ -781,7 +781,7 @@ var LGID={"Champions League":"Liga Champions","Europa League":"Liga Europa","Con
  "Coupe de France":"Piala Prancis","Taça de Portugal":"Piala Portugal","Carabao Cup":"Piala Liga Inggris","FA Cup":"Piala FA Inggris","Copa do Brasil":"Piala Brasil","Emperor Cup":"Piala Kaisar Jepang","Chinese Super League":"Liga Super China","Coppa Italia":"Piala Italia","DFB Pokal":"Piala Jerman (DFB-Pokal)","Copa Colombia":"Piala Kolombia","Veikkausliiga":"Liga Finlandia","International Friendly Games":"Laga Persahabatan","CONCACAF Nations League":"Nations League CONCACAF","UEFA Nations League":"Nations League UEFA","Botola Pro":"Liga Maroko","Copa del Rey":"Piala Raja Spanyol","Puchar Polski":"Piala Polandia","Liga F":"Liga Spanyol Putri","NWSL":"Liga Amerika Putri","Thai League 1":"Liga Thailand","Malaysia Super League":"Liga Malaysia","1st Division Denmark|Denmark":"Liga 2 Denmark","Ligue 1 Algeria|Algeria":"Liga Aljazair"};
 var WOMEN={"Liga F":1,"NWSL":1};
 /* V34c: babak/pekan dari BSD ke bahasa Indonesia */
-function rlId(t){return String(t||"").replace(/Regular season/i,"Musim reguler").replace(/Matchday\s*(\d+)/i,"Pekan $1").replace(/Round of (\d+)/i,"$1 besar").replace(/Round\s*(\d+)/i,"Babak $1").replace(/Quarter-?finals?/i,"Perempat final").replace(/Semi-?finals?/i,"Semifinal").replace(/Group\s+([A-Z0-9]+)/i,"Grup $1").replace(/League (phase|stage)/i,"Fase liga").replace(/Qualification/i,"Kualifikasi").replace(/Play-?offs?/i,"Babak playoff").replace(/Knockout( stage)?/i,"Fase gugur")}
+function rlId(t){return String(t||"").replace(/Regular season\s*-\s*(\d+)/i,"Musim reguler · Pekan $1").replace(/Regular season/i,"Musim reguler").replace(/Matchday\s*(\d+)/i,"Pekan $1").replace(/Round of (\d+)/i,"$1 besar").replace(/Round\s*(\d+)/i,"Babak $1").replace(/Quarter-?finals?/i,"Perempat final").replace(/Semi-?finals?/i,"Semifinal").replace(/Group\s+([A-Z0-9]+)/i,"Grup $1").replace(/League (phase|stage)/i,"Fase liga").replace(/Qualification/i,"Kualifikasi").replace(/Play-?offs?/i,"Babak playoff").replace(/Knockout( stage)?/i,"Fase gugur")}
 function lgLabel(n,c){n=String(n||"");return(c&&LGID[n+"|"+c])||LGID[n]||n}
 function lgSmall(n,c){var l=lgLabel(n,c);if(l===n)return c&&n.indexOf(c)<0?' <span class="lc">'+esc(c)+'</span>':"";return l.indexOf(n)>-1?"":' <span class="lc">'+esc(n)+'</span>'}
 /* tanda tim putri / tim muda (cadangan, U-23, B) agar tidak tertukar dengan tim utama */
@@ -1320,7 +1320,7 @@ function findM(id){return D&&D.matches.find(function(x){return String(x.eid)===S
 function wide(){return window.innerWidth>=1200&&VIEW==="j"&&$("#mcp")}
 function openMC(id,refresh){
   if(refresh&&!wide()&&$("#mc").hidden)return;   // V13.2: penyegaran otomatis tidak boleh memunculkan Match Center di tab lain
-  MC.id=id;if(!refresh){var x0=findM(id);MC.tab=x0&&((x0.status==="NS"&&x0.p&&!x0.np)||x0.status==="LIVE")?"an":"sum";MC.d=null}   /* V35: laga belum main dibuka di tab Analisa */
+  MC.id=id;if(!refresh){var x0=findM(id);MC.tab=x0&&((x0.status==="NS"&&x0.p&&!x0.np)||x0.status==="LIVE"||x0.status==="FT")?"an":"sum";MC.d=null}   /* V35: laga belum main dibuka di tab Analisa */
   MC.panel=wide();
   if(!MC.panel){$("#mc").hidden=false;document.body.style.overflow="hidden"}
   [].forEach.call(document.querySelectorAll(".prow.sel,.cc.sel"),function(r){r.classList.remove("sel")});[].forEach.call(document.querySelectorAll('.prow[data-mc="'+id+'"],.cc[data-mc="'+id+'"]'),function(r){r.classList.add("sel")});
@@ -1529,10 +1529,52 @@ function anLive(x,d){var nm=[shortNm(x.home.name),shortNm(x.away.name)],sec=[],l
   if(q){var fv=q.h>=q.a?0:2;pi.push(li("Sebelum laga: condong ke "+esc(fv===0?nm[0]:nm[1])+" ("+Math.round(Math.max(q.h,q.a))+"% menang, seri "+Math.round(q.d)+"%)."+(has&&sc[0]!==sc[1]&&(sc[0]>sc[1]?0:2)!==fv?" <b>Sejauh ini di luar perkiraan.</b>":"")))}
   box("Perkiraan",pi);
   return'<div class="an"><div class="anc">'+head+'</div>'+sec.join("")+'<p class="cap">Analisa langsung, ikut diperbarui tiap data baru masuk (±1 menit). 🟢 terbukti · ⚪ fakta · 🟡 indikasi, belum diuji. Ini analisa peluang, bukan jaminan hasil.</p></div>'}
+/* V37 (Tahap 3): bedah sesudah laga — tebakan sebelum kickoff vs hasil, dibaca lewat xG dan kejadian (aturan sama dengan Evaluasi › Bedah meleset) */
+function whyMiss(pick,sc,xg,red,late){var o=sc[0]>sc[1]?0:sc[0]===sc[1]?1:2;if(pick===o)return null;
+  if(pick!==1&&red[pick===0?0:1]!=null&&red[pick===0?0:1]<80)return"merah";
+  if(late){var pre=late[0]>late[1]?0:late[0]===late[1]?1:2;if(pre===pick)return"telat"}
+  if(!xg)return"nodata";var h=xg[0],a=xg[1];if(pick===1)return Math.abs(h-a)>=.6?"salah":"tipis";
+  var dd=pick===0?h-a:a-h;return dd>=.4?"apes":dd<=-.4?"salah":"tipis"}
+function anPost(x,d){var nm=[shortNm(x.home.name),shortNm(x.away.name)],sc=x.score||[],sec=[],li=function(t){return"<li>"+t+"</li>"};
+  var box=function(title,items){items=items.filter(Boolean);if(items.length)sec.push("<h3>"+title+"</h3><ul>"+items.join("")+"</ul>")};
+  if(sc[0]==null)return'<div class="em">Skor akhir belum tersedia.</div>';
+  var o=sc[0]>sc[1]?0:sc[0]===sc[1]?1:2,res=o===1?"Imbang":esc(nm[o===0?0:1])+" menang";
+  var ST=d&&d.stats,S=ST&&(ST.stats&&ST.stats.home?ST.stats:ST.home?ST:null),H=S&&S.home,A=S&&S.away,xh=anSt(H,"xg"),xa=anSt(A,"xg"),xg=xh!=null&&xa!=null?[xh,xa]:null;
+  var inc=d&&d.incidents||[],R=redsOf(inc),red=[R[0].length?Math.min.apply(null,R[0].map(function(r){return Number(r.minute)||0})):null,R[1].length?Math.min.apply(null,R[1].map(function(r){return Number(r.minute)||0})):null];
+  var G=inc.filter(function(i){return i.type==="goal"&&i.minute!=null&&Number(i.minute)<=90&&i.home_score!=null}).sort(function(a,b){return(a.minute*100+(a.added_time||0))-(b.minute*100+(b.added_time||0))}),Lg=G[G.length-1];
+  var late=Lg&&Number(Lg.minute)>=85?[Lg.home_score-(Lg.is_home?1:0),Lg.away_score-(Lg.is_home?0:1)]:null;
+  var pk=function(v){return v.indexOf(Math.max.apply(null,v))},P=x.pm&&x.pm.p||(x.p&&!x.np?[x.p.h,x.p.d,x.p.a]:null),B=x.pm&&x.pm.bl,lab=["menang "+nm[0],"seri","menang "+nm[1]];
+  // tebakan vs hasil
+  var ti=[],w=null;
+  if(P){var pb=pk(P);w=whyMiss(pb,sc,xg,red,late);ti.push(li("BSD: "+Math.round(P[0])+" / "+Math.round(P[1])+" / "+Math.round(P[2])+" → menebak <b>"+esc(lab[pb])+"</b> "+(pb===o?"✅ benar":"❌ meleset")))}
+  if(B){var pl=pk(B);ti.push(li("Model BL: "+Math.round(B[0])+" / "+Math.round(B[1])+" / "+Math.round(B[2])+" → menebak <b>"+esc(lab[pl])+"</b> "+(pl===o?"✅ benar":"❌ meleset")))}
+  if(!P)ti.push(li("Tidak ada tebakan yang tercatat sebelum kickoff."));
+  else if(!x.pm)ti.push(li("<small>Angka di atas adalah prediksi BSD yang tersimpan; catatan sebelum kickoff belum tersedia untuk laga ini.</small>"));
+  box("Tebakan sebelum laga",ti);
+  // jalannya laga
+  var ji=[];if(xg){ji.push(li("xG akhir <b>"+o2(xh)+" - "+o2(xa)+"</b>"+(anSt(H,"total_shots")!=null?" · tembakan "+anSt(H,"total_shots")+" - "+anSt(A,"total_shots")+(anSt(H,"shots_on_target")!=null?" (tepat sasaran "+anSt(H,"shots_on_target")+" - "+anSt(A,"shots_on_target")+")":""):"")));
+    var xd=xh-xa;if(o!==1&&(o===0?xd<=-.4:xd>=.4))ji.push(li("<b>"+esc(nm[o===0?0:1])+" menang beruntung</b>: peluang (xG) lawan lebih banyak."));
+    else if(o!==1&&Math.abs(xd)>=.4)ji.push(li("Kemenangan "+esc(nm[o===0?0:1])+" <b>sesuai jalannya laga</b>."));
+    else if(o===1&&Math.abs(xd)>=.6)ji.push(li("Imbang, padahal <b>"+esc(nm[xd>0?0:1])+" jauh lebih banyak peluang</b>."));
+    else ji.push(li("Laga berjalan seimbang; hasil ini wajar."))}
+  else ji.push(li("Statistik xG tidak tersedia untuk laga ini."));
+  box("Jalannya laga",ji);
+  // kejadian penentu
+  var ki=[];[0,1].forEach(function(i){R[i].forEach(function(r){ki.push(li("🟥 "+esc(nm[i])+" kartu merah menit "+r.minute+(r.player?" ("+esc(pName(r.player)||r.player)+")":"")))})});
+  if(late)ki.push(li("⚽ Gol menit "+Lg.minute+(Lg.added_time?"+"+Lg.added_time:"")+" ("+esc(nm[Lg.is_home?0:1])+") mengubah hasil."));
+  G.filter(function(g){return g.goal_type==="penalty"}).forEach(function(g){ki.push(li("Penalti menit "+g.minute+" ("+esc(nm[g.is_home?0:1])+")"))});
+  box("Kejadian penentu",ki);
+  // kenapa meleset
+  if(w){var M=MISSN.filter(function(m){return m[0]===w})[0],EVm=EV&&EV.miss&&EV.miss.bsd;
+    box("Kenapa tebakan BSD meleset",[li("<b>"+esc(M?M[1]:w)+"</b>"+(M?": "+esc(M[2]):"")+"."+(EVm&&EVm.miss?" <small>Dalam "+(EV.miss.days||30)+" hari terakhir, "+(EVm.c[w]||0)+" dari "+EVm.miss+" tebakan BSD yang meleset masuk kategori ini.</small>":"")),
+      w==="apes"||w==="telat"||w==="merah"?li("Artinya prediksinya masuk akal; hasilnya dibelokkan oleh jalannya laga, bukan karena salah baca."):w==="salah"?li("Artinya lawan memang bermain lebih baik dari perkiraan — bahan evaluasi model."):""])}
+  else if(P)box("Catatan",[li("Tebakan BSD sesuai hasil.")]);
+  return'<div class="an"><div class="anc"><b>Selesai · '+esc(nm[0])+' '+sc[0]+'-'+sc[1]+' '+esc(nm[1])+'</b> — '+res+'.</div>'+sec.join("")+'<p class="cap">Bedah otomatis dari skor akhir, xG, dan kejadian laga. Kategori sama dengan Evaluasi › Bedah meleset.</p></div>'}
 function anHtml(x,d){
   if(!x||!x.home)return'<div class="em">Analisa belum tersedia.</div>';
   if(x.status==="LIVE")return anLive(x,d);
-  if(x.status!=="NS")return'<div class="em">Analisa sebelum laga hanya untuk laga yang belum dimulai. Bedah sesudah laga menyusul (Tahap 3).</div>';
+  if(x.status==="FT")return anPost(x,d);
+  if(x.status!=="NS")return'<div class="em">Analisa belum tersedia untuk status laga ini.</div>';
   if(!x.p||x.np)return'<div class="em">Belum ada prediksi untuk laga ini, jadi analisa belum bisa disusun.</div>';
   anLoad(x);
   var T=KL.tm||AN.tm||{},L=AN.lg[x.lid],nm=[shortNm(x.home.name),shortNm(x.away.name)],ids=[x.hid,x.aid],q=dp(x);
