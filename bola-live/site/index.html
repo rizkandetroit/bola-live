@@ -186,6 +186,7 @@ select#kl-sel,select#lgs,select#sl-lig{max-width:100%;text-overflow:ellipsis}
 .an h3{font-size:14px;margin:16px 0 6px;color:var(--ink)}.an ul{margin:0;padding-left:18px}.an li{margin:5px 0;line-height:1.5}.an small{color:var(--mut)}
 .anc{background:var(--pn2);border:1px solid var(--ln2);border-radius:10px;padding:10px 12px;line-height:1.5}
 .evt{display:inline-block;font-size:11px;line-height:1.5;padding:0 6px;border-radius:9px;margin-left:6px;border:1px solid var(--ln2);white-space:nowrap;cursor:help;vertical-align:1px}.evt.eg{color:#16a34a;border-color:#16a34a55}.evt.ey{color:#b45309;border-color:#b4530955}.evt.ei{color:var(--mut)}.evx{display:block;color:var(--mut);font-size:12px;margin:2px 0 0}
+.tm .n{flex-wrap:wrap}.tm .n .tag{flex:none}   /* V38d: tanda Putri/Tim muda turun ke baris berikut, tidak menimpa skor */
 .kq.up{color:var(--good,#16a34a);font-weight:600}.kq.dn{color:var(--bad,#dc2626);font-weight:600}   /* V26c: nama liga panjang tidak melebarkan halaman di HP */
 .tag.tw{font-size:10px;padding:1px 6px;margin:0 4px;vertical-align:middle;color:var(--A);border-color:var(--A)}
 .acl.fav{margin-top:6px;padding:6px 9px;border-radius:9px;background:var(--ok-soft);border:1px solid var(--okB);color:var(--ink)}.acl.fav .fv{color:var(--ok)}.acl.fav .mut{color:var(--mut)}
@@ -786,7 +787,7 @@ function lgLabel(n,c){n=String(n||"");return(c&&LGID[n+"|"+c])||LGID[n]||n}
 function lgSmall(n,c){var l=lgLabel(n,c);if(l===n)return c&&n.indexOf(c)<0?' <span class="lc">'+esc(c)+'</span>':"";return l.indexOf(n)>-1?"":' <span class="lc">'+esc(n)+'</span>'}
 /* tanda tim putri / tim muda (cadangan, U-23, B) agar tidak tertukar dengan tim utama */
 var YTH=/(^|\s)(U-?1[7-9]|U-?2[0-3]|Sub-?2[0-3]|Next Gen|Jong|Futures|Reserves?|Youth|Primavera|Castilla)(\s|$)|\s(II|B)$/i;   /* II/B hanya di akhir nama: Willem II tetap tim utama */
-function teamTag(x,t){return WOMEN[x.league]?' <span class="tag tw" title="Tim putri">Putri</span>':YTH.test(t&&t.name||"")?' <span class="tag tw" title="Tim cadangan / tim muda, bukan tim utama">Tim muda</span>':""}
+function teamTag(x,t){return WOMEN[x.league]?(/Putri/.test(lgLabel(x.league,x.lc))?"":' <span class="tag tw" title="Tim putri">Putri</span>'):YTH.test(t&&t.name||"")?' <span class="tag tw" title="Tim cadangan / tim muda, bukan tim utama">Tim muda</span>':""}
 function lgName(x){return'<span title="'+esc(x.league)+'">'+esc(lgLabel(x.league,x.lc))+'</span>'+lgSmall(x.league,x.lc)}
 function card(x,rank){
   if(x.np)return cardNp(x);
@@ -1146,11 +1147,12 @@ function draw(){
   var L=M.filter(function(x){return(S.lg==="Semua"||x.league===S.lg)&&stOk(x)&&(!q||(x.home.name+" "+x.away.name+" "+x.league+" "+lgLabel(x.league,x.lc)).toLowerCase().indexOf(q)>-1)});
   L=dateStrip(L,td,dkf2);
   var fk=[S.st,S.lg,S.dt,S.q,S.v,S.so].join("|");if(fk!==S.fk){S.fk=fk;S.lim=60}var nAll=L.length;   /* V34: gambar 60 laga dulu, sisanya lewat tombol */
-  L.sort(S.st==="FAV"?function(a,b){return favOf(b).v-favOf(a).v||a.utc.localeCompare(b.utc)}:S.so==="jam"?function(a,b){return a.utc.localeCompare(b.utc)}:function(a,b){return(b.edge||0)-(a.edge||0)});
+  L.sort(S.st==="FAV"?function(a,b){return favOf(b).v-favOf(a).v||a.utc.localeCompare(b.utc)}:S.so==="jam"?(S.st==="FT"?function(a,b){return b.utc.localeCompare(a.utc)}:function(a,b){return a.utc.localeCompare(b.utc)}):function(a,b){return(b.edge||0)-(a.edge||0)});
   if(L.length>S.lim)L=L.slice(0,S.lim);
   var groups={},order=[];L.forEach(function(x){var k=dkf2.format(new Date(x.utc));if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(x)});
   var h=(S.st==="FAV"?favHead(L,td):catHtml(q))+(D.extra&&S.st!=="FAV"?'<p class="cap">Belum ada laga yang akan tayang pada sisa bulan ini.</p>':"");
-  order.sort().forEach(function(k){
+  order.sort();if(S.st==="FT")order.reverse();   /* V38d: Selesai = terbaru dulu */
+  order.forEach(function(k){
     h+='<div class="day">'+dnf.format(new Date(groups[k][0].utc))+(k===td?" (hari ini)":"")+'</div>';
     if(S.v==="list"){var bl={},ol=[];groups[k].forEach(function(x){if(!bl[x.league]){bl[x.league]=[];ol.push(x.league)}bl[x.league].push(x)});h+=ol.map(function(l){return'<div class="plg">'+cr(bl[l][0].lgc,"lgc")+lgName(bl[l][0])+'<span>'+bl[l].length+'</span></div>'+bl[l].map(prow).join("")}).join("");return}
     h+=S.v==="card"?'<div class="g">'+groups[k].map(function(x){return card(x)}).join("")+'</div>':'<div class="ov"><div class="tb">'+groups[k].map(row).join("")+'</div></div>'

@@ -340,3 +340,7 @@ console.log("test-ui V37 ok");
  const x={eid:1,src:"BSD",status:"FT",score:[1,1],home:{name:"Puebla"},away:{name:"San Luis"},pm:{p:[37,27,35]}};const t=F.anHtml(x,{stats:{stats:{home:{xg:{actual:1.09}},away:{xg:{actual:1.67}}}}}).replace(/<[^>]+>/g," ");
  assert(/Imbang, padahal\s+San Luis lebih banyak peluang/.test(t)&&/Salah baca/.test(t)&&!/seimbang; hasil ini wajar/.test(t),t)}
 console.log("test-ui V38c ok");
+{const F=new Function(pre+`;return {teamTag}`)();const w=Object.keys(new Function(pre+";return WOMEN")());const lgP=w.find(l=>/Putri/.test(new Function(pre+";return lgLabel")()(l)));
+ if(lgP)assert.equal(F.teamTag({league:lgP},{name:"X"}),"","liga sudah bertanda Putri -> tidak ada tanda dobel");assert(/Tim muda/.test(F.teamTag({league:"Eerste Divisie"},{name:"Jong Ajax"})));
+ assert(/order\.sort\(\);if\(S\.st==="FT"\)order\.reverse\(\)/.test(html),"Selesai terbaru dulu")}
+console.log("test-ui V38d ok");
