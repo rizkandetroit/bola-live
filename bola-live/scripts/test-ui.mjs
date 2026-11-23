@@ -223,4 +223,5 @@ console.log("test-ui V25 ok");
  assert(T("Segunda División","Real Sociedad B").includes("Tim muda"));assert.equal(T("Eredivisie","Willem II Tilburg"),"","Willem II = tim utama");assert.equal(T("Eerste Divisie","Jong Ajax").includes("Tim muda"),true);assert.equal(T("La Liga","Barcelona"),"")}
 {const F=new Function(pre+";return {favRaporHtml,set:function(b,e){BT=b;EV=e}}")();F.set({days:90,dc:{all:{n:1353,hit:89.1,avg:86.4}}},{dc:{all:{n:86,hit:81.4,avg:85.8}},dcF:{all:{n:60,hit:85,avg:86}}});
  const r=F.favRaporHtml({days:[{d:"2026-11-21",fv:{n:1,hit:1,m:[["L","A","B",1,0,0,90,0]]}}]});assert(r.includes("Catatan langsung: 85% (60 laga")&&!r.includes("81%"),"rapor memakai data lengkap")}
+{const F=new Function(pre+";return {lgLabel}")();assert.equal(F.lgLabel("Thai League 1"),"Liga Thailand");assert.equal(F.lgLabel("Malaysia Super League"),"Liga Malaysia");assert.equal(F.lgLabel("1st Division Denmark","Denmark"),"Liga 2 Denmark")}
 console.log("test-ui V26 ok");

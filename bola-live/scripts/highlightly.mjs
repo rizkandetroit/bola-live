@@ -13,7 +13,12 @@ import {updateHistory,evalHistory,evalMove,evalRisk,evalBL,recapOf,evalMiss} fro
 // Liga tambahan (extra) memakai sisa kuota: disegarkan lebih jarang dan berhenti bila pemakaian hari ini sudah >= HL_EXTRA_CAP,
 // supaya liga Indonesia selalu kebagian.
 export const HL_LEAGUES=[{id:233958,name:"Liga 1 Indonesia",short:"Liga 1",country:"Indonesia"},{id:234809,name:"Liga 2 Indonesia",short:"Liga 2",noTable:true,country:"Indonesia"},
-  {id:102904,name:"1st Division Denmark",short:"Denmark 1",country:"Denmark",extra:true},{id:159070,name:"Ligue 1 Algeria",short:"Algeria 1",country:"Algeria",extra:true}];
+  {id:102904,name:"1st Division Denmark",short:"Denmark 1",country:"Denmark",extra:true},{id:159070,name:"Ligue 1 Algeria",short:"Algeria 1",country:"Algeria",extra:true},
+  // V27 (23 Nov 2026): Asia Tenggara. Kuota Minggu (hari tersibuk Liga 1/2) 55/100, jadi ada ruang. Tetap "extra": berhenti bila hari ini >= HL_EXTRA_CAP.
+  {id:252680,name:"Thai League 1",short:"Thailand 1",country:"Thailand",extra:true},
+  {id:null,name:"Malaysia Super League",short:"Malaysia 1",country:"Malaysia",extra:true,find:/super\s*league/i,avoid:/women|wanita|u-?2\d|cup|piala|fa\b|charity/i}];
+// V27: liga tanpa id dicari sekali lewat /football/leagues?countryName=... (1 permintaan), hasilnya disimpan di hl.json (S.lid).
+export function pickLeague(list,lg){const L=(list||[]).filter(x=>x&&x.id&&lg.find.test(x.name||"")&&!(lg.avoid&&lg.avoid.test(x.name||"")));return L.length?L[0].id:null}
 // V22d (hemat kuota): musim 24 jam (skor/hasil sudah dari "hari ini"); skor live Indonesia tiap 20 menit HANYA selama laga berjalan
 // (bukan lagi sejak 2 jam sebelum kickoff); liga tambahan tiap 60 menit; hasil laga yang belum tercatat diambil setelah laga mestinya selesai;
 // klasemen saat ada laga yang baru selesai (atau 24 jam sekali); detail laga tidak lagi diambil tiap 40 menit selama live.
@@ -138,7 +143,11 @@ async function main(){
   let stop=false;const task=async(name,fn)=>{if(stop)return;try{await fn()}catch(e){errors.push(name+": "+e.message);if(e.fatal||e.quota)stop=true}};
 
   const XCAP=Number(process.env.HL_EXTRA_CAP??60),only=(process.env.HL_ONLY||"").split(",").filter(Boolean);
-  const LGS=HL_LEAGUES.filter(lg=>!only.length||only.includes(String(lg.id)));
+  S.lid=S.lid||{};
+  for(const lg of HL_LEAGUES)if(!lg.id&&lg.find&&!S.lid[lg.name]&&!(S.lidMiss&&S.lidMiss[lg.name]&&now-S.lidMiss[lg.name]<7*DAY))await task("cari id "+lg.short,async()=>{
+    const j=await get(`/football/leagues?countryName=${encodeURIComponent(lg.country)}&limit=100`);const id=pickLeague(list(j),lg);
+    if(id)S.lid[lg.name]=id;else{S.lidMiss=S.lidMiss||{};S.lidMiss[lg.name]=now;console.log("liga "+lg.name+" tidak ditemukan di Highlightly; dicoba lagi 7 hari lagi")}});
+  const LGS=HL_LEAGUES.map(lg=>lg.id?lg:{...lg,id:S.lid[lg.name]||null}).filter(lg=>lg.id&&(!only.length||only.includes(String(lg.id))));
   for(const lg of LGS){
     const key=String(lg.id),E=lg.extra?EVERY_X:EVERY;
     if(lg.extra&&S.calls.n>=XCAP){console.log("liga tambahan "+lg.short+" dilewati run ini: kuota hari ini dihemat untuk liga Indonesia");continue}

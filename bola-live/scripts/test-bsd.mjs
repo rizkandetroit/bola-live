@@ -8,7 +8,7 @@ import {fileURLToPath} from "node:url";
 import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
 import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib,favOf,recapOf} from "./bsd.mjs";
-import {kickModels,toRec as hlRec,hotOf,witaDate} from "./highlightly.mjs";
+import {kickModels,toRec as hlRec,hotOf,witaDate,HL_LEAGUES,pickLeague} from "./highlightly.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
 import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
 
@@ -202,6 +202,10 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  assert.equal(recapOf([H[2]],now).days[0].fv,null,"tanpa favorit");
  {const ev=evalHistory(H);assert.equal(ev.dc.all.n,5,"semua >=80%");assert.equal(ev.dcF.all.n,2,"hanya data lengkap");assert.equal(ev.dcF.all.hit,50)}
  const U=updateHistory([],[{eid:9,status:"NS",utc:"2026-11-23T10:00:00Z",league:"L",home:{name:"A"},away:{name:"B"},p:{h:80,d:12,a:8,xg:null}}],now);assert.equal(U[0].xq,0,"catat xq")}
+{const T=HL_LEAGUES.find(l=>l.name==="Thai League 1"),M=HL_LEAGUES.find(l=>l.name==="Malaysia Super League");
+ assert(T&&T.id===252680&&T.extra,"Thailand: extra");assert(M&&M.id===null&&M.extra&&M.find,"Malaysia: dicari");assert(HL_LEAGUES.filter(l=>!l.extra).every(l=>l.country==="Indonesia"),"hanya Indonesia yang prioritas");
+ const L=[{id:1,name:"Malaysia Super League Women"},{id:2,name:"Malaysia FA Cup"},{id:3,name:"Super League"},{id:4,name:"Malaysia Super League"}];
+ assert.equal(pickLeague(L,M),3,"lewati wanita & piala, ambil Super League pertama");assert.equal(pickLeague([{id:9,name:"Malaysia Cup"}],M),null);assert.equal(pickLeague(null,M),null)}
 console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;
@@ -325,7 +329,8 @@ sc("Highlightly: liga tambahan ikut tampil, Indonesia diprioritaskan, musim tahu
   const H=http.createServer((q,s)=>{const u=new URL(q.url,"http://x");hits.push(u.pathname+u.search);const send=o=>{s.writeHead(200,{"content-type":"application/json","x-ratelimit-requests-remaining":"60"});s.end(JSON.stringify(o))};
     if(u.pathname==="/football/matches"){const lid=+u.searchParams.get("leagueId"),se=+u.searchParams.get("season");
       if(lid===159070&&se===yr)return send({data:[],pagination:{totalCount:0}});               // Algeria: musim tahun ini kosong -> tahun lalu
-      return send({data:mk(lid,{233958:"Persib",234809:"PSS",102904:"Kolding",159070:"Setif"}[lid]),pagination:{totalCount:4}})}
+      return send({data:mk(lid,{233958:"Persib",234809:"PSS",102904:"Kolding",159070:"Setif",252680:"Buriram",777:"JDT"}[lid]),pagination:{totalCount:4}})}
+    if(u.pathname==="/football/leagues")return send({data:[{id:776,name:"Malaysia Super League Women"},{id:777,name:"Super League"},{id:778,name:"Malaysia Cup"}]});   // V27: cari id Malaysia
     if(u.pathname==="/football/standings")return send({groups:[{name:"G",standings:[{position:1,team:{id:1,name:"X"},total:{games:1,wins:1,draws:0,loses:0,scoredGoals:2,receivedGoals:1},points:3}]}]});
     if(u.pathname.startsWith("/football/matches/"))return send([{id:+u.pathname.split("/").pop(),state:{description:"Not started"},predictions:{prematch:[{generatedAt:"2026-01-01",probabilities:{home:"50%",draw:"25%",away:"25%"}}]}}]);
     s.writeHead(404);s.end("{}")});
@@ -338,16 +343,17 @@ sc("Highlightly: liga tambahan ikut tampil, Indonesia diprioritaskan, musim tahu
   try{
     const r=await run({});assert.equal(r.c,0,r.e);
     const all=JSON.parse(readFileSync(r.out+"/all.json","utf8")),L=new Set(all.matches.map(m=>m.league));
-    for(const n of ["Liga 1 Indonesia","Liga 2 Indonesia","1st Division Denmark","Ligue 1 Algeria"])assert(L.has(n),"liga hilang: "+n+" "+[...L]);
+    for(const n of ["Liga 1 Indonesia","Liga 2 Indonesia","1st Division Denmark","Ligue 1 Algeria","Thai League 1","Malaysia Super League"])assert(L.has(n),"liga hilang: "+n+" "+[...L]);
+    assert.equal(hits.filter(h=>h.startsWith("/football/leagues")).length,1,"id Malaysia dicari sekali");assert(hits.some(h=>h.includes("leagueId=777")),"id Malaysia terpakai");
     const li=JSON.parse(readFileSync(r.out+"/leagues.json","utf8")).leagues;
-    assert.deepEqual(li.slice(0,4).map(l=>l.country),["Indonesia","Indonesia","Denmark","Algeria"]);assert.equal(li[4].name,"Premier League");
+    assert.deepEqual(li.slice(0,6).map(l=>l.country),["Indonesia","Indonesia","Denmark","Algeria","Thailand","Malaysia"]);assert.equal(li[6].name,"Premier League");
     const dk=JSON.parse(readFileSync(r.out+"/lg/hl102904.json","utf8"));assert.equal(dk.country,"Denmark");assert(dk.standings.length===1);
     const dz=JSON.parse(readFileSync(r.out+"/lg/hl159070.json","utf8"));assert.equal(dz.season.name,String(yr-1),"Algeria pakai musim tahun lalu");
     assert(hits.some(h=>h.includes("standings?leagueId=159070&season="+(yr-1))),"klasemen Algeria memakai musim tahun lalu");
     assert(all.matches.some(m=>m.league==="1st Division Denmark"&&m.p&&m.p.engine==="hl"),"prediksi Highlightly untuk liga tambahan");
     // detail: Indonesia lebih dulu
     const det=hits.filter(h=>/^\/football\/matches\/\d+/.test(h)).map(h=>+h.split("/")[3].split("?")[0]);
-    const firstX=det.findIndex(id=>id>=1029040);assert(firstX<0||det.slice(firstX).every(id=>id>=1029040),"detail Indonesia lebih dulu: "+det);
+    const ext=id=>!/^2(33958|34809)/.test(String(id)),firstX=det.findIndex(ext);assert(firstX<0||det.slice(firstX).every(ext),"detail Indonesia lebih dulu: "+det);
     // kuota sudah dipakai banyak hari ini -> liga tambahan dilewati, Indonesia tetap jalan, laga tambahan lama tetap tampil
     const st=JSON.parse(readFileSync(join(r.out,"hl.json"),"utf8"));const day=st.calls.day;
     st.calls={day,n:70,v:2};st.season={};st.stand={};hits.length=0;writeFileSync(join(r.out,"state2.json"),JSON.stringify(st));
