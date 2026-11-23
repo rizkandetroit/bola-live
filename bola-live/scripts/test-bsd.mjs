@@ -9,7 +9,9 @@ import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
 import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib,favOf,recapOf} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate,HL_LEAGUES,pickLeague} from "./highlightly.mjs";
-import {lineupFeatures,lineupExp,drawExp} from "./model.mjs";
+import {lineupFeatures,lineupExp,drawExp,drawShift} from "./model.mjs";
+import {applyStack} from "./stack.mjs";
+import {ACT} from "./bsd.mjs";
 import {factorTests as facT} from "./factors.mjs";
 import {trainLean} from "./stack.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
@@ -270,6 +272,13 @@ console.log("OK    V30: analisis seri");
  const F=facT(ms,J,new Set([99]),new Set([7]));assert(F.sebelumEropa&&F.sebelumEropa.n===40&&F.sebelumEropa.win===0&&F.sebelumEropa.gapBsd<-60,"sebelum Eropa: "+JSON.stringify(F.sebelumEropa));
  assert(F.pialaUnggulan&&F.pialaUnggulan.n===40&&F.pialaUnggulan.win===0,"unggulan piala: "+JSON.stringify(F.pialaUnggulan));assert(F.habisEropa&&F.habisEropa.n===40,"habis Eropa tetap jalan")}
 console.log("OK    V30b: faktor rotasi");
+{// V32: jalur pemasangan — sakelar mati, model terarah & geseran seri siap dipakai
+ assert.deepEqual(ACT,{lean:false,drawCorr:false},"sakelar default mati");
+ const q=drawShift([50,25,25],Math.log(1.2));assert(Math.abs(q[0]+q[1]+q[2]-100)<1e-9&&q[1]>25&&q[0]/q[2]===2,"geser seri: "+q);assert.deepEqual(drawShift([50,25,25],null),[50,25,25]);
+ let x=3;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];for(let i=0;i<1500;i++){const nc=[rnd()<.2?1:0,0];const z=-.6*nc[0],e=[.45*Math.exp(z),.27,.28*Math.exp(-z)],t=e[0]+e[1]+e[2],u=rnd()*t;R.push({o:u<e[0]?0:u<e[0]+e[1]?1:2,b:[45,27,28],p:null,l:1,t:i,nc,eu:[0,0],tb:null})}
+ const L=trainLean(R),p=applyStack(L.m,{b:[45,27,28],p:null,l:1,nc:[1,0],eu:[0,0],tb:null});assert(p&&p.every(Number.isFinite)&&p[0]<45,"model terarah langsung bisa dipakai: "+p);
+ const D=drawExp(Array.from({length:600},(_,i)=>({o:i%3===0?1:0,b:[50,25,25],l:1+(i%2),t:i})));assert(D.corr.dl&&D.corr.dl[1]>0,"geseran seri per liga tersimpan: "+JSON.stringify(D.corr.dl))}
+console.log("OK    V32: jalur pemasangan (sakelar mati)");
 console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;

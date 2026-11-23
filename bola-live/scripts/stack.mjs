@@ -119,5 +119,5 @@ export function trainLean(rows){
   const R=(rows||[]).map(r=>({...r,p:null}));const T=trainStack(R,{kL:1e9});
   if(!T||!T.m)return T?{on:false,n:T.n,why:T.why||null}:null;
   const r4=x=>Math.round(x*1e4)/1e4,te=T.test||{};
-  return{on:T.on,n:T.n,nTest:T.nTest,test:{lean:te.stack,bsd:te.bsd},m:{t0:T.m.t0,d0:T.m.d0,th:T.m.th.map(r4)}};
+  return{on:T.on,n:T.n,nTest:T.nTest,test:{lean:te.stack,bsd:te.bsd},m:{t0:T.m.t0,d0:T.m.d0,th:T.m.th.map(r4),w0:0,lg:{}}};   // w0/lg kosong: bisa langsung dipakai applyStack
 }

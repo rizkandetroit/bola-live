@@ -625,9 +625,9 @@ function cfTag(x){var c=x.cf;if(!c||!CFN[c.k]||x.status!=="NS")return'<span clas
   return'<span class="tag l'+CFN[c.k][1]+'" title="Label keyakinan. '+(c.hit!=null?'Pada uji mundur '+c.n+' laga berlabel ini, tim unggulan benar-benar menang '+String(c.hit).replace(".",",")+'% (rata-rata kelompok, bukan angka laga ini). ':'')+'Keunggulan BSD: '+x.level+' '+x.edge.toFixed(0)+'">'+CFN[c.k][0]+(c.hit!=null?' · '+Math.round(c.hit)+'% menang':'')+'</span>'}
 function whyLine(x){if(!x.why||!x.why.length||x.status!=="NS")return"";return'<div class="acl why2">Alasan: '+x.why.map(esc).join(" · ")+'</div>'}
 function pb(x){
-  if(x.np)return"";var q=dp(x),g=q!==x.p;
-  return'<div class="pb"'+(g?' title="Peluang gabungan: BSD + Model BL + koreksi yang lolos uji"':'')+'><i class="h" style="width:'+q.h+'%"></i><i class="d" style="width:'+q.d+'%"></i><i class="a" style="width:'+q.a+'%"></i></div>'
-    +'<div class="pl"><span class="h">'+q.h.toFixed(0)+'%</span><span class="d">'+(g?'Gabungan · ':'')+'Seri '+q.d.toFixed(0)+'%</span><span class="a">'+q.a.toFixed(0)+'%</span></div>'
+  if(x.np)return"";var q=dp(x),g=q!==x.p,ln=g&&x.sk&&x.sk.src==="lean";   /* V32: koreksi terarah = BSD terkoreksi, bukan gabungan */
+  return'<div class="pb"'+(g?' title="'+(ln?'Peluang BSD setelah koreksi terarah (pola yang lolos uji mundur)':'Peluang gabungan: BSD + Model BL + koreksi yang lolos uji')+'"':'')+'><i class="h" style="width:'+q.h+'%"></i><i class="d" style="width:'+q.d+'%"></i><i class="a" style="width:'+q.a+'%"></i></div>'
+    +'<div class="pl"><span class="h">'+q.h.toFixed(0)+'%</span><span class="d">'+(g?(ln?'BSD terkoreksi · ':'Gabungan · '):'')+'Seri '+q.d.toFixed(0)+'%</span><span class="a">'+q.a.toFixed(0)+'%</span></div>'
 }
 function stt(x,b){
   var d=new Date(x.utc),a=df.format(d),h=tf.format(d)+" WITA",

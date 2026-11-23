@@ -312,4 +312,9 @@ export function drawExp(rows){
   const GA=new Map();for(const r of A){const g=GA.get(r.l)||{n:0,d:0,bd:0};g.n++;if(r.o===1)g.d++;g.bd+=r.b[1]/100;GA.set(r.l,g)}
   const dl=new Map();for(const [l,g] of GA){const w=g.n/(g.n+k),obs=(g.d+.5)/(g.n+1),exp=Math.max(g.bd/g.n,.05);dl.set(l,w*Math.log(obs/exp))}
   const ll0=ll(B,new Map()),ll1=ll(B,dl),corr={n:B.length,ll0:r3(ll0),ll1:r3(ll1),gain:r3(ll0-ll1),pass:ll0-ll1>=.002};
+  // untuk dipasang bila lolos: geseran seri per liga dari SEMUA laga (bentuk sama, k sama)
+  {const GL=new Map();for(const r of R){const g=GL.get(r.l)||{n:0,d:0,bd:0};g.n++;if(r.o===1)g.d++;g.bd+=r.b[1]/100;GL.set(r.l,g)}corr.dl={};for(const [l,g] of GL){const w=g.n/(g.n+k),v=w*Math.log(((g.d+.5)/(g.n+1))/Math.max(g.bd/g.n,.05));if(Math.abs(v)>=.01)corr.dl[l]=Math.round(v*1e4)/1e4}}
   return{n:R.length,draw:r1(base(R)),bsdDraw:r1(R.reduce((s,r)=>s+r.b[1],0)/R.length),lg,rule,corr}}
+
+// V32: geser peluang seri satu laga dengan koreksi per liga (dl = log-rasio), lalu dinormalkan ulang.
+export function drawShift(q,dl){if(!q||!dl)return q;const e=Math.exp(dl),t=q[0]+q[1]*e+q[2];return[q[0]/t*100,q[1]*e/t*100,q[2]/t*100]}

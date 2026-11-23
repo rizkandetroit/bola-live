@@ -251,3 +251,6 @@ console.log("test-ui V31 ok");
 {const F=new Function(pre+";return {cardDet,set:function(b){BT=b}}")();F.set({byLeague:{}});const x={id:5,league:"L",src:"BSD",p:{h:50,d:25,a:25,xg:[1,1]},home:{name:"A"},away:{name:"B"}};
  assert(F.cardDet({...x,status:"NS"}).includes("Kelengkapan data"));assert(!F.cardDet({...x,status:"LIVE"}).includes("Kelengkapan data"),"live: tidak tampil");assert(!F.cardDet({...x,status:"FT"}).includes("Kelengkapan data"),"selesai: tidak tampil")}
 console.log("test-ui V31b ok");
+{const F=new Function(pre+";return {pb}")();const x={status:"NS",p:{h:45,d:27,a:28},sk:{h:40,d:28,a:32,u:1,src:"lean"},home:{name:"A"},away:{name:"B"}};
+ assert(F.pb(x).includes("BSD terkoreksi")&&!F.pb(x).includes("Gabungan ·"));assert(F.pb({...x,sk:{...x.sk,src:"stack"}}).includes("Gabungan ·"));assert(!F.pb({...x,sk:{...x.sk,u:0}}).includes("terkoreksi"))}
+console.log("test-ui V32 ok");

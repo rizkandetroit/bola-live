@@ -1,11 +1,13 @@
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir} from "./net.mjs";
-import {fitModel,predictModel,rollingBacktest,score,rps,disagree,experiments,lineupExp,drawExp,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
+import {fitModel,predictModel,rollingBacktest,score,rps,disagree,experiments,lineupExp,drawExp,drawShift,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
 import {trainStack,trainLean,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow} from "./players.mjs";
 import {level,r1} from "./lib.mjs";
+// V32: sakelar pemasangan hasil uji coba. Dinyalakan HANYA setelah lolos uji mundur dan disetujui pemilik (lihat Evaluasi > Uji coba).
+export const ACT={lean:false,drawCorr:false};
 
 // SUMBER UTAMA SEMUA LIGA: BSD (sports.bzzoiro.com, Football API paket gratis, 7.500 permintaan/hari).
 // Satu langkah ini menggantikan API-Football (jadwal), SportAPI (jadwal + riwayat), H2H API-Football, H2H FotMob
@@ -662,10 +664,13 @@ async function main(){
         if(m.note&&pr.ms)m.note=m.note.replace(/Skor paling mungkin [^.]*\./,"Skor paling mungkin "+pr.ms[0]+"-"+pr.ms[1]+" (Model BL).");
         // V21: peluang setelah koreksi (selalu dihitung & dicatat; tampil sebagai angka utama hanya bila lolos uji), label keyakinan, alasan
         {const f=q.f||{},S=MB.stk;if(S&&S.m&&m.p&&!m.np&&m.p.h!=null){const b=[m.p.h,m.p.d,m.p.a];let sk=applyStack(S.m,{b,p:pr.p,l:m.lid,tb:f.tb,nc:f.nc,eu:f.eu});
+            // V32: jalur pemasangan hasil uji (mati sampai disetujui): koreksi terarah & koreksi seri per liga — hanya bila lolos uji DAN sakelar ACT menyala
+            let useN=false;if(!S.on&&ACT.lean&&S.lean&&S.lean.on&&S.lean.m){sk=applyStack(S.lean.m,{b,p:null,l:m.lid,tb:f.tb,nc:f.nc,eu:f.eu});useN=true}
+            const DC=MB.drw&&MB.drw.corr;if(ACT.drawCorr&&DC&&DC.pass&&DC.dl&&DC.dl[m.lid]!=null){sk=drawShift(sk,DC.dl[m.lid]);useN=true}
             const mk=marketP(m.pin&&(m.pin.c||m.pin.o))||marketP(m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:null);
             if(S.mk&&S.mk.on&&mk)sk=poolMarket(sk,mk,S.mk.beta);
-            m.sk={h:r1(sk[0]),d:r1(sk[1]),a:r1(sk[2]),u:S.on?1:0,mk:S.mk&&S.mk.on&&mk?1:0};
-            const disp=S.on?sk:b,k=labelOf(disp,b,pr.p),L=S.lab&&S.lab[k];m.cf={k,hit:L&&L.n>=50?L.hit:null,n:L&&L.n}}
+            m.sk={h:r1(sk[0]),d:r1(sk[1]),a:r1(sk[2]),u:S.on||useN?1:0,mk:S.mk&&S.mk.on&&mk?1:0,src:S.on?"stack":useN?"lean":null};
+            const disp=S.on||useN?sk:b,k=labelOf(disp,b,pr.p),L=S.lab&&S.lab[k];m.cf={k,hit:L&&L.n>=50?L.hit:null,n:L&&L.n}}
           m.why=whyOf(m,f,pr.p)}
         if(MB.useful&&m.p&&!m.np&&m.p.h!=null){const w=MB.w,g=[m.p.h,m.p.d,m.p.a].map((x,i)=>w*x+(1-w)*pr.p[i]),t=g[0]+g[1]+g[2];m.bg={h:r1(g[0]/t*100),d:r1(g[1]/t*100),a:r1(g[2]/t*100),w}}}
     }
