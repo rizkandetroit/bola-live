@@ -529,7 +529,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V34</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V37</span>
   </div>
   <div class="nvb">
     <div class="seg" id="nv" aria-label="Halaman">
@@ -1405,7 +1405,7 @@ function formBox(f,lab){if(!f||!f.overall)return"";var o=f.overall;return'<div><
 var H2F=new Intl.DateTimeFormat("id-ID",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"});function h2d(d){var t=Date.parse(String(d||"").slice(0,10)+"T12:00:00Z");return isNaN(t)?esc(String(d||"")):H2F.format(new Date(t))}   /* V34c */
 function h2hHtml(h,x){if(!h||!h.total_matches)return'<div class="em">Belum ada pertemuan sebelumnya.</div>';
   return'<div class="mcg"><div>'+esc(x?x.home.name:"Tuan rumah")+' menang<b>'+h.home_wins+'</b></div><div>Seri<b>'+h.draws+'</b></div><div>'+esc(x?x.away.name:"Tamu")+' menang<b>'+h.away_wins+'</b></div><div>Rata-rata gol<b>'+o2(h.avg_total_goals)+'</b></div></div><div class="ov"><table class="kl h2t">'+(h.recent_matches||[]).map(function(r){return'<tr><td>'+h2d(r.date)+'</td><td class="t">'+cr(IMG+"team/"+r.home_team_id+"/")+esc(r.home)+'</td><td><b>'+(r.home_score==null?"-":r.home_score+" - "+r.away_score)+'</b></td><td class="t">'+cr(IMG+"team/"+r.away_team_id+"/")+esc(r.away)+'</td></tr>'}).join("")+'</table></div>'}
-function psHtml(ps,x){if(!ps||!ps.length)return'<div class="em">Statistik pemain belum tersedia.</div>';var L=ps.slice().sort(function(a,b){return(b.r||0)-(a.r||0)});
+function psHtml(ps,x){if(!ps||!ps.length)return'<div class="em">Statistik pemain belum tersedia.'+(x&&x.status==="NS"?' Muncul setelah laga dimulai.':x&&x.status==="LIVE"?' BSD biasanya mengisinya bertahap selama laga dan lengkap setelah laga selesai; halaman ini memuat ulang sendiri.':' BSD tidak menyediakan statistik pemain untuk laga ini.')+'</div>';   /* V37c: jelaskan kenapa kosong */var L=ps.slice().sort(function(a,b){return(b.r||0)-(a.r||0)});
   return'<div class="ov"><table class="kl"><tr><th style="text-align:left">Pemain</th><th>Rating</th><th>Menit</th><th>G</th><th>A</th><th>xG</th><th>Tembakan</th><th>Umpan</th><th>Umpan kunci</th><th>Tekel</th></tr>'+L.map(function(p){var nm=pNameById(p.pid);return'<tr><td class="t">'+cr(IMG+"player/"+p.pid+"/?sor=true")+esc(nm)+(x&&p.tid===x.hid?' <small class="s">'+esc(x.home.name)+'</small>':x&&p.tid===x.aid?' <small class="s">'+esc(x.away.name)+'</small>':"")+'</td><td><b>'+(p.r==null?"-":Number(p.r).toFixed(1))+'</b></td><td>'+p.min+'</td><td>'+(p.g||0)+'</td><td>'+(p.as||0)+'</td><td>'+(p.xg==null?"-":Number(p.xg).toFixed(2))+'</td><td>'+(p.sh||0)+'/'+(p.sot||0)+'</td><td>'+(p.acc||0)+'/'+(p.pa||0)+'</td><td>'+(p.kp||0)+'</td><td>'+(p.tk||0)+'</td></tr>'}).join("")+'</table></div>'}
 function pNameById(id){var d=MC.d,l=d&&d.lineups&&d.lineups.lineups;if(l)for(var s of ["home","away"]){var t=l[s];if(!t)continue;var p=(t.players||[]).concat(t.substitutes||[]).find(function(q){return q.id===id});if(p)return p.name||p.short_name}return"Pemain #"+id}
 var THEMES=[["lembut","Lembut"],["terang","Terang"],["gelap","Gelap"]];
