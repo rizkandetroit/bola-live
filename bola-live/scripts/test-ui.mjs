@@ -346,6 +346,6 @@ console.log("test-ui V38c ok");
 console.log("test-ui V38d ok");
 
 {const F=new Function(pre+`;return {resTag}`)();const b={status:"FT",pick:"h",p:{h:60,d:25,a:15},home:{name:"A"},away:{name:"B"}};
- assert(/tepat/.test(F.resTag({...b,score:[2,0]})));assert(/meleset/.test(F.resTag({...b,score:[0,1]})));assert(/seri/.test(F.resTag({...b,score:[1,1]})));
- assert.equal(F.resTag({...b,status:"NS",score:[null,null]}),"");assert(/tepat/.test(F.resTag({...b,p:{h:30,d:40,a:30},score:[0,0]})),"tebakan seri tepat")}
+ assert(/✓ Tepat/.test(F.resTag({...b,score:[2,0]})));assert(/✕ Meleset/.test(F.resTag({...b,score:[0,1]})));assert(/~ Imbang/.test(F.resTag({...b,score:[1,1]})));
+ assert.equal(F.resTag({...b,status:"NS",score:[null,null]}),"");assert(/✓ Tepat/.test(F.resTag({...b,p:{h:30,d:40,a:30},score:[0,0]})),"tebakan seri tepat")}
 console.log("test-ui V38e ok");

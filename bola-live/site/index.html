@@ -187,7 +187,7 @@ select#kl-sel,select#lgs,select#sl-lig{max-width:100%;text-overflow:ellipsis}
 .anc{background:var(--pn2);border:1px solid var(--ln2);border-radius:10px;padding:10px 12px;line-height:1.5}
 .evt{display:inline-block;font-size:11px;line-height:1.5;padding:0 6px;border-radius:9px;margin-left:6px;border:1px solid var(--ln2);white-space:nowrap;cursor:help;vertical-align:1px}.evt.eg{color:#16a34a;border-color:#16a34a55}.evt.ey{color:#b45309;border-color:#b4530955}.evt.ei{color:var(--mut)}.evx{display:block;color:var(--mut);font-size:12px;margin:2px 0 0}
 .tt{margin-top:3px;line-height:1}.tm .r .tt{text-align:right}.tm .n .nm{min-width:0}   /* V38d: tanda Putri/Tim muda turun ke baris berikut, tidak menimpa skor */
-.rt{font-size:11.5px;white-space:nowrap;margin-left:4px}.rt.ok{color:#16a34a}.rt.no{color:#dc2626}.rt.dr{color:var(--mut)}
+.rt{display:inline-block;font-size:11.5px;line-height:1.5;white-space:nowrap;margin-left:6px;padding:0 7px;border-radius:9px;font-weight:600;vertical-align:1px}.rt.ok{color:#16a34a;background:#16a34a1f}.rt.no{color:#dc2626;background:#dc26261f}.rt.dr{color:#b45309;background:#d977061f}
 .kq.up{color:var(--good,#16a34a);font-weight:600}.kq.dn{color:var(--bad,#dc2626);font-weight:600}   /* V26c: nama liga panjang tidak melebarkan halaman di HP */
 .tag.tw{font-size:10px;padding:1px 6px;margin:0 4px;vertical-align:middle;color:var(--A);border-color:var(--A)}
 .acl.fav{margin-top:6px;padding:6px 9px;border-radius:9px;background:var(--ok-soft);border:1px solid var(--okB);color:var(--ink)}.acl.fav .fv{color:var(--ok)}.acl.fav .mut{color:var(--mut)}
@@ -629,7 +629,7 @@ function pkD(x){var q=dp(x);return q===x.p?pk(x):(q.h>=q.a?x.home:x.away)}
 /* V22c: bila seri peluang tertinggi, kartu tidak menulis "Condong ke <tim>" */
 /* V38e: laga selesai — tandai apakah arah tebakan sebelum laga tepat */
 function resTag(x){var sc=x.score;if(x.status!=="FT"||!sc||sc[0]==null||!x.p||x.np)return"";var o=sc[0]>sc[1]?"h":sc[0]===sc[1]?"d":"a",g=drawTop(x)?"d":pkD(x)===x.home?"h":"a";
-  return g===o?' <span class="rt ok" title="Arah tebakan sebelum laga sesuai hasil">✅ tepat</span>':o==="d"?' <span class="rt dr" title="Hasil seri, sedangkan tebakan condong ke salah satu tim">⚖️ seri</span>':' <span class="rt no" title="Arah tebakan sebelum laga tidak sesuai hasil">❌ meleset</span>'}
+  return g===o?' <span class="rt ok" title="Arah tebakan sebelum laga sesuai hasil">✓ Tepat</span>':o==="d"?' <span class="rt dr" title="Hasil imbang, sedangkan tebakan condong ke salah satu tim — dihitung tidak tepat di Evaluasi">~ Imbang</span>':' <span class="rt no" title="Arah tebakan sebelum laga tidak sesuai hasil">✕ Meleset</span>'}   /* V38g: tanda pilihan Abang */
 function drawTop(x){var q=dp(x);return!!(q&&q.d!=null&&q.d>q.h&&q.d>q.a)}
 /* V24b: nama tim pendek untuk layar HP ("Condong ke", line-up). Nama lengkap tetap di title. */
 var SNX=/^(fc|cf|sc|afc|ac|as|sd|cd|sk|fk|nk|bk|if|ik|sv|club|clube|f[uú]tbol|football|calcio|esporte|de|del|la|do|da|dos|\d+)$/i,SNG=/^(real|sporting|atl[eé]tico|atletico|olympique|racing|deportivo|club|united|city|athletic|dynamo|dinamo|union|inter|internacional)$/i;
