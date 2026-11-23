@@ -1561,7 +1561,8 @@ function anPost(x,d){var nm=[shortNm(x.home.name),shortNm(x.away.name)],sc=x.sco
   box("Jalannya laga",ji);
   // kejadian penentu
   var ki=[];[0,1].forEach(function(i){R[i].forEach(function(r){ki.push(li("🟥 "+esc(nm[i])+" kartu merah menit "+r.minute+(r.player?" ("+esc(pName(r.player)||r.player)+")":"")))})});
-  if(late)ki.push(li("⚽ Gol menit "+Lg.minute+(Lg.added_time?"+"+Lg.added_time:"")+" ("+esc(nm[Lg.is_home?0:1])+") mengubah hasil."));
+  var lateO=late?(late[0]>late[1]?0:late[0]===late[1]?1:2):null;
+  if(late&&lateO!==o)ki.push(li("⚽ Gol menit "+Lg.minute+(Lg.added_time?"+"+Lg.added_time:"")+" ("+esc(nm[Lg.is_home?0:1])+") mengubah hasil."));
   G.filter(function(g){return g.goal_type==="penalty"}).forEach(function(g){ki.push(li("Penalti menit "+g.minute+" ("+esc(nm[g.is_home?0:1])+")"))});
   box("Kejadian penentu",ki);
   // kenapa meleset

@@ -330,4 +330,8 @@ console.log("test-ui V36 ok");
  assert.equal(F.whyMiss(0,[0,1],[1.9,.5],[null,null],null),"apes");assert.equal(F.whyMiss(0,[0,1],[1,1],[60,null],null),"merah");assert.equal(F.whyMiss(0,[1,1],[1.2,1],[null,null],[1,0]),"telat");assert.equal(F.whyMiss(0,[1,0],[1,1],[null,null],null),null);
  const ok=F.anHtml({...x,score:[2,0]},d).replace(/<[^>]+>/g," ");assert(/✅ benar/.test(ok)&&/sesuai hasil/.test(ok));
  const nd=F.anHtml({...x,pm:null,src:"HL",p:{h:60,d:25,a:15}},null).replace(/<[^>]+>/g," ");assert(/xG tidak tersedia/.test(nd)&&!/undefined|NaN/.test(nd))}
+{const F=new Function(pre+`;return {anHtml}`)();const x={eid:6,src:"BSD",status:"FT",score:[3,1],home:{name:"A"},away:{name:"B"},pm:{p:[66,21,13]}};
+ const g=(m,h,hs,as)=>({type:"goal",minute:m,is_home:h,home_score:hs,away_score:as});
+ const t1=F.anHtml(x,{incidents:[g(10,true,1,0),g(30,true,2,0),g(60,true,3,0),g(90,false,3,1)]}).replace(/<[^>]+>/g," ");assert(!/mengubah hasil/.test(t1),"gol akhir yang tidak mengubah hasil tidak disebut");
+ const t2=F.anHtml({...x,score:[1,1]},{incidents:[g(10,true,1,0),g(88,false,1,1)]}).replace(/<[^>]+>/g," ");assert(/Gol menit 88 \(B\) mengubah hasil/.test(t2),t2)}
 console.log("test-ui V37 ok");
