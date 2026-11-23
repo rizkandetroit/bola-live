@@ -269,3 +269,7 @@ console.log("test-ui V33 ok");
  assert.equal(F.o2(1.744),"1,74");assert.equal(F.o2(null),"-");
  assert(/NEUTRAL\?'':'<th>ROI value/.test(html),"ROI ikut mode netral")}
 console.log("test-ui V34 ok");
+{const F=new Function(pre+";return {rlId,h2d}")();
+ assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V34</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+console.log("test-ui V34c ok");
