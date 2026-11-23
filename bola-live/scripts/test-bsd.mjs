@@ -9,7 +9,7 @@ import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
 import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib,favOf,recapOf} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate,HL_LEAGUES,pickLeague} from "./highlightly.mjs";
-import {lineupFeatures,lineupExp,drawExp,drawShift} from "./model.mjs";
+import {lineupFeatures,lineupExp,drawExp,drawShift,luckOf} from "./model.mjs";
 import {applyStack} from "./stack.mjs";
 import {ACT} from "./bsd.mjs";
 import {factorTests as facT} from "./factors.mjs";
@@ -279,6 +279,11 @@ console.log("OK    V30b: faktor rotasi");
  const L=trainLean(R),p=applyStack(L.m,{b:[45,27,28],p:null,l:1,nc:[1,0],eu:[0,0],tb:null});assert(p&&p.every(Number.isFinite)&&p[0]<45,"model terarah langsung bisa dipakai: "+p);
  const D=drawExp(Array.from({length:600},(_,i)=>({o:i%3===0?1:0,b:[50,25,25],l:1+(i%2),t:i})));assert(D.corr.dl&&D.corr.dl[1]>0,"geseran seri per liga tersimpan: "+JSON.stringify(D.corr.dl))}
 console.log("OK    V32: jalur pemasangan (sakelar mati)");
+{// V34d: keberuntungan hanya dari liga rumah tim; hasil laga berjadwal di masa depan tidak dicatat
+ const now=Date.parse("2026-11-20T00:00:00Z"),d=864e5,ms=[{id:1,l:1,h:10,a:11,gh:2,ga:0,xh:1,xa:1,t:now-10*d,se:5},{id:2,l:9,h:10,a:12,gh:3,ga:0,xh:2,xa:.5,t:now-5*d,se:7},{id:3,l:1,h:11,a:10,gh:1,ga:1,xh:1,xa:1,t:now-3*d,se:5}];
+ const A=luckOf(ms,now),B=luckOf(ms,now,200,new Map([[10,1],[11,1],[12,9]]));assert.equal(A[10].n,3);assert.equal(B[10].n,2,"laga piala/Eropa tidak ikut");
+ const H=updateHistory([{id:5,u:"2026-11-28T15:00:00Z",p:[40,30,30]}],[{eid:5,utc:"2026-11-28T15:00:00Z",status:"FT",score:[2,1],home:{name:"A"},away:{name:"B"}}],now);assert(!H.find(e=>e.id===5).r,"skor laga yang belum jadwalnya tidak dicatat")}
+console.log("OK    V34d: keberuntungan per liga & hasil janggal");
 console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;

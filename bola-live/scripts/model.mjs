@@ -225,11 +225,11 @@ export function tableTest(rows,tab,o={}){
   return{gap,minN,beda:sum(G.beda),sama:sum(G.sama),semua:sum(G.semua)};
 }
 // Keberuntungan per tim (musim berjalan): poin vs poin harapan dari xG, gol vs xG.
-export function luckOf(ms,now,days=200){
+export function luckOf(ms,now,days=200,home=null){   // home: Map tim -> liga rumah; bila ada, hanya laga di liga itu yang dihitung
   const sk=seasonKeys(ms),cur=new Map();for(const m of ms){const k=sk.get(m.id);const c=cur.get(m.l);if(!c||m.t>c.t)cur.set(m.l,{t:m.t,k})}
   const T={},pp=(lh,la)=>{const P=l=>{const a=[Math.exp(-l)];for(let i=1;i<=10;i++)a.push(a[i-1]*l/i);return a},a=P(Math.max(lh,.05)),b=P(Math.max(la,.05));let h=0,d=0;for(let i=0;i<=10;i++)for(let j=0;j<=10;j++){const q=a[i]*b[j];if(i>j)h+=q;else if(i===j)d+=q}return[3*h+d,3*(1-h-d)+d]};
   for(const m of ms){const c=cur.get(m.l);if(!c||sk.get(m.id)!==c.k||m.t<now-days*864e5)continue;
-    for(const [id,gf,ga,xf,xa,side] of [[m.h,m.gh,m.ga,m.xh,m.xa,0],[m.a,m.ga,m.gh,m.xa,m.xh,1]]){const t=T[id]=T[id]||{l:m.l,n:0,pts:0,gf:0,ga:0,xn:0,xgf:0,xga:0,xpts:0,xpN:0};
+    for(const [id,gf,ga,xf,xa,side] of [[m.h,m.gh,m.ga,m.xh,m.xa,0],[m.a,m.ga,m.gh,m.xa,m.xh,1]]){if(home&&home.has(id)&&home.get(id)!==m.l)continue;const t=T[id]=T[id]||{l:m.l,n:0,pts:0,gf:0,ga:0,xn:0,xgf:0,xga:0,xpts:0,xpN:0};
       t.n++;t.gf+=gf;t.ga+=ga;t.pts+=gf>ga?3:gf===ga?1:0;if(xf!=null&&xa!=null){t.xn++;t.xgf+=xf;t.xga+=xa;const e=pp(m.xh,m.xa)[side];t.xpts+=e;t.xpN+=gf>ga?3:gf===ga?1:0}}}
   return T}
 

@@ -273,3 +273,13 @@ console.log("test-ui V34 ok");
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
  assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V34</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
+{const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
+ assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
+console.log("test-ui V34d ok");
+{const F=new Function(pre+";return {tierTag,fresh,riskOf,blWhy}")();
+ assert(F.tierTag({src:"HL",tier:2,p:{engine:"hl"}}).includes("Prediksi Highlightly"));assert(F.tierTag({src:"HL",tier:2,p:{engine:"poisson"}}).includes("Statistik dasar"));
+ const now=Date.parse("2026-11-23T07:00:00Z");assert.equal(F.fresh([{status:"FT",utc:"2026-11-28T15:00:00Z"},{status:"FT",utc:"2026-11-22T15:00:00Z"}],now).length,1,"FT berjadwal masa depan disembunyikan");
+ const x={status:"NS",src:"BSD",league:"X",home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25},bl:{h:50,d:25,a:25,src:"abs",lsrc:"pred",lu:[.8,1,1,1]}};
+ assert(F.riskOf(x).some(r=>/perkiraan line-up A melemah/.test(r)),F.riskOf(x));assert(F.blWhy(x).includes("Perkiraan line-up"));
+ const y={...x,bl:{...x.bl,src:"xi",lsrc:"xi"}};assert(F.riskOf(y).some(r=>/^line-up A melemah/.test(r)));assert(!F.blWhy(y).includes("Perkiraan"))}
+console.log("test-ui V34e ok");

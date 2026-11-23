@@ -615,7 +615,8 @@ var PITCH=null,OPEN={},S={lg:"Semua",st:"NS",so:"jam",q:"",v:"card",hs:"edge",dt
 function save(){try{localStorage.setItem("bl",JSON.stringify({v:S.v,v13:1}))}catch(e){}}
 /* V13.1: "Akan Tayang" hanya laga yang jam mulainya belum lewat. Jam mulai sudah lewat tapi data belum diperbarui:
    pindah ke Live ("baru mulai") sampai 3 jam; lebih dari itu dianggap data basi dan disembunyikan. */
-function fresh(ms,now){now=now||Date.now();return(ms||[]).filter(function(x){if(x.status!=="NS")return true;var t=Date.parse(x.utc);if(!(t<=now))return true;if(now-t<3*36e5){x.status="LIVE";x.pend=1;x.pendLate=now-t>20*6e4?1:0;return true}return false})}
+function fresh(ms,now){now=now||Date.now();return(ms||[]).filter(function(x){if(x.status==="FT"&&Date.parse(x.utc)>now+36e5)return false;   /* V34d: BSD kadang menandai "selesai" laga yang jadwalnya belum lewat — data janggal, tidak ditampilkan */
+  if(x.status!=="NS")return true;var t=Date.parse(x.utc);if(!(t<=now))return true;if(now-t<3*36e5){x.status="LIVE";x.pend=1;x.pendLate=now-t>20*6e4?1:0;return true}return false})}
 function pk(x){return x.pick==="h"?x.home:x.away}
 /* V21: angka utama = peluang setelah koreksi (BSD + Model BL + koreksi yang lolos uji) bila aktif; selain itu peluang BSD */
 function dp(x){return x.sk&&x.sk.u&&x.status==="NS"?x.sk:x.p}
@@ -675,7 +676,7 @@ function compHtml(x){
 function tierTag(x){
   if(x.np||x.src==="BSD")return"";
   var t=x.tier;
-  if(t===2)return' <span class="tag l2" title="Model liga sendiri: Poisson-gol 70% + Elo 30% dari riwayat tersimpan">Statistik dasar</span>';
+  if(t===2)return x.p&&x.p.engine==="hl"?' <span class="tag l2" title="Peluang dari model prediksi Highlightly">Prediksi Highlightly</span>':' <span class="tag l2" title="Highlightly tidak memberi prediksi: peluang dihitung Bola Live (Poisson + Elo dari hasil laga musim ini, ditarik ke rata-rata liga bila datanya sedikit)">Statistik dasar</span>';   /* V34d: sumber sesuai kenyataan */
   if(t===3)return' <span class="tag l1" title="Perkiraan kasar dari Elo lintas liga">Elo saja</span>';
   if(t===4)return' <span class="tag l1" title="Belum ada riwayat: tebakan keuntungan tuan rumah">Tebakan dasar</span>';
   if(!x.est&&!x.src)return' <span class="tag l4" title="Model lengkap dari data liga utama">Model penuh</span>';
@@ -895,7 +896,7 @@ function absLine(x){var b=x.ab;if(!b||x.status==="FT"||!(b.nh+b.na))return"";
 function riskOf(x){if(!x.p||x.np||x.status==="FT")return[];var p=[x.p.h,x.p.d,x.p.a],mx=Math.max.apply(null,p),pk=p.indexOf(mx),r=[];
   if(mx<40)r.push("peluang ketiga hasil hampir sama");
   var mk=mkP(x);if(mk&&mk.indexOf(Math.max.apply(null,mk))!==pk)r.push("pasar mengunggulkan "+["tuan rumah","seri","tim tamu"][mk.indexOf(Math.max.apply(null,mk))]);
-  var lu=x.bl&&x.bl.lu,k=x.bl&&x.bl.k;if(lu){var wk=[[lu[0],lu[1],x.home.name],[lu[2],lu[3],x.away.name]].filter(function(z){return Math.min(z[0],z[1])<.85});if(wk.length)r.push("line-up "+wk.map(function(z){return esc(z[2])}).join(" & ")+" melemah")}
+  var lu=x.bl&&x.bl.lu,k=x.bl&&x.bl.k,lpr=x.bl&&x.bl.src!=="xi"&&x.bl.lsrc!=="xi";if(lu){var wk=[[lu[0],lu[1],x.home.name],[lu[2],lu[3],x.away.name]].filter(function(z){return Math.min(z[0],z[1])<.85});if(wk.length)r.push((lpr?"perkiraan line-up ":"line-up ")+wk.map(function(z){return esc(z[2])}).join(" & ")+" melemah")}
   else if(k&&(k[0]!=null||k[1]!=null)){if(Math.max(k[0]||0,k[1]||0)>=2)r.push("pemain inti absen")}else{var b=x.ab;if(b&&(b.nh+b.na>=5||Math.max(b.nh,b.na)>=4))r.push("banyak pemain absen")}
   if(x.bl&&!x.bg){var q2=[x.bl.h,x.bl.d,x.bl.a];if(q2.indexOf(Math.max.apply(null,q2))!==pk&&Math.abs(Math.max.apply(null,q2)-q2[pk])>=5)r.push("Model BL mengunggulkan "+["tuan rumah","seri","tim tamu"][q2.indexOf(Math.max.apply(null,q2))])}
   var q=x.src==="BSD"&&btLg(x.league);if(q&&q.acc<45)r.push("BSD sering meleset di liga ini");
@@ -915,7 +916,7 @@ function favHead(L,td){var b=BT&&BT.dc&&BT.dc.all,r=EV&&EV.rk&&EV.rk.days,last=n
   if(r)for(var i=0;i<r.length;i++)if(r[i].d<td&&r[i].fv){last=r[i];break}
   return'<div class="c favh"><div class="fht">🛡️ Favorit <small>'+L.length+' laga belum main</small></div>'
     +'<p class="cap">Tim unggulan yang peluang <b>tidak kalah</b>-nya (menang atau seri) ≥'+FAVMIN+'%, hanya laga dengan data lengkap (xG BSD, riwayat kedua tim di Model BL, dan harga pasar). Diurutkan dari yang tertinggi.'
-    +(b&&b.n?' Uji mundur '+(BT.days||90)+' hari: <b>'+String(Math.round(b.hit)).replace(".",",")+'%</b> dari '+b.n.toLocaleString("id-ID")+' laga seperti ini memang tidak kalah.':'')
+    +(b&&b.n?' Uji mundur '+(BT.days||90)+' hari: <b>'+String(Math.round(b.hit)).replace(".",",")+'%</b> dari '+b.n.toLocaleString("id-ID")+' laga dengan peluang tidak kalah ≥'+FAVMIN+'% memang tidak kalah (semua laga, belum disaring kelengkapan data).':'')
     +' Bukan kepastian: di angka 90%, wajarnya 1 dari 10 tetap meleset.</p>'
     +(last?'<p class="cap favr">'+(last.d===favPrev(td)?'Kemarin':favDayTxt(last.d))+': Favorit tidak kalah <b>'+last.fv.hit+' dari '+last.fv.n+'</b> ('+Math.round(last.fv.hit/last.fv.n*100)+'%) · <button class="lnk" data-n="e">rincian di Evaluasi</button></p>':'')
     +'</div>'}
@@ -932,7 +933,7 @@ function favRaporHtml(R){if(!R||!R.days)return"";var D2=R.days.filter(function(d
 /* V24b: rincian kartu (line-up, absen, akurasi liga, V10) dilipat agar kartu ringkas di HP */
 /* V29c: kelengkapan data per laga (5 sumber). Makin lengkap, makin kokoh dasar prediksinya. */
 function dataQ(x){var lgN=BT&&BT.byLeague&&BT.byLeague[x.league]&&BT.byLeague[x.league].n||0,bl=x.bl||{};
-  var L=[["xG BSD",!!(x.p&&x.p.xg!=null&&x.src==="BSD")],["Model BL",!!x.bl],["harga pasar",!!(x.odds||x.pin)],["line-up resmi",bl.src==="xi"||!!bl.lu],["riwayat liga",lgN>=30]];
+  var L=[["xG BSD",!!(x.p&&x.p.xg!=null&&x.src==="BSD")],["Model BL",!!x.bl],["harga pasar",!!(x.odds||x.pin)],["line-up resmi",bl.src==="xi"||bl.lsrc==="xi"],["riwayat liga",lgN>=30]];
   return{n:L.filter(function(q){return q[1]}).length,L:L}}
 function dqLine(x){var q=dataQ(x);return'<div class="acl dq" title="Makin lengkap datanya, makin kokoh dasar prediksi. Line-up resmi biasanya baru ada ±1 jam sebelum kickoff.">Kelengkapan data: <b>'+q.n+'/5</b> · '+q.L.map(function(r){return(r[1]?"✓ ":"✗ ")+r[0]}).join(" · ")+'</div>'}
 function cardDet(x){var a=blWhy(x),b=absLine(x),c=btLine(x),dq=x.p&&!x.np&&x.status==="NS"?dqLine(x):""   /* V31b: hanya sebelum kickoff — setelah mulai, Model BL & harga pasar memang tidak lagi disimpan di kartu */,v=x.p&&x.p.v10?'<div class="v10line"><span><b>'+(x.p.engine==="V10-ringkas"?"V10 penuh":"V10")+'</b> · skor '+x.p.v10.ms[0]+"-"+x.p.v10.ms[1]+'</span><span>Over 2,5 '+x.p.v10.ou.toFixed(0)+'%</span><span>BTTS '+x.p.v10.bt.toFixed(0)+'%</span></div>':"";
@@ -959,8 +960,9 @@ var MBL=null;
 function blWhy(x){var b=x.bl;if(!b||x.status!=="NS")return"";var nm=[shortNm(x.home.name),shortNm(x.away.name)],why=[];
   /* V24b: kekuatan line-up per lini dalam bahasa sederhana; persen asli tetap di title */
   var lv=function(v,w){return v<.9?w+" melemah":v>1.1?w+" lebih kuat":w+" biasa"};
+  var lpr=b.src!=="xi"&&b.lsrc!=="xi";   /* V34d: line-up belum resmi -> tulis "perkiraan" */
   if(b.lu){var sd=function(i,j){var a=b.lu[j],d=b.lu[j+1];if(a>=.9&&d>=.9)return;var ms=b.mi&&b.mi[i]&&b.mi[i].length?" · tanpa "+b.mi[i].map(esc).join(", "):"";
-      why.push('<span title="Kekuatan line-up dibanding biasanya: serang '+Math.round(a*100)+'%, bertahan '+Math.round(d*100)+'%">Line-up <b>'+esc(nm[i])+'</b>: '+lv(a,"serangan")+", "+lv(d,"pertahanan")+ms+'</span>')};sd(0,0);sd(1,2)}
+      why.push('<span title="Kekuatan line-up dibanding biasanya: serang '+Math.round(a*100)+'%, bertahan '+Math.round(d*100)+'%'+(lpr?'. Line-up resmi belum keluar: dihitung dari perkiraan line-up BSD dan daftar pemain absen':'')+'">'+(lpr?'Perkiraan line-up':'Line-up')+' <b>'+esc(nm[i])+'</b>: '+lv(a,"serangan")+", "+lv(d,"pertahanan")+ms+'</span>')};sd(0,0);sd(1,2)}
   else if(b.k){if(b.k[0])why.push(b.k[0]+" pemain inti "+esc(nm[0])+" tidak main");if(b.k[1])why.push(b.k[1]+" pemain inti "+esc(nm[1])+" tidak main")}
   if(b.r){if(b.r[0])why.push(esc(nm[0])+" baru main ≤3 hari lalu");if(b.r[1])why.push(esc(nm[1])+" baru main ≤3 hari lalu")}
   return why.length?'<div class="acl blw">'+why.join("<br>")+'</div>':""}
@@ -1118,7 +1120,7 @@ function draw(){
   if(tk){tk.hidden=!LV2.length;tk.innerHTML=LV2.map(function(x){return'<button '+(x.eid?'data-mc="'+x.eid+'"':'')+'><span class="dt"></span><span class="m">'+(x.ht?"HT":x.min!=null?x.min+"\'":"LIVE")+'</span>'+esc(x.home.name)+' <b>'+(x.score[0]==null?"-":x.score[0])+'-'+(x.score[1]==null?"-":x.score[1])+'</b> '+esc(x.away.name)+'</button>'}).join("")}
   var strong=open.filter(function(x){return x.edge>=20}).length,
     avg=open.length?open.reduce(function(a,x){return a+x.edge},0)/open.length:0;
-  var nFav=M.filter(function(x){if(x.status!=="NS")return false;var f=favOf(x);return f&&f.v>=FAVMIN}).length;   /* V34c: kotak atas memakai istilah yang dipahami */
+  var nFav=M.filter(function(x){if(x.status!=="NS"||!(Date.parse(x.utc)>Date.now()))return false;var f=favOf(x);return f&&f.v>=FAVMIN}).length;   /* V34c: kotak atas memakai istilah yang dipahami */
   $("#kpi").innerHTML='<div class="k"><b>'+M.length+'</b><span>Pertandingan</span></div>'
     +'<div class="k lv"><b>'+live+'</b><span>Sedang berlangsung</span></div>'
     +'<div class="k" title="Laga belum main yang selisih peluang tim unggulannya 20 poin atau lebih (rata-rata '+String(avg.toFixed(1)).replace(".",",")+' poin untuk semua laga)"><b>'+strong+'</b><span>Unggulan kuat</span></div>'

@@ -171,7 +171,7 @@ export function updateHistory(hist,matches,now){
     }
     // V22c: skor akhir BSD = skor 90 menit (gol perpanjangan waktu terpisah di m.et). Saat laga baru selesai BSD kadang sempat
     // memberi skor termasuk perpanjangan, lalu mengoreksinya -> hasil diperbarui selama 48 jam setelah kickoff, bukan dicatat sekali.
-    if(e&&m.status==="FT"&&m.score[0]!=null&&m.score[1]!=null&&(!e.r||now-t<48*36e5))e.r=[m.score[0],m.score[1]];
+    if(e&&m.status==="FT"&&t<=now&&m.score[0]!=null&&m.score[1]!=null&&(!e.r||now-t<48*36e5))e.r=[m.score[0],m.score[1]];
   }
   for(const [k,e] of H){const t=Date.parse(e.u);if((!e.r&&t<now-3*864e5)||t<now-120*864e5)H.delete(k)}   // tanpa hasil >3 hari / >120 hari: buang
   return [...H.values()].sort((a,b)=>a.u.localeCompare(b.u)).slice(-6000);
@@ -634,7 +634,7 @@ async function main(){
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
         useful,w:wa?wa.w:1,core:CORE,cov:M.cov,xrHist:XRH?1:0,v20,stk:STK,blLg,dis:J.length?disagree(J):null,exp:J.length?experiments(J,id=>NM.get(id)||""):null,lu2:J.length&&typeof X2!=="undefined"&&X2&&X2.e?lineupExp(J,X2.e):null,drw:J.length?(()=>{try{const d=drawExp(J);if(d){const LGN=new Map((leagues||[]).map(l=>[l.id,l.name]));d.lg=d.lg.map(x=>[LGN.get(x[0])||String(x[0]),...x.slice(1)])}return d}catch(e){errors.push("analisis seri: "+e.message);return null}})():null,tbl,fac,pred};   // V22d: dis = BSD vs BL berbeda arah
       // ringkasan per tim untuk tampilan (Tahap 4): peringkat kekuatan, keberuntungan musim ini, data pemain
-      try{const lk=luckOf(ms,now),TS={};const lgs=new Set(every.map(m=>m.lid).filter(x=>x!=null));
+      try{const lk=luckOf(ms,now,200,new Map([...M.team].map(([id,t])=>[id,t.lg]))),TS={};/* V34d: keberuntungan hanya dari laga liga tim itu (cocok dengan tabel klasemen) */const lgs=new Set(every.map(m=>m.lid).filter(x=>x!=null));
         for(const [id,t] of M.team){if(!lgs.has(t.lg)||t.n<4)continue;const R=strengthRanks(M,t.lg),L=lk[id],S=teamSummary(PS.t[id],VA.p),Lg=M.lg.get(t.lg)||{A:0,D:0};
           TS[id]={lg:t.lg,sr:R.get(id)??null,sn:R.size,att:r2(Lg.A+t.a),def:r2(Lg.D+t.d),
             luck:L?{n:L.n,pts:L.pts,gf:L.gf,ga:L.ga,xn:L.xn,xgf:r2(L.xgf),xga:r2(L.xga),xpts:r2(L.xpts),xpN:L.xpN}:null,
