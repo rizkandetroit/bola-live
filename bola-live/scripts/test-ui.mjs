@@ -240,3 +240,7 @@ console.log("test-ui V28 ok");
  assert.equal(F.dataQ(x).n,5);assert.equal(F.dataQ({...x,odds:null,bl:null,p:{h:1,d:1,a:1,xg:null}}).n,1);
  const d=F.cardDet(x);assert(d.includes("data 5/5")&&d.includes("Kelengkapan data: <b>5/5</b>"),d.slice(0,300))}
 console.log("test-ui V29 ok");
+{const F=new Function(pre+";return {drawRisk,set:function(m){MBL=m}}")();const x={status:"NS",p:{h:36,d:31,a:33},bl:{h:35,d:30,a:35},home:{name:"A"},away:{name:"B"}};
+ F.set({drw:{rule:{th:40,dm:28,pass:true,test:{n:300,draw:36.1,base:26.4}}}});assert(F.drawRisk(x).includes("Rawan seri")&&F.drawRisk(x).includes("36,1%"));
+ assert.equal(F.drawRisk({...x,p:{h:55,d:25,a:20}}),"","tidak berimbang");F.set({drw:{rule:{th:40,dm:28,pass:false,test:{}}}});assert.equal(F.drawRisk(x),"","belum lolos: tidak tampil")}
+console.log("test-ui V30 ok");

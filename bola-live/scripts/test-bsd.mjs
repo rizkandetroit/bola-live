@@ -9,7 +9,8 @@ import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
 import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib,favOf,recapOf} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate,HL_LEAGUES,pickLeague} from "./highlightly.mjs";
-import {lineupFeatures,lineupExp} from "./model.mjs";
+import {lineupFeatures,lineupExp,drawExp} from "./model.mjs";
+import {factorTests as facT} from "./factors.mjs";
 import {trainLean} from "./stack.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
 import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
@@ -239,6 +240,23 @@ console.log("OK    V29: koreksi terarah BSD");
  const ev=evalHistory(H);assert(Math.abs(ev.rps-((.4**2+.15**2)/2+(.6**2+.15**2)/2+(.4**2+.7**2)/2)/3)<1e-9,"RPS benar: "+ev.rps);
  assert.equal(ev.seg.top5.n,1);assert.equal(ev.seg.piala.n,1);assert.equal(ev.seg.lain.n,1);assert(ev.market&&ev.market.n===1&&ev.market.bsdRps!=null&&ev.market.bsdAcc===100)}
 console.log("OK    V29b: RPS, kelompok liga, pembanding pasar");
+{// V30: analisis seri — laga berimbang lebih sering seri (ditanam), liga 2 punya seri lebih tinggi dari perkiraan BSD
+ let x=5;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
+ for(let i=0;i<3000;i++){const bal=rnd()<.25,l=1+(i%3),b=bal?[36,31,33]:[55,24,21],pd=(bal?.40:.20)+(l===2?.15:0),u=rnd(),o=u<pd?1:u<pd+(1-pd)*.6?0:2;
+   R.push({o,b,p:bal?[35,31,34]:[56,23,21],l,t:i})}
+ const D=drawExp(R);assert(D.rule&&D.rule.pass&&D.rule.test.draw>D.rule.test.base+5,"rawan seri tertangkap: "+JSON.stringify(D.rule));
+ assert(D.corr.pass&&D.corr.gain>0,"koreksi seri per liga membaik: "+JSON.stringify(D.corr));assert.equal(D.lg[0][0],2,"liga dengan selisih seri terbesar di atas");
+ assert.equal(drawExp(R.slice(0,100)),null)}
+console.log("OK    V30: analisis seri");
+{// V30b: faktor rotasi — sebelum laga Eropa & unggulan di piala
+ const D=864e5,ms=[],J=[];let id=1;
+ for(let w=0;w<40;w++){const t0=Date.UTC(2026,0,1)+w*7*D;
+   ms.push({id:id,t:t0,l:1,h:10,a:20+w,gh:1,gh2:0,ga:1,hc:null,ac:null,tr:null});J.push({id:id,o:1,b:[65,20,15],p:[60,22,18]});id++;   // liga: tim 10 diunggulkan, seri (rotasi)
+   ms.push({id:id,t:t0+3*D,l:99,h:10,a:90+w,gh:2,ga:0,hc:null,ac:null,tr:null});id++;                                             // laga Eropa 3 hari kemudian
+   ms.push({id:id,t:t0+5*D,l:7,h:10,a:60+w,gh:0,ga:1,hc:null,ac:null,tr:null});J.push({id:id,o:2,b:[70,18,12],p:[68,19,13]});id++}   // piala: unggulan kalah
+ const F=facT(ms,J,new Set([99]),new Set([7]));assert(F.sebelumEropa&&F.sebelumEropa.n===40&&F.sebelumEropa.win===0&&F.sebelumEropa.gapBsd<-60,"sebelum Eropa: "+JSON.stringify(F.sebelumEropa));
+ assert(F.pialaUnggulan&&F.pialaUnggulan.n===40&&F.pialaUnggulan.win===0,"unggulan piala: "+JSON.stringify(F.pialaUnggulan));assert(F.habisEropa&&F.habisEropa.n===40,"habis Eropa tetap jalan")}
+console.log("OK    V30b: faktor rotasi");
 console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;

@@ -278,3 +278,24 @@ export function lineupExp(rows,E){
     const base=ll(BB,k,0),withLu=ll(BB,k,beta);out[k==="b"?"bsd":"bl"]={beta,n:BB.length,ll0:r3(base),ll1:r3(withLu),gain:r3(base-withLu),acc0:r3(acc(BB,k,0)),acc1:r3(acc(BB,k,beta)),pass:base-withLu>=.002}}
   const ad=R.map(r=>Math.abs(r.f.dh-r.f.da)).sort((a,b)=>a-b);out.medGap=r3(ad[ad.length>>1]);
   return out}
+
+// V30 (analisis seri): (1) tingkat seri per liga vs perkiraan BSD; (2) aturan "rawan seri" (BSD & Model BL sama-sama melihat laga berimbang);
+// (3) koreksi seri per liga (ditarik ke 0, k=150 laga) — semua dipelajari di separuh awal dan diuji di separuh akhir (urut waktu).
+export function drawExp(rows){
+  const R=(rows||[]).filter(r=>r&&r.b&&r.o!=null).slice().sort((a,b)=>a.t-b.t);if(R.length<400)return null;
+  const half=Math.floor(R.length/2),A=R.slice(0,half),B=R.slice(half),r3=x=>x==null?null:Math.round(x*1000)/1000,r1=x=>x==null?null:Math.round(x*10)/10;
+  // 1) per liga (semua laga)
+  const G=new Map();for(const r of R){const g=G.get(r.l)||{n:0,d:0,bd:0};g.n++;if(r.o===1)g.d++;g.bd+=r.b[1];G.set(r.l,g)}
+  const lg=[...G].filter(([,g])=>g.n>=40).map(([l,g])=>[l,g.n,r1(g.d/g.n*100),r1(g.bd/g.n)]).sort((a,b)=>Math.abs(b[2]-b[3])-Math.abs(a[2]-a[3])).slice(0,15);
+  const base=x=>x.length?x.filter(r=>r.o===1).length/x.length*100:null;
+  // 2) aturan rawan seri
+  const flag=(r,th,dm)=>Math.max(r.b[0],r.b[2])<th&&r.b[1]>=dm&&(!r.p||r.p[1]>=dm-2);
+  let best=null;for(const th of [38,40,42,44,46])for(const dm of [26,28,30,32]){const F=A.filter(r=>flag(r,th,dm));if(F.length<60)continue;const lift=base(F)-base(A);if(!best||lift>best.lift)best={th,dm,lift,nA:F.length}}
+  let rule=null;if(best){const F=B.filter(r=>flag(r,best.th,best.dm)),d=base(F),b0=base(B),bd=F.length?F.reduce((s,r)=>s+r.b[1],0)/F.length:null;
+    rule={th:best.th,dm:best.dm,nA:best.nA,test:{n:F.length,draw:r1(d),base:r1(b0),bsdD:r1(bd)},pass:F.length>=60&&d-b0>=5}}
+  // 3) koreksi seri per liga
+  const k=150,ll=(L,dl)=>-L.reduce((s,r)=>{const d=dl.get(r.l)||0,q=[r.b[0],r.b[1]*Math.exp(d),r.b[2]],t=q[0]+q[1]+q[2];return s+Math.log(Math.max(q[r.o]/t,1e-6))},0)/L.length;
+  const GA=new Map();for(const r of A){const g=GA.get(r.l)||{n:0,d:0,bd:0};g.n++;if(r.o===1)g.d++;g.bd+=r.b[1]/100;GA.set(r.l,g)}
+  const dl=new Map();for(const [l,g] of GA){const w=g.n/(g.n+k),obs=(g.d+.5)/(g.n+1),exp=Math.max(g.bd/g.n,.05);dl.set(l,w*Math.log(obs/exp))}
+  const ll0=ll(B,new Map()),ll1=ll(B,dl),corr={n:B.length,ll0:r3(ll0),ll1:r3(ll1),gain:r3(ll0-ll1),pass:ll0-ll1>=.002};
+  return{n:R.length,draw:r1(base(R)),bsdDraw:r1(R.reduce((s,r)=>s+r.b[1],0)/R.length),lg,rule,corr}}

@@ -5,7 +5,7 @@
 
 const DAY=864e5;
 // ms: [{id,t,l,h,a,gh,ga,hc,ac,tr}] ; J: [{id,o,p,b}] ; eu: Set id liga kompetisi Eropa/antarbenua
-export function factorTests(ms,J,eu){
+export function factorTests(ms,J,eu,cup){cup=cup||new Set();
   const S=ms.slice().sort((a,b)=>a.t-b.t),byT=new Map(),pos=new Map();
   for(const m of S){for(const [id,home] of [[m.h,1],[m.a,0]]){const L=byT.get(id)||byT.set(id,[]).get(id);
     L.push({id:m.id,t:m.t,l:m.l,opp:home?m.a:m.h,gf:home?m.gh:m.ga,ga:home?m.ga:m.gh,coach:home?m.hc:m.ac,home});pos.set(m.id+":"+id,L.length-1)}}
@@ -20,6 +20,10 @@ export function factorTests(ms,J,eu){
       if(X.prev.length===5){const f=X.prev.reduce((a,x)=>a+pts(x),0);if(f>=12)add("formPanas",res[s],pb[s],pp[s]);if(f<=3)add("formDingin",res[s],pb[s],pp[s])}
       // jadwal padat setelah laga Eropa (<= 4 hari)
       const last=X.L[X.i-1];if(last&&m.t-last.t<=4*DAY&&eu.has(last.l)&&!eu.has(m.l))add("habisEropa",res[s],pb[s],pp[s]);
+      // V30b: rotasi menjelang laga Eropa (laga berikutnya <= 4 hari lagi di kompetisi Eropa/antarbenua). Jadwal diumumkan jauh hari -> bukan bocor.
+      const next=X.L[X.i+1];if(next&&next.t-m.t<=4*DAY&&eu.has(next.l)&&!eu.has(m.l))add("sebelumEropa",res[s],pb[s],pp[s]);
+      // V30b: unggulan besar (BSD >= 60%) di piala domestik — sering rotasi, lawan divisi bawah bermain habis-habisan
+      if(cup.has(m.l)&&pb[s]>=.6)add("pialaUnggulan",res[s],pb[s],pp[s]);
       // pelatih baru: pelatih beda dari laga sebelumnya; berlaku untuk 4 laga pertama pelatih itu
       const cur=X.L[X.i].coach;if(cur!=null){let k=X.i-1,same=0;while(k>=0&&X.L[k].coach===cur){same++;k--}
         if(k>=0&&X.L[k].coach!=null&&X.L[k].coach!==cur&&same<4&&m.t-X.L[k].t<90*DAY)add("pelatihBaru",res[s],pb[s],pp[s])}
