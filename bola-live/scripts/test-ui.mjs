@@ -248,3 +248,6 @@ console.log("test-ui V30 ok");
   lu2:{n:50,note:"belum cukup laga",fac:{kiperCadangan:{n:40,win:20,bsd:35,gap:-15,se:6.3},kiperUtama:{n:900,win:45,bsd:44,gap:1,se:1.7},segar:{n:5,win:1,bsd:1,gap:0,se:1}}}};
  const h=F.mblHtml(M,null);assert(h.includes("Kiper cadangan turun")&&h.includes("-15 *")&&!h.includes("Starter rata-rata &lt; 60")&&!h.includes("< 60 menit"),h.slice(h.indexOf("Kondisi"),h.indexOf("Kondisi")+600))}
 console.log("test-ui V31 ok");
+{const F=new Function(pre+";return {cardDet,set:function(b){BT=b}}")();F.set({byLeague:{}});const x={id:5,league:"L",src:"BSD",p:{h:50,d:25,a:25,xg:[1,1]},home:{name:"A"},away:{name:"B"}};
+ assert(F.cardDet({...x,status:"NS"}).includes("Kelengkapan data"));assert(!F.cardDet({...x,status:"LIVE"}).includes("Kelengkapan data"),"live: tidak tampil");assert(!F.cardDet({...x,status:"FT"}).includes("Kelengkapan data"),"selesai: tidak tampil")}
+console.log("test-ui V31b ok");
