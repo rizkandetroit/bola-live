@@ -254,3 +254,9 @@ console.log("test-ui V31b ok");
 {const F=new Function(pre+";return {pb}")();const x={status:"NS",p:{h:45,d:27,a:28},sk:{h:40,d:28,a:32,u:1,src:"lean"},home:{name:"A"},away:{name:"B"}};
  assert(F.pb(x).includes("BSD terkoreksi")&&!F.pb(x).includes("Gabungan ·"));assert(F.pb({...x,sk:{...x.sk,src:"stack"}}).includes("Gabungan ·"));assert(!F.pb({...x,sk:{...x.sk,u:0}}).includes("terkoreksi"))}
 console.log("test-ui V32 ok");
+{const F=new Function(pre+";KL.tm={'7':{sr:9,sn:18,luck:{xn:10,xpN:24,xpts:18.4}},'8':{sr:2,sn:18,luck:{xn:2,xpN:3,xpts:5}}};return {klTable}")();
+ const R=[{position:3,team_id:7,team_name:"A",played:10,won:7,drawn:3,lost:0,gf:20,ga:5,gd:15,xgd:3,pts:24,form:"WWDWW"},{position:12,team_id:8,team_name:"B",played:10,won:1,drawn:0,lost:9,gf:5,ga:20,gd:-15,xgd:-2,pts:3,form:"LLLLL"},{position:5,team_id:99,team_name:"C",played:10,won:5,drawn:0,lost:5,gf:9,ga:9,gd:0,xgd:null,pts:15,form:""}];
+ const h=F.klTable(R);assert(h.includes(">Kuat<")&&h.includes(">Untung<"),"kolom baru");assert(h.includes('kq dn">9<')&&h.includes('kq up">2<'),"warna kekuatan");assert(h.includes('kq up">+5,6<'),"untung: "+h.match(/kq[^<]*/g));
+ assert((h.match(/<td class="s">-<\/td>/g)||[]).length===3,"data kurang -> strip");
+ const G=new Function(pre+";KL.tm={};return {klTable}")();assert(!G.klTable(R).includes(">Kuat<"),"tanpa data: kolom disembunyikan")}
+console.log("test-ui V33 ok");
