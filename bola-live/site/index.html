@@ -186,7 +186,7 @@ select#kl-sel,select#lgs,select#sl-lig{max-width:100%;text-overflow:ellipsis}
 .an h3{font-size:14px;margin:16px 0 6px;color:var(--ink)}.an ul{margin:0;padding-left:18px}.an li{margin:5px 0;line-height:1.5}.an small{color:var(--mut)}
 .anc{background:var(--pn2);border:1px solid var(--ln2);border-radius:10px;padding:10px 12px;line-height:1.5}
 .evt{display:inline-block;font-size:11px;line-height:1.5;padding:0 6px;border-radius:9px;margin-left:6px;border:1px solid var(--ln2);white-space:nowrap;cursor:help;vertical-align:1px}.evt.eg{color:#16a34a;border-color:#16a34a55}.evt.ey{color:#b45309;border-color:#b4530955}.evt.ei{color:var(--mut)}.evx{display:block;color:var(--mut);font-size:12px;margin:2px 0 0}
-.tm .n{flex-wrap:wrap}.tm .n .tag{flex:none}   /* V38d: tanda Putri/Tim muda turun ke baris berikut, tidak menimpa skor */
+.tt{margin-top:3px;line-height:1}.tm .r .tt{text-align:right}.tm .n .nm{min-width:0}   /* V38d: tanda Putri/Tim muda turun ke baris berikut, tidak menimpa skor */
 .rt{font-size:11.5px;white-space:nowrap;margin-left:4px}.rt.ok{color:#16a34a}.rt.no{color:#dc2626}.rt.dr{color:var(--mut)}
 .kq.up{color:var(--good,#16a34a);font-weight:600}.kq.dn{color:var(--bad,#dc2626);font-weight:600}   /* V26c: nama liga panjang tidak melebarkan halaman di HP */
 .tag.tw{font-size:10px;padding:1px 6px;margin:0 4px;vertical-align:middle;color:var(--A);border-color:var(--A)}
@@ -760,7 +760,7 @@ function rkStyle(i){return i===0?" r1":i===1?" r2":i===2?" r3":""}
 function cr(u,c){return u&&/^https:\/\//.test(u)?'<img class="'+(c||'cr')+'" src="'+esc(u)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':""}
 function cardNp(x){
   return'<div class="c cc'+(x.status==="LIVE"?" lv":"")+(String(MC.id)===String(x.eid)?" sel":"")+'"'+(x.eid?' data-mc="'+x.eid+'" role="button" tabindex="0"':"")+'><div class="tp"><span>'+esc(x.league)+' <span class="tag l1">tanpa prediksi</span></span><span class="tme">'+stt(x)+'</span></div>'
-    +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+teamTag(x,x.home)+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+teamTag(x,x.away)+esc(x.away.name)+cr(x.away.crest)+'</div></div></div></div>'
+    +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+'<span class="nm">'+esc(x.home.name)+'</span></div>'+ttag(x,x.home)+'</div>'+mid(x)+'<div class="r"><div class="n">'+'<span class="nm">'+esc(x.away.name)+'</span>'+cr(x.away.crest)+'</div>'+ttag(x,x.away)+'</div></div></div>'
 }
 
 function rowNp(x){
@@ -791,6 +791,7 @@ function lgLabel(n,c){n=String(n||"");return(c&&LGID[n+"|"+c])||LGID[n]||n}
 function lgSmall(n,c){var l=lgLabel(n,c);if(l===n)return c&&n.indexOf(c)<0?' <span class="lc">'+esc(c)+'</span>':"";return l.indexOf(n)>-1?"":' <span class="lc">'+esc(n)+'</span>'}
 /* tanda tim putri / tim muda (cadangan, U-23, B) agar tidak tertukar dengan tim utama */
 var YTH=/(^|\s)(U-?1[7-9]|U-?2[0-3]|Sub-?2[0-3]|Next Gen|Jong|Futures|Reserves?|Youth|Primavera|Castilla)(\s|$)|\s(II|B)$/i;   /* II/B hanya di akhir nama: Willem II tetap tim utama */
+function ttag(x,t){var g=teamTag(x,t);return g?'<div class="tt">'+g+'</div>':""}   /* V38f: tanda di baris sendiri di bawah nama */
 function teamTag(x,t){return WOMEN[x.league]?(/Putri/.test(lgLabel(x.league,x.lc))?"":' <span class="tag tw" title="Tim putri">Putri</span>'):YTH.test(t&&t.name||"")?' <span class="tag tw" title="Tim cadangan / tim muda, bukan tim utama">Tim muda</span>':""}
 function lgName(x){return'<span title="'+esc(x.league)+'">'+esc(lgLabel(x.league,x.lc))+'</span>'+lgSmall(x.league,x.lc)}
 function card(x,rank){
@@ -800,7 +801,7 @@ function card(x,rank){
     +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+cr(x.lgc,"lgc")+lgName(x)+'</span>':'<span>'+cr(x.lgc,"lgc")+lgName(x)+'</span>')
     +(x.src==="BSD"?' <span class="tag l2" title="Peluang dari model BSD (machine learning)">BSD</span>':x.src==="HL"?' <span class="tag l3" title="'+(x.p&&x.p.engine==="poisson"?"Prediksi model Poisson + Elo Bola Live":"Data dan prediksi dari Highlightly")+'">'+(x.p&&x.p.engine==="poisson"?"Model BL":"Highlightly")+'</span>':x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
     +'<span class="tme">'+stt(x)+'</span></div>'
-    +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+esc(x.home.name)+teamTag(x,x.home)+'</div><div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+teamTag(x,x.away)+esc(x.away.name)+cr(x.away.crest)+'</div><div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"")+'</div></div></div>'
+    +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+'<span class="nm">'+esc(x.home.name)+'</span></div>'+ttag(x,x.home)+'<div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+'<span class="nm">'+esc(x.away.name)+'</span>'+cr(x.away.crest)+'</div>'+ttag(x,x.away)+'<div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"")+'</div></div></div>'
     +pb(x)+'<div class="ft2"><span style="font-size:12px">'+(drawTop(x)?'Berimbang: <b>seri</b> paling mungkin':'Condong ke <b title="'+esc(pkD(x).name)+'">'+esc(shortNm(pkD(x).name))+'</b>')+resTag(x)+(!drawTop(x)&&conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span>'+cfTag(x)+'</div>'+riskLine(x)+drawRisk(x)+whyLine(x)+blLine(x)+mixLine(x)+pinLine(x)+(S.st==="FAV"?favLine(x):"")+cardDet(x)
     +valTag(x)+'</div>'
 }
