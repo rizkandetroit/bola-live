@@ -283,3 +283,24 @@ console.log("test-ui V34d ok");
  assert(F.riskOf(x).some(r=>/perkiraan line-up A melemah/.test(r)),F.riskOf(x));assert(F.blWhy(x).includes("Perkiraan line-up"));
  const y={...x,bl:{...x.bl,src:"xi",lsrc:"xi"}};assert(F.riskOf(y).some(r=>/^line-up A melemah/.test(r)));assert(!F.blWhy(y).includes("Perkiraan"))}
 console.log("test-ui V34e ok");
+{// V35: tab Analisa — disusun dari data, tanda bukti sesuai hasil uji
+ const F=new Function(pre+`;return {anHtml,AN,KL,setAll:function(d,m,b,e){D=d;MBL=m;BT=b;EV=e}}`)();
+ const x={eid:1,src:"BSD",league:"Premier League",lc:"England",lid:1,hid:16,aid:20,utc:"2026-11-23T20:00:00Z",status:"NS",home:{name:"Brentford"},away:{name:"Everton"},p:{h:41.4,d:27.1,a:31.5,xg:[1.58,1.15],ou:52.4,bt:56.6},bl:{h:46.9,d:25.2,a:27.9,xg:[1.67,1.25],ms:[1,1],k:[1,0],src:"abs",lsrc:"pred",lu:[0.986,1.005,1.029,1.021],mi:[["I. Thiago"],["M. Röhl"]],r:[0,0]},pin:{o:[2.15,3.65,3.43],c:[2.33,3.55,3.13]},ab:{h:[["I. Thiago","s"]],a:[]},cf:{k:"terbuka",hit:40.6,n:527},level:"Tipis",why:["Klasemen menipu: Everton peringkat 7 klasemen, tapi kekuatan aslinya #11 dari 20","Brentford baru ganti pelatih"]};
+ F.setAll({matches:[x,{eid:2,src:"BSD",hid:20,aid:99,utc:"2026-11-26T20:00:00Z",league:"UEFA Europa League",status:"NS"},{eid:3,src:"BSD",hid:16,aid:98,utc:"2026-11-21T14:00:00Z",league:"Premier League",status:"FT"}],week:["2026-11-21","2026-11-30"],updated:"2026-11-23T13:05:00Z"},
+  {fac:{formPanas:{n:1183,win:49.9,bsd:47.9,gapBsd:1.9,se:1.45},pelatihBaru:{n:1003,win:29.5,bsd:34.4,gapBsd:-4.9,se:1.44},h2hDominan:{n:303,win:48.5,bsd:50,gapBsd:-1.5,se:2.9}},tbl:{g5:{beda:{n:226,win:32.7,bsd:36.4,gapBsd:-3.6,se:3.1},sama:{n:1514,win:55.1,bsd:51.3,gapBsd:3.7,se:1.28}}},dis:{n:879,bsd:379,bl:264},stk:{lab:{terbuka:{n:527,hit:40.6}}},blLg:{1:[92,44.6,43.5]}},
+  {byLeague:{"Premier League":{n:92,acc:44.6}}},{move:{open:{acc:47.9},close:{acc:48.2}}});
+ F.KL.tm={16:{lg:1,sr:6,sn:20,luck:{xn:12,xpN:20,xpts:16.1}},20:{lg:1,sr:11,sn:20,luck:{xn:13,xpN:22,xpts:18}}};
+ F.AN.lg[1]={grouped:false,standings:[{position:1,pts:28,played:11,team_id:18,zone:{type:"qualification",label:"Champions League"}},{position:2,pts:22,played:11,team_id:5},{position:3,pts:22,played:11,team_id:12},{position:7,pts:16,played:10,team_id:20,form:"WWLLD"},{position:10,pts:14,played:10,team_id:16,form:"LWDLD"},{position:18,pts:8,played:11,team_id:30,zone:{type:"relegation",label:"Relegation"}},{position:19,pts:6,played:11,team_id:31,zone:{type:"relegation"}}],top:{scorers:[{player_id:473,player_name:"Igor Thiago",team_id:16,value:6}]}};
+ const d={form:{home:{overall:{matches:10,won:3,drawn:4,lost:3,goals_for:16,goals_against:14,form:"LWLDLDWWDD",stats:{expected_goals:{average:1.136}}},home:{matches:4,won:2,drawn:1,lost:1,goals_for:7,goals_against:3,form:"WLWD"}},away:{overall:{matches:10,won:5,drawn:3,lost:2,goals_for:13,goals_against:10,form:"WWWLLDWWDD"},away:{matches:4,won:1,drawn:2,lost:1,goals_for:3,goals_against:4,form:"WLDD"}}},
+  h2h:{total_matches:12,home_wins:3,draws:5,away_wins:4,avg_total_goals:2.75,recent_matches:[{home_team_id:16,home_score:2,away_score:2},{home_team_id:20,home_score:2,away_score:4},{home_team_id:16,home_score:1,away_score:1}]},info:{derby:false,travel:283,weather:{description:"rain",temperature_c:8}},
+  lineups:{lineup_status:"predicted",unavailable_players:{home:[{id:473,short_name:"I. Thiago",status:"suspended",reason:"red_card_suspension"},{id:2373,short_name:"A. Hickey",status:"injured",reason:"Hamstring Injury"}],away:[]}}};
+ const h=F.anHtml(x,d),t=h.replace(/<[^>]+>/g," ").replace(/\s+/g," ");
+ if(process.env.SHOW_AN)console.log(h.replace(/<(li|h3|div)[^>]*>/g,"\n").replace(/<[^>]+>/g,"").replace(/\n+/g,"\n"));
+ assert(/Laga terbuka/.test(t),"kesimpulan: terbuka");assert(/posisi 10 \(14 poin dari 10 laga\), 14 poin di bawah pemuncak/.test(t),"situasi");
+ assert(/Igor Thiago, 6 gol\) tidak main/.test(t),"top skor absen");assert(/I\. Thiago \(skors\)/.test(t),"skors");
+ assert(/baru ganti pelatih.*🟢 terbukti/.test(t),"pelatih baru = terbukti");assert(/3 pertemuan|12 pertemuan.*⚪ sudah diperhitungkan BSD/.test(t),"H2H = sudah diperhitungkan");
+ assert(/3 hari lagi main di .*kemungkinan rotasi/.test(t),"Everton main Eropa 3 hari lagi");assert(/berbeda arah|sepakat/.test(t));assert(/Harga pasar bergeser ke arah Everton/.test(t),"pasar ke Everton: "+t.match(/Harga pasar[^.]*/));
+ assert(/Klasemen|kekuatan asli #6 dari 20/.test(t));assert(/Line-up resmi belum keluar/.test(t));assert(!/undefined|NaN/.test(t),"tanpa undefined/NaN: "+(t.match(/.{40}(undefined|NaN).{20}/)||[""])[0]);
+ const y={...x,status:"FT"};assert(/hanya untuk laga yang belum dimulai/.test(F.anHtml(y,d)));const z={...x,np:1};assert(/Belum ada prediksi/.test(F.anHtml(z,null)));
+ const w=F.anHtml(x,null).replace(/<[^>]+>/g," ");assert(!/undefined|NaN/.test(w),"tanpa detail tetap rapi")}
+console.log("test-ui V35 ok");
