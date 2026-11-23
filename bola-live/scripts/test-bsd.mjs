@@ -9,6 +9,7 @@ import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
 import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib,favOf,recapOf} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate,HL_LEAGUES,pickLeague} from "./highlightly.mjs";
+import {lineupFeatures,lineupExp} from "./model.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
 import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
 
@@ -206,6 +207,23 @@ console.log("event hantu ok: dibuang",g.ghost,"+ basi",g2.ghost);
  assert(T&&T.id===252680&&T.extra,"Thailand: extra");assert(M&&M.id===null&&M.extra&&M.find,"Malaysia: dicari");assert(HL_LEAGUES.filter(l=>!l.extra).every(l=>l.country==="Indonesia"),"hanya Indonesia yang prioritas");
  const L=[{id:1,name:"Malaysia Super League Women"},{id:2,name:"Malaysia FA Cup"},{id:3,name:"Super League"},{id:4,name:"Malaysia Super League"}];
  assert.equal(pickLeague(L,M),3,"lewati wanita & piala, ambil Super League pertama");assert.equal(pickLeague([{id:9,name:"Malaysia Cup"}],M),null);assert.equal(pickLeague(null,M),null)}
+{// V28: koreksi line-up tahap 2 — tanpa bocor + mendeteksi efek yang ditanam
+ const E={};let id=1,rnd=(()=>{let x=7;return()=>(x=(x*16807)%2147483647)/2147483647})();
+ const pl=(team,k)=>team*100+k,good=k=>k<11?7.5:6.4;   // pemain 0-10 = utama (bagus), 11-21 = cadangan (lemah)
+ const R=[];
+ for(let i=0;i<900;i++){const h=1+(i%10),a=1+((i+3)%10);if(h===a)continue;const subH=rnd()<.35,subA=rnd()<.35;
+   const xi=(t,sub)=>Array.from({length:11},(_,k)=>pl(t,sub&&k<6?k+11:k));const sh=xi(h,subH),sa=xi(a,subA);
+   const row=(t,ids)=>ids.map(p=>[p,t,90,Math.round(good(p%100)*10),0,0,0,0,0,0,0]);
+   const st=(subA?.6:0)-(subH?.6:0),u=rnd(),o=u<.36+st*.5?0:u<.64+st*.3?1:2;   // line-up lemah -> peluang turun
+   E[id]={t:1e9+i*3600,h,a,s:[sh,sa],r:[...row(h,sh),...row(a,sa)]};R.push({id,b:[40,28,32],p:[40,28,32],o,t:1e9+i*3600});id++}
+ const F=lineupFeatures(E);assert(F.size>500,"fitur terbentuk: "+F.size);
+ const first=Object.keys(E)[0];assert(!F.has(first),"laga pertama: belum ada riwayat pemain");
+ // tanpa bocor: mengubah rating laga X sendiri tidak mengubah fitur laga X
+ const k=String(600),f0=F.get(k);const E2=JSON.parse(JSON.stringify(E));E2[k].r=E2[k].r.map(r=>(r[3]=10,r));const f1=lineupFeatures(E2).get(k);
+ assert(f0&&f1&&Math.abs(f0.dh-f1.dh)<1e-12&&Math.abs(f0.da-f1.da)<1e-12,"rating laga itu sendiri tidak dipakai");
+ const X=lineupExp(R,E);assert(X.n>=400&&X.bsd&&X.bsd.beta>0&&X.bsd.gain>0,"efek line-up tertangkap: "+JSON.stringify(X.bsd));
+ assert.equal(lineupExp(R.slice(0,50),E).note,"belum cukup laga");assert.equal(lineupExp(R,{}),null)}
+console.log("OK    V28: koreksi line-up tahap 2 (uji coba, tanpa bocor)");
 console.log("OK    V25: kalibrasi tidak kalah (Favorit)");
 // V24b: uji coba tim muda/cadangan + aturan tebak seri (data sintetis dengan pola yang diketahui)
 {let sd=11;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const R=[],nm=id=>id>=900?"Jong Team "+id:"Team "+id;

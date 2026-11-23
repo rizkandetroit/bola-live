@@ -225,3 +225,9 @@ console.log("test-ui V25 ok");
  const r=F.favRaporHtml({days:[{d:"2026-11-21",fv:{n:1,hit:1,m:[["L","A","B",1,0,0,90,0]]}}]});assert(r.includes("Catatan langsung: 85% (60 laga")&&!r.includes("81%"),"rapor memakai data lengkap")}
 {const F=new Function(pre+";return {lgLabel}")();assert.equal(F.lgLabel("Thai League 1"),"Liga Thailand");assert.equal(F.lgLabel("Malaysia Super League"),"Liga Malaysia");assert.equal(F.lgLabel("1st Division Denmark","Denmark"),"Liga 2 Denmark")}
 console.log("test-ui V26 ok");
+// V28: tampilan uji coba line-up tahap 2
+{const F=new Function(pre+";return {mblHtml}")();
+ const M={updated:"2026-11-22T00:00:00Z",temp:1,xgCov:40,cfg:{xga:.7},hfa:.18,rest:{own:0,opp:0},cov:{nXr:0,gA:0,gD:0},xrHist:0,core:{own:.035,opp:.025},w:1,useful:false,bt:{days:90,joined:4107,bsd:{acc:53.5,brier:.58,ll:.973},modelJ:{acc:51,brier:.6,ll:.998}},lu2:{n:1200,feat:1500,bsd:{n:600,ll0:.98,ll1:.975,gain:.005,acc0:53,acc1:54,pass:true},bl:{n:600,ll0:1,ll1:.999,gain:.001,acc0:51,acc1:51,pass:false}}};
+ let h="";try{h=F.mblHtml(M,null)}catch(e){h=String(e)}
+ assert(h.includes("Koreksi line-up tahap 2")&&h.includes("1.200 laga")&&h.includes("(lolos)")&&h.includes("(belum lolos)"),h.slice(0,400))}
+console.log("test-ui V28 ok");

@@ -246,3 +246,33 @@ export function matchFeatures(ms,o={}){
     out.set(m.id,{tb,nc,eu:[euF(m.h),euF(m.a)],tr});
     if(Number.isFinite(m.gh)){push(m.h,m.hc,m.t);push(m.a,m.ac,m.t);lastM.set(m.h,{t:m.t,l:m.l});lastM.set(m.a,{t:m.t,l:m.l})}}
   return out}
+
+// V28 (uji coba, belum dipakai): koreksi line-up tahap 2 dari xi2.json (line-up resmi + statistik pemain per laga).
+// Tanpa bocor: nilai pemain hanya dari laga SEBELUM tanggal laga. Nilai = rata-rata rating (berbobot menit) dari >=2 laga sebelumnya.
+// Kualitas line-up tim = rata-rata nilai starter yang dikenal; "dq" = kualitas hari ini dikurangi rata-rata 8 laga terakhir tim itu.
+// Lalu diuji: apakah menggeser peluang BSD / Model BL sebesar exp(beta*(dqH-dqA)) memperbaiki log loss pada separuh laga terakhir.
+export function lineupFeatures(E,minKnown=7){
+  const L=Object.entries(E||{}).filter(([,e])=>e&&Array.isArray(e.s)&&e.s.length===2&&Array.isArray(e.r)&&e.r.length).map(([id,e])=>({id:String(id),...e})).sort((a,b)=>a.t-b.t);
+  const P=new Map(),T=new Map(),F=new Map();
+  const val=pid=>{const q=P.get(pid);return q&&q.n>=2&&q.m>0?q.s/q.m:null};
+  for(const e of L){
+    const side=(ids,team)=>{const v=ids.map(val).filter(x=>x!=null);if(v.length<minKnown)return null;const Q=v.reduce((a,b)=>a+b,0)/v.length;
+      const H=T.get(team)||[];const typ=H.length>=3?H.slice(-8).reduce((a,b)=>a+b,0)/Math.min(8,H.length):null;return{Q,typ,known:v.length}};
+    const h=side(e.s[0],e.h),a=side(e.s[1],e.a);
+    if(h&&a&&h.typ!=null&&a.typ!=null)F.set(e.id,{dh:h.Q-h.typ,da:a.Q-a.typ,t:e.t});
+    if(h)T.set(e.h,[...(T.get(e.h)||[]),h.Q].slice(-12));if(a)T.set(e.a,[...(T.get(e.a)||[]),a.Q].slice(-12));
+    for(const r of e.r){if(r[3]<0||r[2]<20)continue;const q=P.get(r[0])||{n:0,s:0,m:0};q.n++;q.s+=r[3]/10*r[2];q.m+=r[2];P.set(r[0],q)}}
+  return F}
+export function lineupExp(rows,E){
+  const F=lineupFeatures(E);if(!F.size)return null;
+  const R=(rows||[]).filter(r=>r&&r.b&&r.o!=null&&F.has(String(r.id))).map(r=>({...r,f:F.get(String(r.id))})).sort((a,b)=>a.f.t-b.f.t);
+  const out={feat:F.size,n:R.length};if(R.length<200)return{...out,note:"belum cukup laga"};
+  const adj=(p,z,beta)=>{const q=[p[0]*Math.exp(beta*z),p[1],p[2]*Math.exp(-beta*z)].map(x=>Math.max(x,1e-6)),s=q[0]+q[1]+q[2];return q.map(x=>x/s)};
+  const ll=(L,k,beta)=>-L.reduce((s,r)=>s+Math.log(adj(r[k].map(x=>x/100),r.f.dh-r.f.da,beta)[r.o]),0)/L.length;
+  const acc=(L,k,beta)=>L.filter(r=>{const q=adj(r[k].map(x=>x/100),r.f.dh-r.f.da,beta);return q.indexOf(Math.max(...q))===r.o}).length/L.length*100;
+  const half=Math.floor(R.length/2),A=R.slice(0,half),B=R.slice(half),G=[0,.5,1,1.5,2,3,4,6,8],r3=x=>Math.round(x*1000)/1000;
+  for(const k of ["b","p"]){const AA=A.filter(r=>r[k]),BB=B.filter(r=>r[k]);if(AA.length<100||BB.length<100)continue;
+    let beta=0,best=ll(AA,k,0);for(const g of G){const v=ll(AA,k,g);if(v<best-1e-9){best=v;beta=g}}
+    const base=ll(BB,k,0),withLu=ll(BB,k,beta);out[k==="b"?"bsd":"bl"]={beta,n:BB.length,ll0:r3(base),ll1:r3(withLu),gain:r3(base-withLu),acc0:r3(acc(BB,k,0)),acc1:r3(acc(BB,k,beta)),pass:base-withLu>=.002}}
+  const ad=R.map(r=>Math.abs(r.f.dh-r.f.da)).sort((a,b)=>a-b);out.medGap=r3(ad[ad.length>>1]);
+  return out}
