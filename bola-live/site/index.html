@@ -816,7 +816,7 @@ function card(x,rank){
 
 function row(x){
   if(x.np)return rowNp(x);
-  return'<div class="tr'+(x.status==="LIVE"?" lv":"")+'"><div class="dtc">'+stt(x,1)+'</div><div><div class="n">'+esc(x.home.name)+(x.status==="NS"?'<span class="vs2"> vs </span>':'<span class="sc">'+(x.score[0]==null?"-":x.score[0])+"-"+(x.score[1]==null?"-":x.score[1])+'</span>')+esc(x.away.name)+'</div><div class="s">'+esc(x.league)+tierTag(x)+'</div></div><div>'+pb(x)+'</div><div style="text-align:right"><div class="n" style="font-size:14px">'+esc(pk(x).name)+'</div><span class="tag l'+LV[x.level]+'">'+x.level+" "+x.edge.toFixed(0)+'</span></div>'+why(x)+h2hPanel(x)+'</div>'
+  return'<div class="tr'+(x.status==="LIVE"?" lv":"")+'"><div class="dtc">'+stt(x,1)+'</div><div><div class="n">'+esc(x.home.name)+(x.status==="NS"?'<span class="vs2"> vs </span>':'<span class="sc">'+(x.score[0]==null?"-":x.score[0])+"-"+(x.score[1]==null?"-":x.score[1])+'</span>')+esc(x.away.name)+'</div><div class="s">'+esc(x.league)+tierTag(x)+'</div></div><div>'+pb(x)+'</div><div style="text-align:right"><div class="n" style="font-size:14px">'+esc(pk(x).name)+'</div>'+cfTag(x)+'</div>'+why(x)+h2hPanel(x)+'</div>'
 }
 
 /* V15.4: strip tanggal di bawah Akan Tayang / Live / Selesai. Akan Tayang: hari ini s.d. akhir jendela data; Selesai: awal jendela s.d. hari ini.
