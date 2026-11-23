@@ -307,3 +307,15 @@ console.log("test-ui V35 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");
+{// V36: analisa langsung
+ const F=new Function(pre+`;return {anHtml,liveProb,redsOf}`)();
+ const x={eid:9,src:"BSD",status:"LIVE",min:63,score:[1,0],home:{name:"Brentford"},away:{name:"Everton"},p:{h:41,d:27,a:32,xg:[1.58,1.15]},bl:{xg:[1.67,1.25]}};
+ const d={stats:{stats:{home:{xg:{actual:.4},total_shots:4,shots_on_target:1,big_chances:0,ball_possession:38},away:{xg:{actual:1.5},total_shots:12,shots_on_target:5,big_chances:3,ball_possession:62}},momentum:[{m:54,v:-30},{m:56,v:-40},{m:58,v:-20},{m:60,v:-35},{m:62,v:-25}]},
+  incidents:[{type:"goal",minute:20,player:"K. Schade",is_home:true,home_score:1,away_score:0},{type:"card",minute:50,player:"J. Tarkowski",is_home:false,card_type:"red"}]};
+ const t=F.anHtml(x,d).replace(/<[^>]+>/g," ").replace(/\s+/g," ");if(process.env.SHOW_AN)console.log(t);
+ assert(/Menit 63 · Brentford 1-0 Everton/.test(t));assert(/Brentford unggul walau peluangnya lebih sedikit/.test(t));assert(/Everton lebih menekan/.test(t));
+ assert(/Everton bermain dengan 10 orang sejak menit 50/.test(t));assert(/20' K\. Schade \(Brentford\) → 1-0/.test(t));assert(/Perkiraan hasil akhir: Brentford menang \d+%/.test(t));assert(!/undefined|NaN/.test(t),t);
+ const p=F.liveProb(x,[0,1]),p0=F.liveProb(x,[0,0]);assert(Math.abs(p[0]+p[1]+p[2]-100)<1e-6&&p[0]>p0[0],"merah tamu menaikkan peluang tuan rumah");
+ const e=F.liveProb({...x,min:90,score:[0,0]},[0,0]);assert(e[1]>85,"menit 90 imbang -> seri besar: "+e);
+ const u=F.anHtml({...x,src:"HL",pend:1,min:null},null).replace(/<[^>]+>/g," ");assert(/Baru mulai/.test(u)&&/baru dimulai/.test(u)&&!/undefined|NaN/.test(u))}
+console.log("test-ui V36 ok");
