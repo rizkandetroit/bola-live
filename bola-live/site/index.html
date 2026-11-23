@@ -628,7 +628,7 @@ function pkD(x){var q=dp(x);return q===x.p?pk(x):(q.h>=q.a?x.home:x.away)}
 function drawTop(x){var q=dp(x);return!!(q&&q.d!=null&&q.d>q.h&&q.d>q.a)}
 /* V24b: nama tim pendek untuk layar HP ("Condong ke", line-up). Nama lengkap tetap di title. */
 var SNX=/^(fc|cf|sc|afc|ac|as|sd|cd|sk|fk|nk|bk|if|ik|sv|club|clube|f[uú]tbol|football|calcio|esporte|de|del|la|do|da|dos|\d+)$/i,SNG=/^(real|sporting|atl[eé]tico|atletico|olympique|racing|deportivo|club|united|city|athletic|dynamo|dinamo|union|inter|internacional)$/i;
-function shortNm(n){n=String(n||"").trim();if(n.length<=16)return n;var w=n.split(/\s+/).filter(function(t){return!SNX.test(t.replace(/\.$/,""))});if(!w.length)return n;var r=w.join(" ");if(r.length<=16)return r;if(w.length>1&&SNG.test(w[0]))return w[w.length-1];return r}
+function shortNm(n){n=String(n||"").trim();if(n.length<=16)return n;var w=n.split(/\s+/).filter(function(t){return!SNX.test(t.replace(/\.$/,""))});if(!w.length)return n;var r=w.join(" ");if(r.length<=16)return r;if(w.length>1&&SNG.test(w[0])){var rest=w.slice(1).join(" ");return rest.length<=16?rest:w[w.length-1]}return r}   /* V38c: 'Atlético San Luis' -> 'San Luis', bukan 'Luis' */
 /* V26b: "Favorit jelas" -> "Unggul jelas" agar tidak tertukar dengan tab Favorit; persen = tim unggulan benar-benar menang */
 var CFN={jelas:["Unggul jelas",4],cukup:["Cukup",2],terbuka:["Terbuka",1]};
 function cfTag(x){var c=x.cf;if(!c||!CFN[c.k]||x.status!=="NS")return'<span class="tag l'+LV[x.level]+'" title="Keunggulan '+x.level.toLowerCase()+': selisih peluang tim unggulan '+x.edge.toFixed(0)+' poin">Keunggulan '+x.level.toLowerCase()+'</span>';   /* V34: tanpa angka mentah */
@@ -1555,7 +1555,7 @@ function anPost(x,d){var nm=[shortNm(x.home.name),shortNm(x.away.name)],sc=x.sco
   var ji=[];if(xg){ji.push(li("xG akhir <b>"+o2(xh)+" - "+o2(xa)+"</b>"+(anSt(H,"total_shots")!=null?" · tembakan "+anSt(H,"total_shots")+" - "+anSt(A,"total_shots")+(anSt(H,"shots_on_target")!=null?" (tepat sasaran "+anSt(H,"shots_on_target")+" - "+anSt(A,"shots_on_target")+")":""):"")));
     var xd=xh-xa;if(o!==1&&(o===0?xd<=-.4:xd>=.4))ji.push(li("<b>"+esc(nm[o===0?0:1])+" menang beruntung</b>: peluang (xG) lawan lebih banyak."));
     else if(o!==1&&Math.abs(xd)>=.4)ji.push(li("Kemenangan "+esc(nm[o===0?0:1])+" <b>sesuai jalannya laga</b>."));
-    else if(o===1&&Math.abs(xd)>=.6)ji.push(li("Imbang, padahal <b>"+esc(nm[xd>0?0:1])+" jauh lebih banyak peluang</b>."));
+    else if(o===1&&Math.abs(xd)>=.4)ji.push(li("Imbang, padahal <b>"+esc(nm[xd>0?0:1])+(Math.abs(xd)>=.8?" jauh":"")+" lebih banyak peluang</b>."));   /* ambang sama dengan kategori meleset */
     else ji.push(li("Laga berjalan seimbang; hasil ini wajar."))}
   else ji.push(li("Statistik xG tidak tersedia untuk laga ini."));
   box("Jalannya laga",ji);

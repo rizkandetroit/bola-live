@@ -169,7 +169,7 @@ console.log("render ok");
 {const F=new Function(pre+";return {shortNm,blWhy,blLine,cardDet,card,set:function(b,m){BT=b;MBL=m}}")();
  assert.equal(F.shortNm("Arsenal"),"Arsenal");assert.equal(F.shortNm("Gwangju FC"),"Gwangju FC","pendek: tidak diubah");
  assert.equal(F.shortNm("Club Tigres de la UANL"),"Tigres UANL");assert.equal(F.shortNm("Real Sociedad de Fútbol"),"Real Sociedad");assert.equal(F.shortNm("Sporting Clube de Braga"),"Sporting Braga");assert.equal(F.shortNm("Racing Club de Avellaneda"),"Avellaneda");
- assert.equal(F.shortNm("Olympique Lyonnais Groupe"),"Groupe");assert.equal(F.shortNm("Bucheon FC 1995"),"Bucheon FC 1995");
+ assert.equal(F.shortNm("Olympique Lyonnais Groupe"),"Lyonnais Groupe");assert.equal(F.shortNm("Bucheon FC 1995"),"Bucheon FC 1995");
  assert.equal(F.shortNm("Borussia Mönchengladbach"),"Borussia Mönchengladbach","tanpa kata umum: tetap utuh");
  const x={id:9,eid:9,status:"NS",level:"Tipis",edge:9,pick:"h",league:"Liga MX",utc:"2026-11-22T12:00:00Z",src:"BSD",home:{name:"Club Tigres de la UANL"},away:{name:"Club América"},p:{h:50,d:25,a:25},
   bl:{h:48,d:27,a:25,xg:[1.4,1],ms:[1,0],ou:45,bt:44,lu:[.82,.95,1,1],mi:[["Gignac","Brunetta"],[]],src:"xi"},ab:{h:[["Gignac","i"]],a:[],nh:1,na:0}};
@@ -335,3 +335,8 @@ console.log("test-ui V36 ok");
  const t1=F.anHtml(x,{incidents:[g(10,true,1,0),g(30,true,2,0),g(60,true,3,0),g(90,false,3,1)]}).replace(/<[^>]+>/g," ");assert(!/mengubah hasil/.test(t1),"gol akhir yang tidak mengubah hasil tidak disebut");
  const t2=F.anHtml({...x,score:[1,1]},{incidents:[g(10,true,1,0),g(88,false,1,1)]}).replace(/<[^>]+>/g," ");assert(/Gol menit 88 \(B\) mengubah hasil/.test(t2),t2)}
 console.log("test-ui V37 ok");
+
+{const F=new Function(pre+`;return {shortNm,anHtml}`)();assert.equal(F.shortNm("Atlético San Luis"),"San Luis");assert.equal(F.shortNm("Sporting Kansas City"),"Kansas City");assert.equal(F.shortNm("Arsenal"),"Arsenal");
+ const x={eid:1,src:"BSD",status:"FT",score:[1,1],home:{name:"Puebla"},away:{name:"San Luis"},pm:{p:[37,27,35]}};const t=F.anHtml(x,{stats:{stats:{home:{xg:{actual:1.09}},away:{xg:{actual:1.67}}}}}).replace(/<[^>]+>/g," ");
+ assert(/Imbang, padahal\s+San Luis lebih banyak peluang/.test(t)&&/Salah baca/.test(t)&&!/seimbang; hasil ini wajar/.test(t),t)}
+console.log("test-ui V38c ok");
