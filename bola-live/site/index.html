@@ -1523,9 +1523,9 @@ function anHtml(x,d){
   var pi=[],lu=d&&d.lineups,conf=lu&&lu.lineup_status==="confirmed",UN=lu&&lu.unavailable_players,top=L&&L.top&&L.top.scorers||[];
   pi.push(li(conf?"<b>Line-up resmi sudah keluar.</b>":"Line-up resmi belum keluar (biasanya ±1 jam sebelum kickoff). Yang dipakai sekarang: perkiraan line-up & daftar absen."));
   [0,1].forEach(function(i){var side=i?"away":"home",U=UN&&UN[side]||[],ab=x.ab&&(i?x.ab.a:x.ab.h)||[],k=x.bl&&x.bl.k?x.bl.k[i]:0;
-    var list=U.length?U.map(function(u){return esc(u.short_name||u.name)+(u.status==="suspended"?" (skors)":u.reason?" ("+esc(String(u.reason).replace(/ Injury$/i,"").toLowerCase())+")":"")}):ab.map(function(a){return esc(a[0])+(a[1]==="s"?" (skors)":"")});
+    var list=U.length?U.map(function(u){return esc(u.short_name||u.name)+(u.status==="suspended"?" (skors)":u.reason&&!/^unknown$/i.test(u.reason)?" ("+esc(String(u.reason).replace(/ Injury$/i,"").toLowerCase())+")":"")}):ab.map(function(a){return esc(a[0])+(a[1]==="s"?" (skors)":"")});
     var ts=top.filter(function(s){return s.team_id===ids[i]}).sort(function(a,b){return b.value-a.value})[0],tsOut=ts&&U.some(function(u){return u.id===ts.player_id});
-    var s="<b>"+esc(nm[i])+"</b>: "+(list.length?list.length+" absen — "+list.slice(0,6).join(", ")+(list.length>6?", …":""):"tidak ada pemain absen tercatat");
+    var s="<b>"+esc(nm[i])+"</b>: "+(list.length?list.length+" absen — "+list.slice(0,6).join(", ")+(list.length>6?" dan "+(list.length-6)+" lainnya":""):"tidak ada pemain absen tercatat");
     if(k)s+=". <b>"+k+" di antaranya pemain inti</b>";
     if(tsOut)s+=". <b>Pencetak gol terbanyak tim ("+esc(ts.player_name)+", "+ts.value+" gol) tidak main</b>"+evInd("Kehilangan pencetak gol utama masuk akal melemahkan serangan; belum diuji khusus");
     else if(ts)s+=". Pencetak gol terbanyak, "+esc(ts.player_name)+" ("+ts.value+" gol), tersedia";
