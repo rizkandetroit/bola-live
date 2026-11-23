@@ -628,7 +628,9 @@ function dp(x){return x.sk&&x.sk.u&&x.status==="NS"?x.sk:x.p}
 function pkD(x){var q=dp(x);return q===x.p?pk(x):(q.h>=q.a?x.home:x.away)}
 /* V22c: bila seri peluang tertinggi, kartu tidak menulis "Condong ke <tim>" */
 /* V38e: laga selesai — tandai apakah arah tebakan sebelum laga tepat */
+function openTxt(x){var q=preP(x),f=q.h>=q.a?x.home:x.away,v=(q.h>=q.a?q.h:q.a)+q.d;return'<span title="Laga terbuka: tidak ada tim yang jelas unggul. Yang lebih masuk akal: '+esc(f.name)+' menang atau seri ('+Math.round(v)+'%).">Terbuka · <b>'+esc(shortNm(f.name))+'</b> tidak kalah '+Math.round(v)+'%</span>'}
 function resTag(x){var sc=x.score;if(x.status!=="FT"||!sc||sc[0]==null||!x.p||x.np)return"";var o=sc[0]>sc[1]?"h":sc[0]===sc[1]?"d":"a",g=drawTop(x)?"d":pkD(x)===x.home?"h":"a";
+  if(isOpen(x)&&!drawTop(x)){var q=preP(x),f=q.h>=q.a?"h":"a";return o!==(f==="h"?"a":"h")?' <span class="rt ok" title="Tebakan laga terbuka: tidak kalah — sesuai hasil">✓ Tepat</span>':' <span class="rt no" title="Tebakan laga terbuka: tidak kalah — tim itu kalah">✕ Meleset</span>'}
   return g===o?' <span class="rt ok" title="Arah tebakan sebelum laga sesuai hasil">✓ Tepat</span>':o==="d"?' <span class="rt dr" title="Hasil imbang, sedangkan tebakan condong ke salah satu tim — dihitung tidak tepat di Evaluasi">~ Imbang</span>':' <span class="rt no" title="Arah tebakan sebelum laga tidak sesuai hasil">✕ Meleset</span>'}   /* V38g: tanda pilihan Abang */
 function drawTop(x){var q=dp(x);return!!(q&&q.d!=null&&q.d>q.h&&q.d>q.a)}
 /* V24b: nama tim pendek untuk layar HP ("Condong ke", line-up). Nama lengkap tetap di title. */
@@ -636,7 +638,13 @@ var SNX=/^(fc|cf|sc|afc|ac|as|sd|cd|sk|fk|nk|bk|if|ik|sv|club|clube|f[uú]tbol|f
 function shortNm(n){n=String(n||"").trim();if(n.length<=16)return n;var w=n.split(/\s+/).filter(function(t){return!SNX.test(t.replace(/\.$/,""))});if(!w.length)return n;var r=w.join(" ");if(r.length<=16)return r;if(w.length>1&&SNG.test(w[0])){var rest=w.slice(1).join(" ");return rest.length<=16?rest:w[w.length-1]}return r}   /* V38c: 'Atlético San Luis' -> 'San Luis', bukan 'Luis' */
 /* V26b: "Favorit jelas" -> "Unggul jelas" agar tidak tertukar dengan tab Favorit; persen = tim unggulan benar-benar menang */
 var CFN={jelas:["Unggul jelas",4],cukup:["Cukup",2],terbuka:["Terbuka",1]};
-function cfTag(x){var c=x.cf;if(!c||!CFN[c.k]||x.status!=="NS")return'<span class="tag l'+LV[x.level]+'" title="Keunggulan '+x.level.toLowerCase()+': selisih peluang tim unggulan '+x.edge.toFixed(0)+' poin">Keunggulan '+x.level.toLowerCase()+'</span>';   /* V34: tanpa angka mentah */
+/* V39: label tingkat mengikuti angka nyata (uji mundur), juga untuk laga live/selesai */
+function preP(x){var v=x.status==="FT"&&x.pm&&x.pm.p?{h:x.pm.p[0],d:x.pm.p[1],a:x.pm.p[2]}:dp(x);return v&&v.h!=null?v:null}
+function calHit(m){var C=BT&&BT.calib;if(!C)return null;for(var i=0;i<C.length;i++)if(m>=C[i].lo&&m<C[i].hi&&C[i].n>=30)return C[i].hit;return null}
+function probKey(m){return m>=60?"jelas":m>=45?"cukup":"terbuka"}
+function isOpen(x){if(x.status==="NS"&&x.cf&&x.cf.k)return x.cf.k==="terbuka";var q=preP(x);return!!q&&Math.max(q.h,q.a)<45}
+function cfTag(x){var c=x.cf;if(!c||!CFN[c.k]||x.status!=="NS"){var q=preP(x);if(!q)return"";var m=Math.max(q.h,q.a),k=probKey(m),h=calHit(m);
+    return'<span class="tag l'+CFN[k][1]+'" title="Peluang tim unggulan '+Math.round(m)+'% sebelum laga.'+(h!=null?' Pada uji mundur, tebakan dengan peluang seperti ini benar '+String(Math.round(h)).replace(".",",")+'%.':'')+'">'+CFN[k][0]+(h!=null?' · '+Math.round(h)+'% menang':'')+'</span>'}
   return'<span class="tag l'+CFN[c.k][1]+'" title="Label keyakinan. '+(c.hit!=null?'Pada uji mundur '+c.n+' laga berlabel ini, tim unggulan benar-benar menang '+String(c.hit).replace(".",",")+'% (rata-rata kelompok, bukan angka laga ini). ':'')+'Keunggulan BSD: '+x.level+' '+x.edge.toFixed(0)+'">'+CFN[c.k][0]+(c.hit!=null?' · '+Math.round(c.hit)+'% menang':'')+'</span>'}
 function whyLine(x){if(!x.why||!x.why.length||x.status!=="NS")return"";return'<div class="acl why2">Alasan: '+x.why.map(esc).join(" · ")+'</div>'}
 function pb(x){
@@ -802,7 +810,7 @@ function card(x,rank){
     +(x.src==="BSD"?' <span class="tag l2" title="Peluang dari model BSD (machine learning)">BSD</span>':x.src==="HL"?' <span class="tag l3" title="'+(x.p&&x.p.engine==="poisson"?"Prediksi model Poisson + Elo Bola Live":"Data dan prediksi dari Highlightly")+'">'+(x.p&&x.p.engine==="poisson"?"Model BL":"Highlightly")+'</span>':x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
     +'<span class="tme">'+stt(x)+'</span></div>'
     +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+'<span class="nm">'+esc(x.home.name)+'</span></div>'+ttag(x,x.home)+'<div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+'<span class="nm">'+esc(x.away.name)+'</span>'+cr(x.away.crest)+'</div>'+ttag(x,x.away)+'<div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"")+'</div></div></div>'
-    +pb(x)+'<div class="ft2"><span style="font-size:12px">'+(drawTop(x)?'Berimbang: <b>seri</b> paling mungkin':'Condong ke <b title="'+esc(pkD(x).name)+'">'+esc(shortNm(pkD(x).name))+'</b>')+resTag(x)+(!drawTop(x)&&conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span>'+cfTag(x)+'</div>'+riskLine(x)+drawRisk(x)+whyLine(x)+blLine(x)+mixLine(x)+pinLine(x)+(S.st==="FAV"?favLine(x):"")+cardDet(x)
+    +pb(x)+'<div class="ft2"><span style="font-size:12px">'+(drawTop(x)?'Berimbang: <b>seri</b> paling mungkin':(isOpen(x)?openTxt(x):'Condong ke <b title="'+esc(pkD(x).name)+'">'+esc(shortNm(pkD(x).name))+'</b>'))+resTag(x)+(!drawTop(x)&&conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span>'+cfTag(x)+'</div>'+riskLine(x)+drawRisk(x)+whyLine(x)+blLine(x)+mixLine(x)+pinLine(x)+(S.st==="FAV"?favLine(x):"")+cardDet(x)
     +valTag(x)+'</div>'
 }
 
@@ -909,6 +917,7 @@ function riskOf(x){if(!x.p||x.np||x.status==="FT")return[];var p=[x.p.h,x.p.d,x.
   else if(k&&(k[0]!=null||k[1]!=null)){if(Math.max(k[0]||0,k[1]||0)>=2)r.push("pemain inti absen")}else{var b=x.ab;if(b&&(b.nh+b.na>=5||Math.max(b.nh,b.na)>=4))r.push("banyak pemain absen")}
   if(x.bl&&!x.bg){var q2=[x.bl.h,x.bl.d,x.bl.a];if(q2.indexOf(Math.max.apply(null,q2))!==pk&&Math.abs(Math.max.apply(null,q2)-q2[pk])>=5)r.push("Model BL mengunggulkan "+["tuan rumah","seri","tim tamu"][q2.indexOf(Math.max.apply(null,q2))])}
   var q=x.src==="BSD"&&btLg(x.league);if(q&&q.acc<45)r.push("BSD sering meleset di liga ini");
+  else{var lv=EV&&EV.byLeague&&EV.byLeague[x.league];if(lv&&lv.n>=8&&lv.acc<40)r.push("catatan langsung: BSD baru benar "+Math.round(lv.acc*lv.n/100)+" dari "+lv.n+" laga di liga ini")}   /* V39 */
   return r}
 /* V25: tab Favorit — laga yang belum main dengan peluang "tidak kalah" (menang atau seri) >= 80% untuk tim yang lebih diunggulkan.
    Dasar: uji mundur 90 hari (bsd-backtest.json dc). V25c: laga dengan data tidak lengkap tidak ditampilkan (permintaan pemilik). */
@@ -1127,12 +1136,12 @@ function draw(){
   if(live>0){livePill.hidden=false;$("#livecount").textContent=live}else livePill.hidden=true;
   var tk=$("#tick"),LV2=M.filter(function(x){return x.status==="LIVE"});
   if(tk){tk.hidden=!LV2.length;tk.innerHTML=LV2.map(function(x){return'<button '+(x.eid?'data-mc="'+x.eid+'"':'')+'><span class="dt"></span><span class="m">'+(x.ht?"HT":x.min!=null?x.min+"\'":"LIVE")+'</span>'+esc(x.home.name)+' <b>'+(x.score[0]==null?"-":x.score[0])+'-'+(x.score[1]==null?"-":x.score[1])+'</b> '+esc(x.away.name)+'</button>'}).join("")}
-  var strong=open.filter(function(x){return x.edge>=20}).length,
+  var strong=open.filter(function(x){var q=dp(x);return x.status==='NS'&&q&&q.h!=null&&Math.max(q.h,q.a)>=60}).length,   /* V39: >=60% menang, bukan selisih 20 */
     avg=open.length?open.reduce(function(a,x){return a+x.edge},0)/open.length:0;
   var nFav=M.filter(function(x){if(x.status!=="NS"||!(Date.parse(x.utc)>Date.now()))return false;var f=favOf(x);return f&&f.v>=FAVMIN}).length;   /* V34c: kotak atas memakai istilah yang dipahami */
   $("#kpi").innerHTML='<div class="k"><b>'+M.length+'</b><span>Pertandingan</span></div>'
     +'<div class="k lv"><b>'+live+'</b><span>Sedang berlangsung</span></div>'
-    +'<div class="k" title="Laga belum main yang selisih peluang tim unggulannya 20 poin atau lebih (rata-rata '+String(avg.toFixed(1)).replace(".",",")+' poin untuk semua laga)"><b>'+strong+'</b><span>Unggulan kuat</span></div>'
+    +'<div class="k" title="Laga belum main dengan peluang menang tim unggulan 60% atau lebih'+(calHit(65)!=null?' (uji mundur: tebakan seperti ini benar ±'+Math.round(calHit(65))+'%)':'')+'"><b>'+strong+'</b><span>Unggulan kuat (≥60%)</span></div>'
     +'<div class="k" title="Laga belum main di tab Favorit: peluang tidak kalah ≥'+FAVMIN+'% dengan data lengkap"><b>'+nFav+'</b><span>Favorit belum main</span></div>';
   /* 14 kartu teratas: keunggulan (selisih peluang) atau value (peluang x odds - 1) */
   open.forEach(function(x){x.val=valOf(x)});
@@ -1220,7 +1229,7 @@ function prow(x){
    +'<span class="ptm"><span class="pr">'+cr(x.home.crest)+'<span class="nm">'+esc(x.home.name)+'</span><b>'+sc(0)+'</b></span><span class="pr">'+cr(x.away.crest)+'<span class="nm">'+esc(x.away.name)+'</span><b>'+sc(1)+'</b></span></span>'
    +'<span class="pp">'+(x.np?'<span class="mut" style="font-size:12px">Tanpa prediksi</span>':'<span class="pbar"><i style="width:'+x.p.h+'%;background:var(--H)"></i><i style="width:'+x.p.d+'%;background:var(--D)"></i><i style="width:'+x.p.a+'%;background:var(--A)"></i></span><span class="pnum"><span style="color:var(--hT)">'+Math.round(x.p.h)+'%</span><span>'+Math.round(x.p.d)+'%</span><span style="color:var(--aT)">'+Math.round(x.p.a)+'%</span></span>')
    +'<span class="ogrid">'+ob("1",o.h,"h")+ob("X",o.d,"d")+ob("2",o.a,"a")+'</span></span>'
-   +'<span class="pside">'+pk+(v&&v.v>0?'<span class="vb" title="Peluang '+Math.round(v.p)+'% × odds '+o2(v.o)+' − 1">Value +'+Math.round(v.v*100)+'% · '+esc(v.k==="d"?"Seri":v.n||"")+'</span>':x.level&&!x.np?'<span class="tag l'+LV[x.level]+'">'+x.level+'</span>':"")+'</span></button>'}
+   +'<span class="pside">'+pk+(v&&v.v>0?'<span class="vb" title="Peluang '+Math.round(v.p)+'% × odds '+o2(v.o)+' − 1">Value +'+Math.round(v.v*100)+'% · '+esc(v.k==="d"?"Seri":v.n||"")+'</span>':x.level&&!x.np?cfTag(x):"")+'</span></button>'}
 function pk2(x){return x.pick==="h"?x.home.name:x.away.name}
 function scoreTxt(x){if(x.status==="NS")return"vs";var t=(x.score[0]==null?"-":x.score[0])+" - "+(x.score[1]==null?"-":x.score[1]);if(x.et)t+=' <small>(PW '+(x.score[0]+x.et[0])+'-'+(x.score[1]+x.et[1])+')</small>';if(x.pen)t+=' <small>(pen '+x.pen[0]+'-'+x.pen[1]+')</small>';return t}
 

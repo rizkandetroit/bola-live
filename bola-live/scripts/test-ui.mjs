@@ -119,7 +119,7 @@ console.log("OK F. Evaluasi: baris ringkas, subset xG, peringatan sampel kecil")
 {const F=new Function(pre+";return {dp,pkD,cfTag,whyLine,pb}")();const x={status:"NS",level:"Kuat",edge:20,pick:"h",home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25},sk:{h:30,d:28,a:42,u:1},cf:{k:"terbuka",hit:41.5,n:400},why:["Klasemen menipu: <A>"]};
  assert.equal(F.dp(x),x.sk);assert.equal(F.pkD(x).name,"B");assert(F.pb(x).includes("Gabungan")&&F.pb(x).includes("42%"));assert(F.cfTag(x).includes("Terbuka · 42% menang"));assert.equal(F.cfTag({...x,cf:{...x.cf,k:"jelas"}}).includes("Unggul jelas · 42% menang"),true,"bukan Favorit jelas lagi");
  assert(F.whyLine(x).includes("&lt;A&gt;"),"alasan di-escape");const y={...x,sk:{...x.sk,u:0}};assert.equal(F.dp(y),x.p);assert(!F.pb(y).includes("Gabungan"));
- assert(F.cfTag({...x,cf:null}).includes(">Keunggulan kuat<")&&!F.cfTag({...x,cf:null}).includes("Kuat 20"),"tanpa label: kata biasa, tanpa angka mentah")}
+ assert(F.cfTag({...x,cf:null}).includes(">Terbuka<")&&!F.cfTag({...x,cf:null}).includes("Kuat 20"),"tanpa label: dari peluang, tanpa angka mentah")}
 // V22c: seri peluang tertinggi -> kartu menulis "Berimbang: seri paling mungkin", bukan "Condong ke <tim>"
 {const F=new Function(pre+";return {drawTop}")(),mk=(p,sk)=>({status:"NS",level:"Tipis",edge:9,pick:"h",home:{name:"Alpha"},away:{name:"Beta"},p,sk,league:"L",utc:"2026-11-22T12:00:00Z",eid:5,id:5});
  const a=mk({h:34.8,d:40.3,a:25}),b=mk({h:45,d:30,a:25}),c=mk({h:45,d:30,a:25},{h:30,d:41,a:29,u:1}),e=mk({h:40,d:40,a:20});
@@ -349,3 +349,16 @@ console.log("test-ui V38d ok");
  assert(/✓ Tepat/.test(F.resTag({...b,score:[2,0]})));assert(/✕ Meleset/.test(F.resTag({...b,score:[0,1]})));assert(/~ Imbang/.test(F.resTag({...b,score:[1,1]})));
  assert.equal(F.resTag({...b,status:"NS",score:[null,null]}),"");assert(/✓ Tepat/.test(F.resTag({...b,p:{h:30,d:40,a:30},score:[0,0]})),"tebakan seri tepat")}
 console.log("test-ui V38e ok");
+
+{// V39: label dari angka nyata, laga terbuka = "tidak kalah", liga sulit dari catatan langsung
+ const F=new Function(pre+`;return {cfTag,isOpen,openTxt,resTag,riskOf,setG:function(b,e){BT=b;EV=e}}`)();
+ F.setG({calib:[{lo:0,hi:40,n:500,hit:37},{lo:40,hi:50,n:900,hit:46},{lo:50,hi:60,n:700,hit:55},{lo:60,hi:70,n:400,hit:69},{lo:70,hi:101,n:300,hit:81}]},{byLeague:{"J1 League":{n:10,acc:20}}});
+ const b={status:"FT",pick:"h",home:{name:"Brentford"},away:{name:"Everton"},p:{h:41,d:27,a:32},score:[1,1]};
+ assert(/Terbuka · 46% menang/.test(F.cfTag(b)),F.cfTag(b));assert(/Unggul jelas · 69% menang/.test(F.cfTag({...b,p:{h:64,d:22,a:14}})));assert(/Cukup · 55% menang/.test(F.cfTag({...b,p:{h:52,d:26,a:22}})));
+ assert(F.isOpen(b)&&!F.isOpen({...b,p:{h:52,d:26,a:22}}));assert(/Terbuka · <b>Brentford<\/b> tidak kalah 68%/.test(F.openTxt(b)));
+ assert(/✓ Tepat/.test(F.resTag(b)),"terbuka + imbang = tidak kalah tepat");assert(/✕ Meleset/.test(F.resTag({...b,score:[0,1]})));assert(/✓ Tepat/.test(F.resTag({...b,score:[2,0]})));
+ assert(/~ Imbang/.test(F.resTag({...b,p:{h:55,d:25,a:20},score:[1,1]})),"bukan terbuka: imbang tetap ~");
+ assert(/pm/.test("pm")&&/Terbuka/.test(F.cfTag({...b,p:{h:70,d:20,a:10},pm:{p:[41,27,32]}})),"laga selesai memakai tebakan sebelum kickoff");
+ const r=F.riskOf({status:"NS",src:"BSD",league:"J1 League",home:{name:"A"},away:{name:"B"},p:{h:45,d:27,a:28}});assert(r.some(t=>/BSD baru benar 2 dari 10 laga/.test(t)),r);
+ assert(/Unggulan kuat \(≥60%\)/.test(html))}
+console.log("test-ui V39 ok");
