@@ -193,9 +193,11 @@ export function bestTemp(rows){let b=null;for(let T=.8;T<=1.401;T+=.025){const s
 
 // Peringkat kekuatan asli (serang + tahan, sudah dikoreksi kekuatan lawan) di antara tim yang liga rumahnya = liga ini. 1 = terkuat.
 const RK=new WeakMap();
-export function strengthRanks(M,l){let c=RK.get(M);if(!c){c=new Map();RK.set(M,c)}if(c.has(l))return c.get(l);
-  const L=M.lg.get(l)||{A:0,D:0},T=[];for(const [id,t] of M.team)if(t.lg===l&&t.n>=4)T.push([id,L.A+t.a+L.D+t.d]);
-  T.sort((x,y)=>y[1]-x[1]);const R=new Map(T.map(([id],i)=>[id,i+1]));c.set(l,R);return R}
+// V43b: cur = tim di klasemen musim ini (Set id). Bila ada, peringkat hanya di antara tim itu (tanpa tim yang sudah degradasi/promosi),
+// supaya "kekuatan asli #n dari N" cocok dengan "klasemen #n dari N".
+export function strengthRanks(M,l,cur){let c=RK.get(M);if(!c){c=new Map();RK.set(M,c)}const use=cur&&cur.size>=6,key=use?l+"|c"+cur.size:l;if(c.has(key))return c.get(key);
+  const L=M.lg.get(l)||{A:0,D:0},T=[];for(const [id,t] of M.team)if(t.lg===l&&t.n>=4&&(!use||cur.has(id)))T.push([id,L.A+t.a+L.D+t.d]);
+  T.sort((x,y)=>y[1]-x[1]);const R=new Map(T.map(([id],i)=>[id,i+1]));c.set(key,R);return R}
 
 // Musim: pakai id musim BSD bila ada; kalau tidak, musim baru dimulai saat liga itu libur > 40 hari.
 export function seasonKeys(ms){const by=new Map();for(const m of ms)(by.get(m.l)||by.set(m.l,[]).get(m.l)).push(m);const key=new Map();

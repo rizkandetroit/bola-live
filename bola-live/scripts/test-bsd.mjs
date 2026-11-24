@@ -727,6 +727,11 @@ T.push(["V40 xG konflik",async()=>{const {xgConflict}=await import("./xgc.mjs");
  const be=backtestEntries([{event:{id:1},markets:{match_result:{prob_home:50,prob_draw:25,prob_away:25},expected_goals:{home:1.6,away:1.1}}}],[{id:1,status:"finished",home_score:1,away_score:0,event_date:"2026-11-01T10:00:00Z",league_id:4}],[]);
  assert.deepEqual(be[0].xg,[1.6,1.1],"uji mundur menyimpan xG BSD");
  return "lolos/tolak benar"}]);
+T.push(["V43b peringkat kekuatan hanya tim klasemen musim ini",async()=>{const {strengthRanks}=await import("./model.mjs");
+ const team=new Map();for(let i=1;i<=28;i++)team.set(i,{lg:9,n:10,a:-i/10,d:-i/20});const M={team,lg:new Map([[9,{A:0,D:0}]])};
+ const all=strengthRanks(M,9);assert.equal(all.size,28);const cur=new Set([3,5,7,9,11,13,15,17,19,21,23,25,27,2,4,6,8,10,12,14,16,18,20,22]);
+ const R=strengthRanks(M,9,cur);assert.equal(R.size,24,"hanya 24 tim musim ini");assert.equal(R.get(2),1);assert.equal(R.get(1),undefined);
+ assert.equal(strengthRanks(M,9,new Set([1,2])).size,28,"set terlalu kecil diabaikan");return "28 -> 24"}]);
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}
 srv.close();console.log(bad?`\n${bad} GAGAL`:"\ntest-bsd ok");process.exit(bad?1:0);

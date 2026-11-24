@@ -398,6 +398,8 @@ async function main(){
   const deep={odds:0,details:0,carried:0,leagues:0};
   const T0=Date.now(),lap=n=>{(deep.tm=deep.tm||{})[n]=Math.round((Date.now()-T0)/1000)};   // V19 (audit): detik sejak mulai, per tahap (tampil di all.json bsd.tm)
 
+  // V43b: tim di klasemen musim ini per liga (untuk peringkat kekuatan asli); laga persahabatan & tabel raksasa dilewati
+  const CUR=new Map(),curAdd=(id,o)=>{const S=o&&!o.grouped&&o.standings;if(!S||S.length<6||S.length>60||/friendl/i.test(o.name||""))return;CUR.set(id,new Set(S.map(r=>r.team_id).filter(x=>x!=null)))};
   if(DEEP&&!fatal){
     // 1) harga terbaik per bookmaker untuk semua laga
     const best=[];
@@ -430,11 +432,11 @@ async function main(){
         const lg=L.get(id)||{};
         const o={id,name:lg.name||("Liga "+id),country:lg.country||"",season:st&&st.season?{id:st.season.id,name:st.season.name}:null,
           grouped:!!(st&&st.grouped),standings:st&&st.standings||[],groups:st&&st.groups||null,zones:st&&st.zones||null,top,updated:new Date(now).toISOString()};
-        writeFileSync(dir+"lg/"+id+".json",JSON.stringify(o));deep.leagues++;
+        writeFileSync(dir+"lg/"+id+".json",JSON.stringify(o));deep.leagues++;curAdd(id,o);
         lgIndex.push({id,name:o.name,country:o.country,n:o.standings.length||(o.groups?Object.values(o.groups).reduce((a,g)=>a+((g&&g.length)||(g&&g.standings&&g.standings.length)||0),0):0)});
       });
     }else{
-      await pool(prevLg.leagues,async l=>{const o=await pull("lg/"+l.id+".json");if(o){writeFileSync(dir+"lg/"+l.id+".json",JSON.stringify(o));lgIndex.push(l)}});
+      await pool(prevLg.leagues,async l=>{const o=await pull("lg/"+l.id+".json");if(o){writeFileSync(dir+"lg/"+l.id+".json",JSON.stringify(o));lgIndex.push(l);curAdd(l.id,o)}});
     }
     lgIndex.sort((a,b)=>(a.country+a.name).localeCompare(b.country+b.name));
     writeFileSync(dir+"leagues.json",JSON.stringify({updated:new Date(now).toISOString(),leagues:lgIndex}));
@@ -650,14 +652,14 @@ async function main(){
       const M=fitModel(ms,now,{...(best?best.c:{}),sweeps:40});addTimes(M,every.filter(m=>m.hid!=null&&m.aid!=null).map(m=>({h:m.hid,a:m.aid,t:Date.parse(m.utc)})));
       const pred={};for(const m of every){if(m.status!=="NS"||m.hid==null||m.aid==null||m.lid==null)continue;const a=M.team.get(m.hid),b=M.team.get(m.aid);if(!a||!b||a.n<4||b.n<4)continue;
         const ev=EV.get(m.eid)||{},fe=FE.get("u"+m.eid)||{};const q=predictModel(M,{h:m.hid,a:m.aid,l:m.lid,n:ev.is_neutral_ground?1:0,t:Date.parse(m.utc),zv:ZV.has(m.hid)&&ZV.has(m.aid)?[ZV.get(m.hid),ZV.get(m.aid)]:null,dby:ev.is_local_derby?1:0,tb:fe.tb||null,nc:fe.nc||null});
-        const SRk=strengthRanks(M,m.lid),sr=SRk.get(m.hid)!=null&&SRk.get(m.aid)!=null?[SRk.get(m.hid),SRk.get(m.aid),SRk.size]:null;
+        const SRk=strengthRanks(M,m.lid,CUR.get(m.lid)),sr=SRk.get(m.hid)!=null&&SRk.get(m.aid)!=null?[SRk.get(m.hid),SRk.get(m.aid),SRk.size]:null;
         pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,n:q.n,f:{tb:fe.tb?fe.tb.map(r2):null,nc:fe.nc||null,eu:fe.eu||null,tr:fe.tr||null,sr}}}
       MB={updated:new Date(now).toISOString(),temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
         useful,w:wa?wa.w:1,core:CORE,cov:M.cov,xrHist:XRH?1:0,v20,stk:STK,blLg,dis:J.length?disagree(J):null,exp:J.length?experiments(J,id=>NM.get(id)||""):null,lu2:J.length&&typeof X2!=="undefined"&&X2&&X2.e?lineupExp(J,X2.e):null,drw:J.length?(()=>{try{const d=drawExp(J);if(d){const LGN=new Map((leagues||[]).map(l=>[l.id,l.name]));d.lg=d.lg.map(x=>[LGN.get(x[0])||String(x[0]),...x.slice(1)])}return d}catch(e){errors.push("analisis seri: "+e.message);return null}})():null,tbl,fac,pred};   // V22d: dis = BSD vs BL berbeda arah
       // ringkasan per tim untuk tampilan (Tahap 4): peringkat kekuatan, keberuntungan musim ini, data pemain
       try{const lk=luckOf(ms,now,200,new Map([...M.team].map(([id,t])=>[id,t.lg]))),TS={};/* V34d: keberuntungan hanya dari laga liga tim itu (cocok dengan tabel klasemen) */const lgs=new Set(every.map(m=>m.lid).filter(x=>x!=null));
-        for(const [id,t] of M.team){if(!lgs.has(t.lg)||t.n<4)continue;const R=strengthRanks(M,t.lg),L=lk[id],S=teamSummary(PS.t[id],VA.p),Lg=M.lg.get(t.lg)||{A:0,D:0};
+        for(const [id,t] of M.team){if(!lgs.has(t.lg)||t.n<4)continue;const R=strengthRanks(M,t.lg,CUR.get(t.lg)),L=lk[id],S=teamSummary(PS.t[id],VA.p),Lg=M.lg.get(t.lg)||{A:0,D:0};
           TS[id]={lg:t.lg,sr:R.get(id)??null,sn:R.size,att:r2(Lg.A+t.a),def:r2(Lg.D+t.d),
             luck:L?{n:L.n,pts:L.pts,gf:L.gf,ga:L.ga,xn:L.xn,xgf:r2(L.xgf),xga:r2(L.xga),xpts:r2(L.xpts),xpN:L.xpN}:null,
             ps:S?{n:S.n,reg:S.reg,rt:S.avgRt!=null?r2(S.avgRt):null,sq:S.squad,vc:r2(S.valCov),gp:r2(S.gp),key:S.players.slice(0,5).map(p=>[p.pid,p.nm,r2(p.sh),p.rt!=null?r2(p.rt):null,r2(p.x90||p.ga90),p.val,p.pos])}:null}}
