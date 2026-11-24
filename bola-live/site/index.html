@@ -1792,9 +1792,11 @@ function anHtml(x,d){
     pi.push(li(s))});
   /* V45: performa pemain terkini (pf.json): dalam performa & naik daun, dari statistik pemain laga-laga terakhir */
   var PF=AN.pf||{};[0,1].forEach(function(i){var f=PF[ids[i]];if(!f||!f.p||!f.p.length)return;var fm=f.p.filter(function(p){return p[9]==="p"}),nd=f.p.filter(function(p){return p[9]==="n"});
-    var pt=function(p){var b=[];if(p[5])b.push(p[5]+" gol");if(p[6])b.push(p[6]+" assist");if(p[8]!=null)b.push("rating "+n1(p[8]));b.push(p[3]+" laga");return"<b>"+esc(p[1])+"</b> ("+b.join(", ")+")"};
+    var side=i?"away":"home",U=(UN&&UN[side]||[]).map(function(u){return u.id}),XL=lu&&lu.lineups&&lu.lineups[side]&&lu.lineups[side].players,XI=XL&&XL.length>=11?XL.map(function(q){return q.id}):null;
+    var out=function(p){return U.indexOf(p[0])>=0?' — <b>absen</b>':XI&&XI.indexOf(p[0])<0?' — <b>tidak di line-up '+(conf?'resmi':'perkiraan')+'</b>':''};   /* V45b: pemain dalam performa yang tidak main */
+    var pt=function(p){var b=[];if(p[5])b.push(p[5]+" gol");if(p[6])b.push(p[6]+" assist");if(p[8]!=null)b.push("rating "+n1(p[8]));b.push(p[3]+" laga");return"<b>"+esc(p[1])+"</b> ("+b.join(", ")+")"+out(p)};
     var s=esc(nm[i])+" — "+(fm.length?"dalam performa ("+f.n+" laga terakhir): "+fm.map(pt).join(", "):"belum ada pemain yang menonjol di "+f.n+" laga terakhir");
-    if(nd.length)s+=". Naik daun (menit main melonjak di 3 laga terakhir): "+nd.map(function(p){return esc(p[1])+" ("+p[4]+" menit)"}).join(", ");
+    if(nd.length)s+=". Naik daun (menit main melonjak di 3 laga terakhir): "+nd.map(function(p){return esc(p[1])+" ("+p[4]+" menit)"+out(p)}).join(", ");
     pi.push(li(s+"."+evInfo("Fakta dari statistik pemain BSD. Pengaruh performa pemain ke hasil sedang diuji (Evaluasi › Model BL › Kondisi tim); belum mengubah angka prediksi.")))});
   var bw=blWhy(x).replace(/^<div[^>]*>|<\/div>$/g,"");if(bw)pi.push(li(bw.replace(/<br\s*\/?>/g," · ")+evInd("Koreksi line-up sudah dipakai di angka Model BL; pengaruh tambahannya masih diuji (line-up tahap 2)")));
   [0,1].forEach(function(i){var sc=schedOf(x,ids[i]),t="",DAYMS=864e5;

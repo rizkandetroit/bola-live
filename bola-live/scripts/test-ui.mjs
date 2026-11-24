@@ -313,7 +313,10 @@ console.log("test-ui V35 ok");
  assert(/Brentford — dalam performa \(6 laga terakhir\): I\. Thiago \(5 gol, 1 assist, rating 7,6, 6 laga\), M\. Damsgaard \(3 assist, 5 laga\)/.test(t),"performa: "+(t.match(/Brentford — .{0,160}/)||[""])[0]);
  assert(/Naik daun \(menit main melonjak di 3 laga terakhir\): K\. Lewis-Potter \(250 menit\)/.test(t),"naik daun");
  assert(/Everton — belum ada pemain yang menonjol di 4 laga terakhir\. Naik daun.*J\. Branthwaite/.test(t),"tim tanpa pemain menonjol");
- assert(/⚪ info/.test(t)&&!/undefined|NaN/.test(t));F.AN.pf={};assert(!/dalam performa/.test(F.anHtml(x,null)),"tanpa data: tidak tampil")}
+ assert(/⚪ info/.test(t)&&!/undefined|NaN/.test(t));const lu={lineups:{lineup_status:"predicted",unavailable_players:{home:[{id:2,short_name:"M. Damsgaard",status:"injured"}],away:[]},lineups:{home:{players:Array.from({length:11},(_,k)=>({id:k===0?1:50+k}))},away:{players:Array.from({length:11},(_,k)=>({id:60+k}))}}}};
+ const t2=F.anHtml(x,lu).replace(/<[^>]+>/g," ").replace(/\s+/g," ");assert(/I\. Thiago \([^)]*\), M\. Damsgaard \([^)]*\) — absen/.test(t2),"absen ditandai: "+(t2.match(/Brentford — .{0,200}/)||[""])[0]);
+ assert(/Lewis-Potter \(250 menit\) — tidak di line-up perkiraan/.test(t2)&&!/I\. Thiago \([^)]*\) — /.test(t2),"yang main tidak ditandai");assert(/J\. Branthwaite \(360 menit\)/.test(t2));
+ F.AN.pf={};assert(!/dalam performa/.test(F.anHtml(x,null)),"tanpa data: tidak tampil")}
 console.log("test-ui V45 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
