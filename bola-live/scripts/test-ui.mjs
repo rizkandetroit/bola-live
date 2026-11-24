@@ -414,4 +414,5 @@ console.log("test-ui V38e ok");
  assert(!F.realTbl("Club Friendlies",3164)&&!F.realTbl("Liga X",500)&&F.realTbl("Premier League",20)&&F.realTbl("Campeonato de Portugal",56)&&F.realTbl("Liga 2 Indonesia",0));
  const st=Array.from({length:30},(_,i)=>({position:i+1,team_id:i+1,pts:60-i,played:10}));
  assert.equal(F.anSit({hid:1,aid:2},{name:"Club Friendlies",standings:st}),null,"laga persahabatan: tanpa situasi klasemen")}
+{const F=new Function(pre+";return {restTxt}")();assert.equal(F.restTxt({own:-.01,opp:0}),"gol sendiri -1%, kebobolan hampir tetap");assert.equal(F.restTxt({own:0,opp:.001}),"hampir tidak berpengaruh");assert.equal(F.restTxt(null),"hampir tidak berpengaruh")}
 console.log("test-ui V39 ok");
