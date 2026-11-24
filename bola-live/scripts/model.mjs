@@ -195,8 +195,12 @@ export function bestTemp(rows){let b=null;for(let T=.8;T<=1.401;T+=.025){const s
 const RK=new WeakMap();
 // V43b: cur = tim di klasemen musim ini (Set id). Bila ada, peringkat hanya di antara tim itu (tanpa tim yang sudah degradasi/promosi),
 // supaya "kekuatan asli #n dari N" cocok dengan "klasemen #n dari N".
-export function strengthRanks(M,l,cur){let c=RK.get(M);if(!c){c=new Map();RK.set(M,c)}const use=cur&&cur.size>=6,key=use?l+"|c"+cur.size:l;if(c.has(key))return c.get(key);
-  const L=M.lg.get(l)||{A:0,D:0},T=[];for(const [id,t] of M.team)if(t.lg===l&&t.n>=4&&(!use||cur.has(id)))T.push([id,L.A+t.a+L.D+t.d]);
+export function strengthRanks(M,l,cur){let c=RK.get(M);if(!c){c=new Map();RK.set(M,c)}const use=cur&&cur.size>=6,key=use?l+"|c"+[...cur].join(","):l;if(c.has(key))return c.get(key);
+  // dengan cur: semua tim klasemen musim ini ikut, termasuk tim promosi/degradasi yang di model masih tercatat di liga lamanya;
+  // kekuatannya memakai tingkat liga asal tim itu (M.lg.get(t.lg)), jadi tim promosi dari liga lebih rendah tetap dinilai adil.
+  const L=M.lg.get(l)||{A:0,D:0},T=[];
+  if(use){for(const id of cur){const t=M.team.get(id);if(!t||t.n<4)continue;const G=M.lg.get(t.lg)||L;T.push([id,G.A+t.a+G.D+t.d])}}
+  else for(const [id,t] of M.team)if(t.lg===l&&t.n>=4)T.push([id,L.A+t.a+L.D+t.d]);
   T.sort((x,y)=>y[1]-x[1]);const R=new Map(T.map(([id],i)=>[id,i+1]));c.set(key,R);return R}
 
 // Musim: pakai id musim BSD bila ada; kalau tidak, musim baru dimulai saat liga itu libur > 40 hari.

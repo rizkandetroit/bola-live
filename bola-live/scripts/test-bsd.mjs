@@ -731,7 +731,10 @@ T.push(["V43b peringkat kekuatan hanya tim klasemen musim ini",async()=>{const {
  const team=new Map();for(let i=1;i<=28;i++)team.set(i,{lg:9,n:10,a:-i/10,d:-i/20});const M={team,lg:new Map([[9,{A:0,D:0}]])};
  const all=strengthRanks(M,9);assert.equal(all.size,28);const cur=new Set([3,5,7,9,11,13,15,17,19,21,23,25,27,2,4,6,8,10,12,14,16,18,20,22]);
  const R=strengthRanks(M,9,cur);assert.equal(R.size,24,"hanya 24 tim musim ini");assert.equal(R.get(2),1);assert.equal(R.get(1),undefined);
- assert.equal(strengthRanks(M,9,new Set([1,2])).size,28,"set terlalu kecil diabaikan");return "28 -> 24"}]);
+ assert.equal(strengthRanks(M,9,new Set([1,2])).size,28,"set terlalu kecil diabaikan");
+ // tim promosi masih tercatat di liga lama (lg 8, liga lebih lemah): tetap ikut, dinilai dengan tingkat liganya
+ team.set(40,{lg:8,n:10,a:.2,d:.1});M.lg.set(8,{A:-.6,D:-.4});const c2=new Set([...cur,40]);const R2=strengthRanks(M,9,c2);
+ assert.equal(R2.size,25,"tim promosi ikut");assert(R2.get(40)>R2.get(2),"tim promosi dari liga lemah tidak langsung #1");return "28 -> 24, promosi ikut"}]);
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}
 srv.close();console.log(bad?`\n${bad} GAGAL`:"\ntest-bsd ok");process.exit(bad?1:0);
