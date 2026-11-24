@@ -531,7 +531,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V37</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V41</span>
   </div>
   <div class="nvb">
     <div class="seg" id="nv" aria-label="Halaman">
@@ -1422,7 +1422,7 @@ function predHtml(p,x){
   var m=p.markets,mr=m.match_result||{},ou=m.over_under||{},c=m.corners||{};
   return'<div class="pb"><i class="h" style="width:'+mr.prob_home+'%"></i><i class="d" style="width:'+mr.prob_draw+'%"></i><i class="a" style="width:'+mr.prob_away+'%"></i></div><div class="pl"><span class="h">'+Math.round(mr.prob_home)+'%</span><span class="d">Seri '+Math.round(mr.prob_draw)+'%</span><span class="a">'+Math.round(mr.prob_away)+'%</span></div>'
    +(x&&x.bl&&x.status==="NS"?'<div class="acl bl">Model BL: <b>'+Math.round(x.bl.h)+'</b> / '+Math.round(x.bl.d)+' / <b>'+Math.round(x.bl.a)+'</b>'+(x.bl.xg?' · xG '+o2(x.bl.xg[0])+' - '+o2(x.bl.xg[1]):'')+'</div>':'')
-   +'<div class="mcg"><div>Skor paling mungkin<b>'+(x&&x.bl&&x.bl.ms?esc(x.bl.ms[0]+"-"+x.bl.ms[1])+' <small>(Model BL; BSD '+esc((m.score||{}).most_likely||"-")+')</small>':esc((m.score||{}).most_likely||"-"))+'</b></div><div>xG BSD<b>'+o2((m.expected_goals||{}).home)+' - '+o2((m.expected_goals||{}).away)+'</b></div><div>Over 1,5 / 2,5 / 3,5<b>'+[ou.prob_over_15,ou.prob_over_25,ou.prob_over_35].map(function(v){return v==null?"-":Math.round(v)}).join(" / ")+'%</b></div><div>Kedua tim cetak gol<b>'+((m.btts||{}).prob_yes==null?"-":Math.round(m.btts.prob_yes)+"%")+'</b></div><div>Draw no bet (tuan rumah)<b>'+((m.draw_no_bet||{}).prob_home==null?"-":Math.round(m.draw_no_bet.prob_home)+"%")+'</b></div><div>Pojok over 8,5 / 9,5<b>'+(c.prob_over_85==null?"-":Math.round(c.prob_over_85)+" / "+Math.round(c.prob_over_95)+"%")+'</b></div><div>Keyakinan model<b>'+(p.model&&p.model.confidence!=null?Math.round(p.model.confidence*100)+"%":"-")+'</b></div></div><p class="cap">'+(MC.d&&MC.d.src==="HL"?"Prediksi model Highlightly":"Prediksi model BSD")+' · diperbarui '+(p.updated_at?tf.format(new Date(p.updated_at))+" WITA":"-")+'. Perkiraan statistik, bukan jaminan.</p>'
+   +'<div class="mcg"><div>Skor paling mungkin<b>'+sc3(x,m)+'</b></div><div>xG BSD<b>'+o2((m.expected_goals||{}).home)+' - '+o2((m.expected_goals||{}).away)+'</b></div><div>Over 1,5 / 2,5 / 3,5<b>'+[ou.prob_over_15,ou.prob_over_25,ou.prob_over_35].map(function(v){return v==null?"-":Math.round(v)}).join(" / ")+'%</b></div><div>Kedua tim cetak gol<b>'+((m.btts||{}).prob_yes==null?"-":Math.round(m.btts.prob_yes)+"%")+'</b></div><div>Draw no bet (tuan rumah)<b>'+((m.draw_no_bet||{}).prob_home==null?"-":Math.round(m.draw_no_bet.prob_home)+"%")+'</b></div><div>Pojok over 8,5 / 9,5<b>'+(c.prob_over_85==null?"-":Math.round(c.prob_over_85)+" / "+Math.round(c.prob_over_95)+"%")+'</b></div><div>Keyakinan model<b>'+(p.model&&p.model.confidence!=null?Math.round(p.model.confidence*100)+"%":"-")+'</b></div></div><p class="cap">'+(MC.d&&MC.d.src==="HL"?"Prediksi model Highlightly":"Prediksi model BSD")+' · diperbarui '+(p.updated_at?tf.format(new Date(p.updated_at))+" WITA":"-")+'. Perkiraan statistik, bukan jaminan.</p>'
 }
 function formBox(f,lab){if(!f||!f.overall)return"";var o=f.overall;return'<div><b>'+esc(f.team_name||lab)+'</b> '+frm(String(o.form||"").split("").join(""))+'<div class="mcg"><div>M-S-K<b>'+o.won+'-'+o.drawn+'-'+o.lost+'</b></div><div>Gol<b>'+o.goals_for+':'+o.goals_against+'</b></div><div>Poin/laga<b>'+o2(o.points_per_match)+'</b></div>'+(o.stats&&o.stats.ball_possession?'<div>Penguasaan<b>'+Math.round(o.stats.ball_possession.average)+'%</b></div>':"")+(o.stats&&o.stats.expected_goals?'<div>xG/laga<b>'+o2(o.stats.expected_goals.average)+'</b></div>':"")+'</div></div>'}
 var H2F=new Intl.DateTimeFormat("id-ID",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"});function h2d(d){var t=Date.parse(String(d||"").slice(0,10)+"T12:00:00Z");return isNaN(t)?esc(String(d||"")):H2F.format(new Date(t))}   /* V34c */
@@ -1448,7 +1448,7 @@ function valBox(x){if(NEUTRAL)return"";var v=x&&(x.val||valOf(x));return v&&v.v>
 function snapHtml(d,x){
   var h='',p=d&&d.pred&&d.pred.markets,mr=p&&p.match_result,ph=mr?mr.prob_home:x&&x.p&&!x.np?x.p.h:null,pd=mr?mr.prob_draw:x&&x.p?x.p.d:null,pa=mr?mr.prob_away:x&&x.p?x.p.a:null;
   if(ph!=null)h+='<div class="snap"><div class="pb"><i class="h" style="width:'+ph+'%"></i><i class="d" style="width:'+pd+'%"></i><i class="a" style="width:'+pa+'%"></i></div><div class="pl"><span class="h">'+esc(x.home.name)+' '+Math.round(ph)+'%</span><span class="d">Seri '+Math.round(pd)+'%</span><span class="a">'+Math.round(pa)+'% '+esc(x.away.name)+'</span></div>'
-    +(p?'<div class="mcg"><div>Skor paling mungkin<b>'+esc((p.score||{}).most_likely||"-")+'</b></div><div>Over 2,5<b>'+((p.over_under||{}).prob_over_25==null?"-":Math.round(p.over_under.prob_over_25)+"%")+'</b></div><div>Kedua tim cetak gol<b>'+((p.btts||{}).prob_yes==null?"-":Math.round(p.btts.prob_yes)+"%")+'</b></div></div>':"")+'</div>';
+    +(p?'<div class="mcg"><div>Skor paling mungkin<b>'+sc3(x,p)+'</b></div><div>Over 2,5<b>'+((p.over_under||{}).prob_over_25==null?"-":Math.round(p.over_under.prob_over_25)+"%")+'</b></div><div>Kedua tim cetak gol<b>'+((p.btts||{}).prob_yes==null?"-":Math.round(p.btts.prob_yes)+"%")+'</b></div></div>':"")+'</div>';
   var v=x&&(x.val||valOf(x));if(v&&v.v>0)h+='<div class="vbox">Value <b>+'+Math.round(v.v*100)+'%</b> pada <b>'+esc(v.k==="d"?"Seri":v.n)+'</b> — peluang model '+Math.round(v.p)+'% × odds terbaik '+o2(v.o)+' ('+esc(v.b||"")+').</div>';
   if(x&&x.odds)h+='<h3>Odds terbaik</h3>'+oddLine(x);
   var hh=d&&d.h2h;if(hh&&hh.total_matches)h+='<h3>Head-to-head ('+hh.total_matches+' laga)</h3><div class="mcg"><div>'+esc(x.home.name)+'<b>'+hh.home_wins+' menang</b></div><div>Seri<b>'+hh.draws+'</b></div><div>'+esc(x.away.name)+'<b>'+hh.away_wins+' menang</b></div></div>';
@@ -1508,6 +1508,13 @@ function rec5(s){if(!s||!s.matches)return"";var xg=s.stats&&s.stats.expected_goa
 function schedOf(x,id){var t0=Date.parse(x.utc),prev=null,next=null;
   D.matches.forEach(function(m){if(m.src!==x.src||(m.hid!==id&&m.aid!==id)||m.eid===x.eid)return;var t=Date.parse(m.utc);if(t<t0-36e5){if(!prev||t>prev.t)prev={t:t,m:m}}else if(t>t0+36e5){if(!next||t<next.t)next={t:t,m:m}}});
   return{prev:prev,next:next,t0:t0}}
+/* V41: 3 skor teratas (BSD hampir selalu menulis 1-1). Sumber: laju gol Model BL; cadangan: xG BSD; terakhir: skor BSD */
+function sc3(x,m){var b=x&&x.bl,xg=b&&b.xg&&b.xg[0]!=null?b.xg:null,src="Model BL";
+  if(!xg){var e=m&&m.expected_goals,q=x&&x.p&&x.p.xg;if(e&&e.home!=null&&e.away!=null)xg=[+e.home,+e.away];else if(q&&q[0]!=null)xg=q;src="dari xG BSD"}
+  if(!xg||!(xg[0]>=0)||!(xg[1]>=0)){var ml=m&&m.score&&m.score.most_likely;return ml?esc(ml)+' <small>(BSD)</small>':"-"}
+  var L=poisTop(Math.max(xg[0],.05),Math.max(xg[1],.05)),ms=b&&b.ms&&src==="Model BL"?b.ms:null;
+  if(ms){var k=-1;L.forEach(function(s,i){if(k<0&&s[0]===ms[0]&&s[1]===ms[1])k=i});if(k>0)L.unshift(L.splice(k,1)[0])}
+  return L.slice(0,3).map(function(s){return s[0]+'-'+s[1]+' <small>'+Math.round(s[2]*100)+'%</small>'}).join(' · ')+' <small>('+src+')</small>'}
 function poisTop(lh,la,skip){var P=function(l,k){var p=Math.exp(-l);for(var i=1;i<=k;i++)p*=l/i;return p},o=[];
   for(var i=0;i<=5;i++)for(var j=0;j<=5;j++)if(!(skip&&skip[0]===i&&skip[1]===j))o.push([i,j,P(lh,i)*P(la,j)]);o.sort(function(a,b){return b[2]-a[2]});return o}
 function mkProb(o){if(!o||!o[0]||!o[1]||!o[2])return null;var a=[1/o[0],1/o[1],1/o[2]],t=a[0]+a[1]+a[2];return a.map(function(v){return v/t*100})}

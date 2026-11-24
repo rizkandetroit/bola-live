@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V37</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V41</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -365,4 +365,9 @@ console.log("test-ui V38e ok");
 {const F=new Function(pre+";return {xcHtml}")();const X={n:5667,thr:{"0":{n:998,pick:{win:45.6,bsd:44.6},xg:{win:28.7,bsd:28.9,gap:-.2,se:1.4},draw:25.8},"0.5":{n:141,pick:{win:44,bsd:48.7},xg:{win:32.6,bsd:26.3,gap:6.4,se:3.9},draw:23.4}},blendConf:{hold:{base:{ll:.975},rule:{ll:.975}}},verdict:"tidak"};
  const h=F.xcHtml({xc:X});assert(h.includes("Tidak lolos uji")&&h.includes("5.667 laga")&&h.includes("+6,4 ± 7,8")&&h.includes("berapa pun"),h);
  assert(F.xcHtml({xc:{...X,verdict:"konflik"}}).includes("Lolos uji"));assert.equal(F.xcHtml({}),"");assert.equal(F.xcHtml({xc:{n:10,note:"x"}}),"")}
+// V41: 3 skor teratas, bukan 1-1 BSD saja
+{const F=new Function(pre+";return {sc3}")();
+ const a=F.sc3({bl:{xg:[1.6,0.9],ms:[1,0]}},{score:{most_likely:"1-1"}});assert((a.match(/ · /g)||[]).length===2&&a.startsWith("1-0 <small>")&&a.includes("(Model BL)")&&!a.includes("BSD"),a);
+ const b=F.sc3({p:{}},{expected_goals:{home:2.2,away:0.6},score:{most_likely:"1-1"}});assert(b.includes("dari xG BSD")&&/^(2-0|1-0)/.test(b),b);
+ assert.equal(F.sc3({},{score:{most_likely:"1-1"}}),"1-1 <small>(BSD)</small>");assert.equal(F.sc3({},null),"-")}
 console.log("test-ui V39 ok");
