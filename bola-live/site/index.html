@@ -1098,7 +1098,7 @@ function prMk(x,d,L){var q=preP(x),nm=[x.home.name,x.away.name],li=[],pk=q.h>=q.
   var sc=sc3(x,d&&d.pred&&d.pred.markets);li.push((dr?'Berimbang, <b>seri</b> paling mungkin. ':isOpen(x)?'Laga terbuka: '+openTxt(x)+'. ':'<b>'+esc(nm[pk===0?0:1])+'</b> diunggulkan. ')+(sc&&sc!=="-"?'Skor paling mungkin: '+sc+'.':''));
   var ou=x.p&&x.p.ou,bt=x.p&&x.p.bt;if(ou!=null||bt!=null)li.push((ou!=null?'Lebih dari 2,5 gol: <b>'+Math.round(ou)+'%</b>':'')+(ou!=null&&bt!=null?' · ':'')+(bt!=null?'Kedua tim mencetak gol: <b>'+Math.round(bt)+'%</b>':''));
   var fm=d&&d.form,fh=fm&&prForm(fm.home),fa=fm&&prForm(fm.away),ph=prPos(L,x.hid),pa=prPos(L,x.aid);
-  var sd=function(n,f,p){return esc(shortNm(n))+(f?' '+f:'')+(p?(f?' · ':' ')+'klasemen #'+p.p+' dari '+p.n+(p.g?' (grup)':''):'')};
+  var sd=function(n,f,p){return esc(shortNm(n))+(f?' '+f:'')+(p?(f?' · klasemen #':' #')+p.p+' dari '+p.n+(p.g?' (grup)':''):'')};
   if(fh||fa||ph||pa)li.push((fh||fa?'Form 5 laga: ':'Klasemen: ')+sd(nm[0],fh,ph)+' &nbsp;|&nbsp; '+sd(nm[1],fa,pa));
   var H=d&&d.h2h;if(H&&H.total_matches)li.push('H2H '+H.total_matches+' laga: '+esc(shortNm(nm[0]))+' menang '+H.home_wins+', seri '+H.draws+', '+esc(shortNm(nm[1]))+' menang '+H.away_wins+'.');
   var b=x.bl,ls=d&&d.lineups&&d.lineups.lineup_status,res=ls==="confirmed"||(b&&(b.src==="xi"||b.lsrc==="xi"));
