@@ -1072,8 +1072,9 @@ function xcHtml(B){var X=B&&B.xc;if(!X||!X.thr)return"";var f=function(x){return
   h+='</table></div><p class="cap">Dari '+X.n.toLocaleString("id-ID")+' laga. '+(ok?'<b>Lolos uji</b>: menggabungkan xG BSD memperbaiki prediksi di paruh kedua data.':'<b>Tidak lolos uji</b>: tebakan BSD tetap lebih sering benar daripada tim yang unggul xG, dan mencampurkan xG ke peluang tidak memperbaiki apa pun di paruh kedua data (log loss '+(b&&b.hold?String(b.hold.base.ll).replace(".",",")+' → '+String(b.hold.rule.ll).replace(".",","):"–")+'). Prediksi tidak diubah; selisih kecil di baris selisih xG besar masih dalam batas kebetulan dan terus dipantau.')+'</p>';
   return h+'</div>'}
 /* V42: Rangkuman harian — semua laga hari ini (WITA) dengan analisa singkat, urut dari yang paling jelas; bisa dicetak / disimpan PDF / diunduh teks */
-function rkDay(){var dk=new Intl.DateTimeFormat("en-CA",{timeZone:TZ}),td=dk.format(new Date());return{dk:dk,td:td}}
-function rkList(now){var z=rkDay(),M=(D&&D.matches||[]).filter(function(x){return z.dk.format(new Date(x.utc))===z.td&&!x.np&&preP(x)});
+function rkDay(now){now=now||Date.now();var W=8*36e5,H=6*36e5,t0=Math.floor((now+W-H)/864e5)*864e5-W+H;   /* hari bola: 06.00 WITA s.d. 06.00 besoknya (laga Eropa dini hari ikut malamnya) */
+  return{t0:t0,t1:t0+864e5,td:new Date(t0+W).toISOString().slice(0,10)}}
+function rkList(now){var z=rkDay(now),M=(D&&D.matches||[]).filter(function(x){var t=Date.parse(x.utc);return t>=z.t0&&t<z.t1&&!x.np&&preP(x)});
   M=fresh(M,now);var cl=function(x){var q=preP(x);return Math.max(q.h,q.a)};
   var A=M.filter(function(x){return x.status!=="FT"}).sort(function(a,b){return cl(b)-cl(a)||a.utc.localeCompare(b.utc)}),F=M.filter(function(x){return x.status==="FT"}).sort(function(a,b){return cl(b)-cl(a)});
   return{td:z.td,A:A,F:F}}
@@ -1087,10 +1088,10 @@ function rkLine(x){var q=preP(x),dr=drawTop(x),f=q.h>=q.a?x.home:x.away,m=Math.m
 function rkCard(x,i){var stx=x.status==="LIVE"?'<span class="st lv">'+(x.min!=null?x.min+"\'":"Live")+' · '+x.score[0]+'-'+x.score[1]+'</span>':x.status==="FT"?'<b>'+x.score[0]+'-'+x.score[1]+'</b>'+resTag(x):tf.format(new Date(x.utc))+' WITA';
   return'<div class="rk" data-mc="'+esc(x.id)+'"><div class="t1"><span><span class="n">'+(i+1)+'.</span>'+esc(lgLabel(x.league||"",x.lc))+'</span><span>'+stx+'</span></div><div class="t2">'+esc(x.home.name)+' vs '+esc(x.away.name)+' '+cfTag(x)+'</div><div class="t3">'+rkLine(x)+'</div></div>'}
 function renderRk(){var el=$("#v-r");if(!el)return;if(!D){el.innerHTML='<div class="em">Memuat data...</div>';return}
-  var R=rkList(),dt=new Date(R.td+"T12:00:00Z"),lbl=DN[dt.getUTCDay()]+", "+dt.getUTCDate()+" "+MN[dt.getUTCMonth()]+" "+dt.getUTCFullYear();
+  var R=rkList(),dt=new Date(R.td+"T12:00:00Z"),d2=new Date(dt.getTime()+864e5),lbl=DN[dt.getUTCDay()]+", "+dt.getUTCDate()+" "+MN[dt.getUTCMonth()]+" "+dt.getUTCFullYear();
   var h='<div class="rk-h"><h2>Rangkuman harian <small>'+esc(lbl)+'</small></h2><div class="rk-act"><button data-rk="print">Cetak / simpan PDF</button><button data-rk="txt">Unduh teks</button></div></div>';
-  h+='<p class="cap">'+(R.A.length+R.F.length)+' laga hari ini (WITA) yang punya prediksi, diurutkan dari yang paling jelas. Label dan "% menang" dari uji mundur; skor dari laju gol. Perkiraan statistik, bukan jaminan. Ketuk laga untuk detail.</p>';
-  if(!R.A.length&&!R.F.length)h+='<div class="em">Belum ada laga hari ini.</div>';
+  h+='<p class="cap">'+(R.A.length+R.F.length)+' laga dari '+DN[dt.getUTCDay()]+' 06.00 sampai '+DN[d2.getUTCDay()]+' 06.00 WITA (laga Eropa dini hari ikut malamnya) yang punya prediksi, diurutkan dari yang paling jelas. Label dan "% menang" dari uji mundur; skor dari laju gol. Perkiraan statistik, bukan jaminan. Ketuk laga untuk detail.</p>';
+  if(!R.A.length&&!R.F.length)h+='<div class="em">Belum ada laga di hari bola ini.</div>';
   if(R.A.length)h+='<div class="rk-sec">Belum main &amp; sedang live ('+R.A.length+')</div>'+R.A.map(rkCard).join("");
   if(R.F.length)h+='<div class="rk-sec">Sudah selesai ('+R.F.length+')</div>'+R.F.map(rkCard).join("");
   el.innerHTML=h}

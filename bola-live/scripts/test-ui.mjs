@@ -371,14 +371,16 @@ console.log("test-ui V38e ok");
  const b=F.sc3({p:{}},{expected_goals:{home:2.2,away:0.6},score:{most_likely:"1-1"}});assert(b.includes("dari xG BSD")&&/^(2-0|1-0)/.test(b),b);
  assert.equal(F.sc3({},{score:{most_likely:"1-1"}}),"1-1 <small>(BSD)</small>");assert.equal(F.sc3({},null),"-")}
 // V42: Rangkuman harian
-{const F=new Function(pre+";return {rkList,rkLine,rkCard,rkText,renderRk,setD:function(d){D=d}}")();
- const N=Date.now(),iso=t=>new Date(t).toISOString(),dk=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Makassar"}),td=dk.format(new Date(N));
- const mid=Date.parse(td+"T04:00:00Z");   // 12.00 WITA hari ini
- const mk=(id,h,d,a,st,o={})=>({id,eid:id,src:"BSD",status:st,utc:iso(mid+id*6e4),league:"Premier League",home:{name:"Home"+id},away:{name:"Away"+id},score:st==="NS"?[null,null]:[2,0],p:{h,d,a},level:"Sedang",edge:Math.abs(h-a),pick:h>=a?"h":"a",...o});
- F.setD({matches:[mk(1,40,30,30,"NS"),mk(2,70,18,12,"NS",{bl:{h:68,d:19,a:13,xg:[2.1,0.7],ms:[2,0]}}),mk(3,55,25,20,"FT",{pm:{p:[55,25,20]},utc:iso(mid-72e5)}),mk(4,30,26,44,"NS",{utc:iso(mid+2*864e5)}),mk(5,50,25,25,"NS",{np:1})]});
- const R=F.rkList(mid);assert.deepEqual(R.A.map(x=>x.id),[2,1],"urut paling jelas, hanya hari ini, tanpa np");assert.deepEqual(R.F.map(x=>x.id),[3]);
+{const F=new Function(pre+";return {rkDay,rkList,rkLine,rkCard,rkText,renderRk,setD:function(d){D=d}}")();
+ const iso=t=>new Date(t).toISOString(),mid=Date.parse("2026-11-24T04:00:00Z"),td="2026-11-24";   // 12.00 WITA
+  const mk=(id,h,d,a,st,o={})=>({id,eid:id,src:"BSD",status:st,utc:iso(mid+id*6e4),league:"Premier League",home:{name:"Home"+id},away:{name:"Away"+id},score:st==="NS"?[null,null]:[2,0],p:{h,d,a},level:"Sedang",edge:Math.abs(h-a),pick:h>=a?"h":"a",...o});
+ F.setD({matches:[mk(1,40,30,30,"NS"),mk(2,70,18,12,"NS",{bl:{h:68,d:19,a:13,xg:[2.1,0.7],ms:[2,0]}}),mk(3,55,25,20,"FT",{pm:{p:[55,25,20]},utc:iso(mid-72e5)}),mk(4,30,26,44,"NS",{utc:iso(mid+2*864e5)}),mk(5,50,25,25,"NS",{np:1}),mk(6,60,22,18,"NS",{utc:"2026-11-24T17:45:00Z"}),mk(7,65,20,15,"FT",{utc:"2026-11-23T20:00:00Z"})]});
+ const z=F.rkDay(mid),z2=F.rkDay(Date.parse("2026-11-24T21:00:00Z")),z3=F.rkDay(Date.parse("2026-11-24T20:30:00Z"));
+ assert.equal(iso(z.t0),"2026-11-23T22:00:00.000Z");assert.equal(z.td,"2026-11-24");assert.equal(z2.td,"2026-11-24","05.00 WITA masih hari bola kemarin");assert.equal(z3.td,"2026-11-24");
+ assert.equal(F.rkDay(Date.parse("2026-11-24T22:00:00Z")).td,"2026-11-25","06.00 WITA hari bola baru");
+ const R=F.rkList(mid);assert.deepEqual(R.A.map(x=>x.id),[2,6,1],"urut paling jelas, hari bola (laga 01.45 WITA ikut), tanpa np, tanpa laga kemarin");assert.deepEqual(R.F.map(x=>x.id),[3]);
  const c=F.rkCard(R.A[0],0);assert(c.includes("Home2</b> diunggulkan 70%")&&c.includes("Skor: 2-0 <small>")&&c.includes("data-mc=\"2\""),c);
- assert(F.rkLine(R.A[1]).includes("tidak kalah"),"laga terbuka ditulis tidak kalah: "+F.rkLine(R.A[1]));
+ assert(F.rkLine(R.A[2]).includes("tidak kalah"),"laga terbuka ditulis tidak kalah: "+F.rkLine(R.A[2]));
  assert(F.rkCard(R.F[0],0).includes("Tepat"),"laga selesai diberi tanda hasil");
  const tx=F.rkText(mid);assert(tx.startsWith("Rangkuman harian Bola Live - "+td)&&tx.includes("1. ")&&tx.includes("SUDAH SELESAI")&&!/<[a-z]/.test(tx),tx)}
 console.log("test-ui V39 ok");
