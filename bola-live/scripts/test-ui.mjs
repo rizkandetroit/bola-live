@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V46</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V47</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -326,6 +326,25 @@ console.log("test-ui V45 ok");
  assert(/Arsenal : istirahat 4 hari \(laga terakhir 21 Nov 2026\)/.test(t),"istirahat dari lp: "+(t.match(/Arsenal : .{0,80}/)||[""])[0]);
  assert(/Dortmund : laga terakhirnya belum tercatat di data kita/.test(t));assert(!/istirahat panjang/.test(t))}
 console.log("test-ui V46 ok");
+{// V47: profil tim
+ const F=new Function(pre+`;return {tpHtml,tpRow,AN,KL,setAll:function(d,m,b,e){D=d;MBL=m;BT=b;EV=e}}`)();
+ const m1={eid:11,src:"BSD",league:"Premier League",lc:"England",lid:1,hid:16,aid:20,utc:"2026-11-28T15:00:00Z",status:"NS",home:{name:"Brentford"},away:{name:"Everton"},p:{h:45,d:27,a:28}};
+ const m2={eid:12,id:"b12",src:"BSD",league:"Premier League",lc:"England",lid:1,hid:30,aid:16,utc:"2026-11-22T15:00:00Z",status:"FT",score:[0,2],home:{name:"Fulham"},away:{name:"Brentford"},p:{h:50,d:25,a:25}};
+ const m3={eid:13,src:"BSD",league:"Premier League",lc:"England",lid:1,hid:40,aid:41,utc:"2026-11-22T15:00:00Z",status:"FT",score:[1,1],home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25}};
+ F.setAll({matches:[m1,m2,m3],week:["2026-11-21","2026-11-30"],updated:"2026-11-24T13:05:00Z"},null,null,null);
+ F.AN.lg[1]={name:"Premier League",grouped:false,standings:[{position:1,team_id:18,pts:28,played:12},{position:9,team_id:16,team_name:"Brentford",pts:17,played:12,won:5,drawn:2,lost:5,gf:18,ga:17,form:"WLWDW"},...Array.from({length:18},(_,k)=>({position:k+2,team_id:100+k,pts:10,played:12}))]};
+ F.KL.tm={16:{lg:1,sr:6,sn:20,luck:{xpN:12,pts:17,xpts:21.4},ps:{key:[[1,"I. Thiago",.92,7.4,.6,4.5e7,"F"],[2,null,.8,7,0,null,"M"]]}}};F.AN.pf={16:{n:6,p:[[1,"I. Thiago","F",6,520,5,1,4.2,7.6,"p"],[3,"K. Lewis-Potter","D",3,250,0,0,0,6.9,"n"]]}};
+ const h=F.tpHtml(16,1),t=h.replace(/<[^>]+>/g," ").replace(/\s+/g," ");if(process.env.SHOW_TP)console.log(t);
+ assert(/Brentford/.test(t)&&/Posisi #9 dari 20/.test(t)&&/Poin 17 \(12 laga\)/.test(t)&&/M-S-K 5-2-5/.test(t),"ringkasan: "+t.slice(0,300));
+ assert(/Kekuatan asli #6 dari 20/.test(t)&&/17 \/ 21,4 kurang beruntung/.test(t),"kekuatan & keberuntungan");
+ assert(/Laga berikutnya.*vs Everton.*kandang|Laga berikutnya.*kandang.*vs Everton/.test(t)&&/menang 45%, seri 27%/.test(t),"laga berikutnya");
+ assert(/Hasil terakhir .*tepat 1 dari 1/.test(t)&&/vs Fulham/.test(t)&&/tandang/.test(t)&&!/vs A\b/.test(t),"hasil terakhir");
+ assert(/Dalam performa .*I\. Thiago F 5 gol · 1 assist · rating 7,6 · 6 laga, 520 menit/.test(t),"performa");assert(/Naik daun.*K\. Lewis-Potter/.test(t));
+ assert(/Pemain paling sering main.*I\. Thiago F 92% menit · rating 7,4 · €45,0 jt/.test(t),"pemain inti");assert(h.includes('data-mc="11"')&&h.includes('data-mc="12"'));
+ assert(!/undefined|NaN|null/.test(t),"rapi: "+(t.match(/.{30}(undefined|NaN|null).{20}/)||[""])[0]);
+ const e=F.tpHtml(999,null).replace(/<[^>]+>/g," ");assert(/Klasemen dan peringkat kekuatan tim ini belum tersedia/.test(e)&&!/undefined|NaN/.test(e),"tim tak dikenal tetap rapi");
+ F.AN.lg[2]={name:"UCL",grouped:true,groups:{A:[{position:2,team_id:16,pts:6,played:3,won:2,drawn:0,lost:1}],B:[{position:1,team_id:50}]}};assert(/Posisi \(grup\) #2 dari 1/.test(F.tpHtml(16,2).replace(/<[^>]+>/g," ").replace(/\s+/g," ")),"grup")}
+console.log("test-ui V47 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");
