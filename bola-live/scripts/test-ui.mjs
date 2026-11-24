@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V44</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V45</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -304,6 +304,17 @@ console.log("test-ui V34e ok");
  const y={...x,status:"FT",score:[null,null]};assert(/Skor akhir belum tersedia/.test(F.anHtml(y,d)));const z={...x,np:1};assert(/Belum ada prediksi/.test(F.anHtml(z,null)));
  const w=F.anHtml(x,null).replace(/<[^>]+>/g," ");assert(!/undefined|NaN/.test(w),"tanpa detail tetap rapi")}
 console.log("test-ui V35 ok");
+{// V45: performa pemain di Analisa (pf.json)
+ const F=new Function(pre+`;return {anHtml,AN,KL,setAll:function(d,m,b,e){D=d;MBL=m;BT=b;EV=e}}`)();
+ const x={eid:1,src:"BSD",league:"Premier League",lc:"England",lid:1,hid:16,aid:20,utc:"2026-11-23T20:00:00Z",status:"NS",home:{name:"Brentford"},away:{name:"Everton"},p:{h:41.4,d:27.1,a:31.5,xg:[1.58,1.15]}};
+ F.setAll({matches:[x],week:["2026-11-21","2026-11-30"],updated:"2026-11-23T13:05:00Z"},null,null,null);F.KL.tm={};F.AN.lg[1]=null;
+ F.AN.pf={16:{n:6,p:[[1,"I. Thiago","F",6,520,5,1,4.2,7.6,"p"],[2,"M. Damsgaard","M",5,400,0,3,0.8,null,"p"],[3,"K. Lewis-Potter","D",3,250,0,0,0,6.9,"n"]]},20:{n:4,p:[[9,"J. Branthwaite","D",4,360,0,0,0,7.1,"n"]]}};
+ const t=F.anHtml(x,null).replace(/<[^>]+>/g," ").replace(/\s+/g," ");
+ assert(/Brentford — dalam performa \(6 laga terakhir\): I\. Thiago \(5 gol, 1 assist, rating 7,6, 6 laga\), M\. Damsgaard \(3 assist, 5 laga\)/.test(t),"performa: "+(t.match(/Brentford — .{0,160}/)||[""])[0]);
+ assert(/Naik daun \(menit main melonjak di 3 laga terakhir\): K\. Lewis-Potter \(250 menit\)/.test(t),"naik daun");
+ assert(/Everton — belum ada pemain yang menonjol di 4 laga terakhir\. Naik daun.*J\. Branthwaite/.test(t),"tim tanpa pemain menonjol");
+ assert(/⚪ info/.test(t)&&!/undefined|NaN/.test(t));F.AN.pf={};assert(!/dalam performa/.test(F.anHtml(x,null)),"tanpa data: tidak tampil")}
+console.log("test-ui V45 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");

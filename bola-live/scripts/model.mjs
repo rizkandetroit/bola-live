@@ -277,19 +277,25 @@ export function lineupFeatures(E,minKnown=7){
     const side=(ids,team)=>{const v=ids.map(val).filter(x=>x!=null);if(v.length<minKnown)return null;const Q=v.reduce((a,b)=>a+b,0)/v.length;
       const H=T.get(team)||[];const typ=H.length>=3?H.slice(-8).reduce((a,b)=>a+b,0)/Math.min(8,H.length):null;return{Q,typ,known:v.length}};
     const h=side(e.s[0],e.h),a=side(e.s[1],e.a);
-    const ex={gk:[gh&&gh.backup,ga&&ga.backup],fat:[fh,fa]};
+    // V45: performa pemain terkini (hanya laga sebelumnya): starter yang cetak gol/assist di laga terakhirnya, rating 3 laga terakhir vs rata-rata dirinya
+    const hot=ids=>{let k=0,c=0;for(const p of ids){const q=P.get(p);if(!q||!q.ga||!q.ga.length)continue;k++;if(q.ga[q.ga.length-1]>0)c++}return k>=7?c:null};
+    const rtf=ids=>{const d=[];for(const p of ids){const q=P.get(p);if(!q||!q.rr||q.rr.length<5||!q.m)continue;const l3=q.rr.slice(-3),m3=l3.reduce((a,b)=>a+b,0)/3,all=q.s/q.m;d.push(m3-all)}return d.length>=7?d.reduce((a,b)=>a+b,0)/d.length:null};
+    const ex={gk:[gh&&gh.backup,ga&&ga.backup],fat:[fh,fa],hot:[hot(e.s[0]),hot(e.s[1])],rtf:[rtf(e.s[0]),rtf(e.s[1])]};
     if(h&&a&&h.typ!=null&&a.typ!=null)F.set(e.id,{dh:h.Q-h.typ,da:a.Q-a.typ,t:e.t,...ex});else F.set(e.id,{t:e.t,...ex,only:1});
     if(gh)TG.set(e.h,[...(TG.get(e.h)||[]),gh.g].slice(-12));if(ga)TG.set(e.a,[...(TG.get(e.a)||[]),ga.g].slice(-12));
     if(h)T.set(e.h,[...(T.get(e.h)||[]),h.Q].slice(-12));if(a)T.set(e.a,[...(T.get(e.a)||[]),a.Q].slice(-12));
-    for(const r of e.r){const q=P.get(r[0])||{n:0,s:0,m:0,sv:0,rec:[]};if(r[10]>0)q.sv++;q.rec.push([e.t,r[2]]);if(q.rec.length>6)q.rec.shift();
-      if(!(r[3]<0||r[2]<20)){q.n++;q.s+=r[3]/10*r[2];q.m+=r[2]}P.set(r[0],q)}}
+    for(const r of e.r){const q=P.get(r[0])||{n:0,s:0,m:0,sv:0,rec:[],ga:[],rr:[]};if(r[10]>0)q.sv++;q.rec.push([e.t,r[2]]);if(q.rec.length>6)q.rec.shift();
+      if(r[2]>=20){q.ga.push((r[4]||0)+(r[5]||0));if(q.ga.length>6)q.ga.shift()}
+      if(!(r[3]<0||r[2]<20)){q.n++;q.s+=r[3]/10*r[2];q.m+=r[2];q.rr.push(r[3]/10);if(q.rr.length>12)q.rr.shift()}P.set(r[0],q)}}
   return F}
 export function lineupExp(rows,E){
   const F=lineupFeatures(E);if(!F.size)return null;
   // V31: uji faktor kiper cadangan & beban menit tinggi (tim yang terkena vs peluang menang BSD)
   const fac2=(()=>{const G={};const add=(k,win,b)=>{const g=G[k]=G[k]||{n:0,w:0,b:0};g.n++;g.w+=win;g.b+=b};
     for(const r of rows||[]){const f=F.get(String(r&&r.id));if(!f||!r.b||r.o==null)continue;for(const s of [0,1]){const win=r.o===(s?2:0)?1:0,b=r.b[s?2:0]/100;
-      if(f.gk&&f.gk[s]===1)add("kiperCadangan",win,b);if(f.gk&&f.gk[s]===0)add("kiperUtama",win,b);if(f.fat&&f.fat[s]!=null&&f.fat[s]>=150)add("bebanTinggi",win,b);if(f.fat&&f.fat[s]!=null&&f.fat[s]<60)add("segar",win,b)}}
+      if(f.gk&&f.gk[s]===1)add("kiperCadangan",win,b);if(f.gk&&f.gk[s]===0)add("kiperUtama",win,b);if(f.fat&&f.fat[s]!=null&&f.fat[s]>=150)add("bebanTinggi",win,b);if(f.fat&&f.fat[s]!=null&&f.fat[s]<60)add("segar",win,b);
+      if(f.hot&&f.hot[s]!=null){if(f.hot[s]>=3)add("starterPanas",win,b);if(f.hot[s]===0)add("starterSepi",win,b)}
+      if(f.rtf&&f.rtf[s]!=null){if(f.rtf[s]>=.2)add("ratingNaik",win,b);if(f.rtf[s]<=-.2)add("ratingTurun",win,b)}}}
     const o={};for(const [k,g] of Object.entries(G)){const w=g.w/g.n,b=g.b/g.n;o[k]={n:g.n,win:Math.round(w*1000)/10,bsd:Math.round(b*1000)/10,gap:Math.round((w-b)*1000)/10,se:Math.round(Math.sqrt(Math.max(w*(1-w),.05)/g.n)*1000)/10}}return o})();
   const R=(rows||[]).filter(r=>r&&r.b&&r.o!=null&&F.has(String(r.id))&&!F.get(String(r.id)).only).map(r=>({...r,f:F.get(String(r.id))})).sort((a,b)=>a.f.t-b.f.t);
   const out={feat:F.size,n:R.length,fac:fac2};if(R.length<200)return{...out,note:"belum cukup laga"};

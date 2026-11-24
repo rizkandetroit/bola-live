@@ -90,3 +90,26 @@ export function statRow(r){
 // Kebalikannya (bentuk yang dibaca ingest), untuk membangun ringkasan pemain "per tanggal" nanti
 export function statBack(q){return{player_id:q[0],team_id:q[1],minutes_played:q[2],rating:q[3]<0?null:q[3]/10,goals:q[4],goal_assist:q[5],expected_goals:q[6]/100,
   expected_assists:q[7]/100,key_pass:q[8],big_chance_created:0,goals_prevented:q[9]/100,saves:q[10]}}
+
+// ===== V45 (25 Nov 2026): performa pemain terkini per tim, untuk tampilan (tidak mengubah prediksi) =====
+// E = xi2.e (per laga: {t,h,a,s,r}); hanya laga sebelum `before` (detik). n = jumlah laga terakhir tim yang dilihat.
+// Hasil: {n, p:[[id, nama, posisi, main, menit, gol, assist, xG, rating rata-rata|null, jenis]]}; jenis "p" = dalam performa, "n" = naik daun
+// (menit melonjak di 3 laga terakhir setelah jarang main). Pemain tanpa nama (belum ada profil) tidak ditampilkan.
+export function formOf(E,team,V,before=Infinity,n=6){
+  const L=Object.values(E||{}).filter(e=>e&&(e.h===team||e.a===team)&&Array.isArray(e.r)&&e.r.length&&e.t<before).sort((a,b)=>b.t-a.t).slice(0,n);
+  if(L.length<3)return null;const P=new Map();
+  L.forEach((e,i)=>{for(const r of e.r){if(!r||r[1]!==team)continue;const q=P.get(r[0])||{ap:0,min:0,g:0,a:0,xg:0,rt:[],m3:0,mo:0};
+    q.ap++;q.min+=r[2];q.g+=r[4]||0;q.a+=r[5]||0;q.xg+=(r[6]||0)/100;if(r[3]>=0&&r[2]>=20)q.rt.push(r[3]/10);if(i<3)q.m3+=r[2];else q.mo+=r[2];P.set(r[0],q)}});
+  const nm=pid=>{const v=V&&V[pid];return v&&v[3]||null},pos=pid=>{const v=V&&V[pid];return v&&v[1]||null};
+  const avg=q=>q.rt.length>=2?q.rt.reduce((a,b)=>a+b,0)/q.rt.length:null;
+  const row=(pid,q,k)=>[+pid,nm(pid),pos(pid),q.ap,q.min,q.g,q.a,r1(q.xg),avg(q)!=null?r1(avg(q)):null,k];
+  const sc=q=>q.g+q.a*.7+q.xg*.3+(avg(q)!=null?(avg(q)-6.8)*1.5:0);
+  const form=[...P].filter(([pid,q])=>nm(pid)&&q.ap>=2&&q.min>=120&&(q.g+q.a>=2||(avg(q)!=null&&q.rt.length>=3&&avg(q)>=7.4))).sort((x,y)=>sc(y[1])-sc(x[1])).slice(0,4);
+  const used=new Set(form.map(x=>x[0]));
+  const naik=L.length>=5?[...P].filter(([pid,q])=>!used.has(pid)&&nm(pid)&&q.m3>=180&&q.mo<=45).sort((x,y)=>y[1].m3-x[1].m3).slice(0,2):[];
+  return{n:L.length,p:[...form.map(([pid,q])=>row(pid,q,"p")),...naik.map(([pid,q])=>row(pid,q,"n"))]};
+}
+// id pemain yang akan tampil di formOf tetapi belum punya nama (untuk diambil profilnya)
+export function formNeedNames(E,team,V,n=6){const L=Object.values(E||{}).filter(e=>e&&(e.h===team||e.a===team)&&Array.isArray(e.r)).sort((a,b)=>b.t-a.t).slice(0,n);
+  const M=new Map();L.forEach((e,i)=>{for(const r of e.r){if(!r||r[1]!==team)continue;const q=M.get(r[0])||{min:0,ga:0,m3:0};q.min+=r[2];q.ga+=(r[4]||0)+(r[5]||0);if(i<3)q.m3+=r[2];M.set(r[0],q)}});
+  return[...M].filter(([pid,q])=>!(V&&V[pid]&&V[pid][3])&&(q.ga>=2||q.m3>=180||q.min>=200)).map(x=>x[0])}

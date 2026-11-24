@@ -5,7 +5,7 @@ import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readP
 import {fitModel,predictModel,rollingBacktest,score,rps,disagree,experiments,lineupExp,drawExp,drawShift,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
 import {trainStack,trainLean,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
-import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow} from "./players.mjs";
+import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow,formOf,formNeedNames} from "./players.mjs";
 import {level,r1} from "./lib.mjs";
 // V32: sakelar pemasangan hasil uji coba. Dinyalakan HANYA setelah lolos uji mundur dan disetujui pemilik (lihat Evaluasi > Uji coba).
 export const ACT={lean:false,drawCorr:false};
@@ -565,7 +565,7 @@ async function main(){
     // V16 (Tahap 1): data pemain. players.json = ringkasan statistik pemain per tim; values.json = nilai pasar + posisi pemain.
     let PS=await pullS("players.json"),VA=await pullS("values.json"),XR=await pullS("xi.json");PS=PS&&PS.t?PS:{t:{}};VA=VA&&VA.p?VA:{p:{}};XR=XR&&XR.e?XR:{e:{}};
     // V23a: data line-up per laga (tidak tayang), hanya dibuka di run berat
-    const XI2D=Number(process.env.BL_XI2_DAYS??160);let X2=null;if(DEEP&&!LIGHT){X2=await pullS("xi2.json");X2=X2&&X2.e?X2:{v:1,e:{}}}
+    const XI2D=Number(process.env.BL_XI2_DAYS??160);let X2=null,pfDone=false;if(DEEP&&!LIGHT){X2=await pullS("xi2.json");X2=X2&&X2.e?X2:{v:1,e:{}}}
     const x2put=(r,L)=>{if(!X2||!L||!L.length||r[1]*1000<now-XI2D*DAY)return;const e=X2.e[r[0]]||{t:r[1],h:r[3],a:r[4]};if(!e.r){e.r=L.map(statRow).filter(Boolean);X2.e[r[0]]=e}};
     if(DEEP&&!LIGHT&&!overDeadline()&&process.env.BL_PLAYERS!=="0"){
       const soon=every.filter(m=>m.status==="NS"&&Date.parse(m.utc)>now&&Date.parse(m.utc)-now<72*36e5),teams=new Set();for(const m of soon){if(m.hid!=null)teams.add(m.hid);if(m.aid!=null)teams.add(m.aid)}
@@ -599,6 +599,14 @@ async function main(){
     if(X2){for(const k of Object.keys(X2.e))if(X2.e[k].t*1000<now-(XI2D+5)*DAY)delete X2.e[k];
       const V=Object.values(X2.e);deep.xi2N=V.filter(e=>Array.isArray(e.s)&&Array.isArray(e.r)).length;deep.xi2All=V.length;
       writeState("xi2.json",{v:1,updated:new Date(now).toISOString(),days:XI2D,e:X2.e},{dir})}
+    // V45: performa pemain terkini (pf.json, tayang) untuk tim yang main dari 30 jam lalu s.d. 72 jam ke depan. Hanya tampilan.
+    if(X2&&process.env.BL_PF!=="0"){try{
+      const tm=new Set();for(const m of every){const t=Date.parse(m.utc);if(t>now-30*36e5&&t<now+72*36e5){if(m.hid!=null)tm.add(m.hid);if(m.aid!=null)tm.add(m.aid)}}
+      if(!overDeadline()){const need=new Set();for(const id of tm)for(const pid of formNeedNames(X2.e,id,VA.p))if(!VA.p[pid])need.add(pid);
+        const MAXN=Number(process.env.BL_PF_NAMES??150);await pool([...need].slice(0,MAXN),async pid=>{const o=await get(`${BASE}/players/${pid}/`,{soft:true});deep.pfn=(deep.pfn||0)+1;VA.p[pid]=valueOf(o,now)||[null,null,Math.round(now/1000)]});
+        if(need.size)writeState("values.json",{v:1,updated:new Date(now).toISOString(),p:VA.p},{dir})}
+      const PF={};for(const id of tm){const f=formOf(X2.e,id,VA.p);if(f&&f.p.length)PF[id]=f}
+      writeState("pf.json",{v:1,updated:new Date(now).toISOString(),t:PF},{pub:true,dir});deep.pf=Object.keys(PF).length;pfDone=true}catch(e){errors.push("performa pemain: "+e.message)}}
     {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(XR.e))if(!keep.has(k))delete XR.e[k]}deep.xiN=Object.keys(XR.e).length;
     writeState("xi.json",{v:1,updated:new Date(now).toISOString(),e:XR.e},{dir});
     // nilai skuad (log10) relatif median liga, hanya tim yang nilai pasar pemain regulernya >= 60% terisi
@@ -669,7 +677,8 @@ async function main(){
         writeState("teams.json",{v:1,updated:new Date(now).toISOString(),t:TS},{pub:true,dir});deep.teams=Object.keys(TS).length;teamsDone=true}catch(e){errors.push("ringkasan tim: "+e.message)}
       deep.model=Object.keys(pred).length;
     }
-    if(!teamsDone){const T=await pullS("teams.json");if(T&&T.t)writeState("teams.json",T,{pub:true,dir})}   // dibawa dari run sebelumnya
+    if(!teamsDone){const T=await pullS("teams.json");if(T&&T.t)writeState("teams.json",T,{pub:true,dir})}
+    if(!pfDone){const T=await pullS("pf.json");if(T&&T.t)writeState("pf.json",T,{pub:true,dir})}   // V45: dibawa di run ringan   // dibawa dari run sebelumnya
     if(MB){writeState("model-bl.json",MB,{pub:true,dir});
       // tempel ke laga (tiap run): laju gol dasar + koreksi pemain inti yang tidak main
       for(const m of every){const q=MB.pred&&MB.pred[m.eid];if(!q||m.status!=="NS")continue;

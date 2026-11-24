@@ -568,7 +568,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V44</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V45</span>
   </div>
   <div class="nvb">
     <div class="seg" id="nv" aria-label="Halaman">
@@ -1059,7 +1059,7 @@ function mblHtml(M,live){
   var U=M.lu2;if(U&&U.n){var ul=function(q,t){return q?t+': log loss '+f3(q.ll0)+' → '+f3(q.ll1)+', akurasi '+pc(q.acc0)+' → '+pc(q.acc1)+' pada '+q.n+' laga uji'+(q.pass?' <b>(lolos)</b>':' (belum lolos)'):""};
     h+='<p class="cap">Koreksi line-up tahap 2 (nilai tiap pemain hanya dari laga sebelum tanggal laga): '+U.n.toLocaleString("id-ID")+' laga punya line-up resmi + nilai pemain'+(U.note?' — '+U.note+'.':'. '+[ul(U.bsd,"BSD"),ul(U.bl,"Model BL")].filter(Boolean).join("; ")+'.')+'</p>'}
   /* V31: kiper cadangan & beban menit (dari line-up resmi + menit main 8 hari terakhir) */
-  var UF=U&&U.fac;if(UF){var FN={kiperCadangan:"Kiper cadangan turun (bukan kiper yang paling sering main)",kiperUtama:"Kiper utama turun",bebanTinggi:"Starter rata-rata ≥ 150 menit dalam 8 hari terakhir",segar:"Starter rata-rata < 60 menit dalam 8 hari terakhir"};
+  var UF=U&&U.fac;if(UF){var FN={kiperCadangan:"Kiper cadangan turun (bukan kiper yang paling sering main)",kiperUtama:"Kiper utama turun",bebanTinggi:"Starter rata-rata ≥ 150 menit dalam 8 hari terakhir",segar:"Starter rata-rata < 60 menit dalam 8 hari terakhir",starterPanas:"≥ 3 starter mencetak gol/assist di laga terakhirnya",starterSepi:"Tak satu pun starter mencetak gol/assist di laga terakhirnya",ratingNaik:"Rating starter 3 laga terakhir naik (≥ +0,2 dari rata-ratanya)",ratingTurun:"Rating starter 3 laga terakhir turun (≤ −0,2 dari rata-ratanya)"};
     var KK=Object.keys(FN).filter(function(k){return UF[k]&&UF[k].n>=20});if(KK.length)h+='<div class="ov"><table class="ev"><tr><th style="text-align:left">Kondisi tim (uji mundur)</th><th>Laga</th><th>Menang nyata</th><th>Kata BSD</th><th>Selisih</th></tr>'+KK.map(function(k){var q=UF[k],sig=Math.abs(q.gap)>=2*q.se;return'<tr><td style="text-align:left">'+FN[k]+'</td><td>'+q.n+'</td><td>'+pc(q.win)+'</td><td>'+pc(q.bsd)+'</td><td class="'+(sig?(q.gap<0?"warn":"good"):"")+'">'+(q.gap>0?"+":"")+String(q.gap).replace(".",",")+(sig?" *":"")+'</td></tr>'}).join("")+'</table></div><p class="cap">* selisih lebih dari 2× galat baku (cukup meyakinkan).</p>'}
   /* V22d: saat BSD dan Model BL berbeda arah, siapa yang benar (uji mundur) */
   var Ds=M.dis;if(Ds&&Ds.n)h+='<p>Saat BSD dan Model BL <b>berbeda arah</b> ('+Ds.n.toLocaleString("id-ID")+' dari '+Ds.of.toLocaleString("id-ID")+' laga uji mundur): BSD benar <b>'+pc(Ds.bsd/Ds.n*100)+'</b>, Model BL benar <b>'+pc(Ds.bl/Ds.n*100)+'</b>, keduanya salah '+pc(Ds.none/Ds.n*100)+'.'+(Ds.bl50&&Ds.bl50.n>=30?' Bila Model BL yakin (≥ 50%) pada tebakannya: BL benar '+pc(Ds.bl50.bl/Ds.bl50.n*100)+', BSD '+pc(Ds.bl50.bsd/Ds.bl50.n*100)+' ('+Ds.bl50.n+' laga).':'')+'</p>';
@@ -1609,6 +1609,7 @@ var AN={lg:{},tm:null,busy:{}};
 function anLoad(x){
   if(x.lid!=null&&!(x.lid in AN.lg)&&!realTbl(x.league))AN.lg[x.lid]=null;   /* V42e: tabel laga persahabatan tidak diunduh */
   if(x.lid!=null&&!(x.lid in AN.lg)&&!AN.busy["l"+x.lid]){AN.busy["l"+x.lid]=1;fj("lg/"+x.lid+".json").then(function(j){AN.lg[x.lid]=j||null},function(){AN.lg[x.lid]=null}).then(anRedraw)}
+  if(!AN.pf&&!AN.busy.pf){AN.busy.pf=1;fj("pf.json").then(function(j){AN.pf=j&&j.t||{}},function(){AN.pf={}}).then(anRedraw)}   /* V45 */
   if(!KL.tm&&!AN.tm&&!AN.busy.t){AN.busy.t=1;fj("teams.json").then(function(j){AN.tm=j&&j.t||{}},function(){AN.tm={}}).then(anRedraw)}
 }
 function anRedraw(){if(MC.id&&MC.tab==="an")drawMC(findM(MC.id),MC.d)}
@@ -1789,6 +1790,12 @@ function anHtml(x,d){
     if(tsOut)s+=". <b>Pencetak gol terbanyak tim ("+esc(ts.player_name)+", "+ts.value+" gol) tidak main</b>"+evInd("Kehilangan pencetak gol utama masuk akal melemahkan serangan; belum diuji khusus");
     else if(ts)s+=". Pencetak gol terbanyak, "+esc(ts.player_name)+" ("+ts.value+" gol), tersedia";
     pi.push(li(s))});
+  /* V45: performa pemain terkini (pf.json): dalam performa & naik daun, dari statistik pemain laga-laga terakhir */
+  var PF=AN.pf||{};[0,1].forEach(function(i){var f=PF[ids[i]];if(!f||!f.p||!f.p.length)return;var fm=f.p.filter(function(p){return p[9]==="p"}),nd=f.p.filter(function(p){return p[9]==="n"});
+    var pt=function(p){var b=[];if(p[5])b.push(p[5]+" gol");if(p[6])b.push(p[6]+" assist");if(p[8]!=null)b.push("rating "+n1(p[8]));b.push(p[3]+" laga");return"<b>"+esc(p[1])+"</b> ("+b.join(", ")+")"};
+    var s=esc(nm[i])+" — "+(fm.length?"dalam performa ("+f.n+" laga terakhir): "+fm.map(pt).join(", "):"belum ada pemain yang menonjol di "+f.n+" laga terakhir");
+    if(nd.length)s+=". Naik daun (menit main melonjak di 3 laga terakhir): "+nd.map(function(p){return esc(p[1])+" ("+p[4]+" menit)"}).join(", ");
+    pi.push(li(s+"."+evInfo("Fakta dari statistik pemain BSD. Pengaruh performa pemain ke hasil sedang diuji (Evaluasi › Model BL › Kondisi tim); belum mengubah angka prediksi.")))});
   var bw=blWhy(x).replace(/^<div[^>]*>|<\/div>$/g,"");if(bw)pi.push(li(bw.replace(/<br\s*\/?>/g," · ")+evInd("Koreksi line-up sudah dipakai di angka Model BL; pengaruh tambahannya masih diuji (line-up tahap 2)")));
   [0,1].forEach(function(i){var sc=schedOf(x,ids[i]),t="",DAYMS=864e5;
     if(sc.prev){var dd=(sc.t0-sc.prev.t)/DAYMS;t+="istirahat "+Math.max(0,Math.floor(dd))+" hari";

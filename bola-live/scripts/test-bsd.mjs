@@ -15,7 +15,7 @@ import {ACT,ftSlim,carryFT} from "./bsd.mjs";
 import {factorTests as facT} from "./factors.mjs";
 import {trainLean} from "./stack.mjs";
 import {disagree,experiments,YOUTH} from "./model.mjs";
-import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT} from "./players.mjs";
+import {startersOf,statRow,statBack,ingest as psIngestT,teamSummary as tsT,formOf,formNeedNames} from "./players.mjs";
 
 const here=fileURLToPath(new URL(".",import.meta.url));
 const S=JSON.parse(readFileSync(join(here,"fixtures/bsd-sample.json"),"utf8"));
@@ -241,6 +241,24 @@ console.log("OK    V28: koreksi line-up tahap 2 (uji coba, tanpa bocor)");
  assert(F.get("107")&&F.get("107").fat[0]>=150,"beban menit: 2 laga dalam 8 hari -> tinggi: "+JSON.stringify(F.get("107")));
  const X=lineupExp(R,E);assert(X.fac&&X.fac.kiperCadangan&&X.fac.kiperCadangan.win===0&&X.fac.kiperUtama.n>10,"uji faktor kiper: "+JSON.stringify(X.fac))}
 console.log("OK    V31: kiper cadangan & beban menit");
+{// V45: performa pemain (tampilan) + uji faktor performa starter, tanpa bocor
+ const D=86400,E={},V={};for(let p=100;p<125;p++)V[p]=[null,"M",0,"P"+p];
+ // tim 1, 6 laga; pemain 100 cetak gol tiap laga, pemain 120 baru main di 3 laga terakhir, pemain 124 tanpa nama
+ for(let i=0;i<6;i++){const ids=Array.from({length:11},(_,k)=>100+k);if(i>=3){ids[10]=120;ids[9]=124}
+   E[i+1]={t:1e9+i*7*D,h:1,a:2,s:[ids,[]],r:ids.map(p=>[p,1,90,p===100?78:66,p===100?1:0,p===101&&i%2?1:0,p===100?60:0,0,0,0,0])}}
+ delete V[124][3];
+ const f=formOf(E,1,V);assert(f&&f.n===6,"6 laga");const top=f.p.find(p=>p[9]==="p");assert(top&&top[0]===100&&top[5]===6&&top[8]===7.8,"pemain 100 dalam performa: "+JSON.stringify(f.p));
+ assert(f.p.some(p=>p[0]===120&&p[9]==="n"),"pemain 120 naik daun");assert(!f.p.some(p=>p[0]===124),"tanpa nama tidak tampil");
+ assert.equal(formOf(E,1,V,1e9+2*7*D),null,"hanya laga sebelum batas (2 laga -> belum cukup)");assert.equal(formOf(E,99,V),null);
+ assert(formNeedNames(E,1,V).includes(124),"nama dicari untuk pemain tanpa profil");
+ // uji faktor: tim dengan banyak starter yang baru cetak gol/assist
+ const E2={},R=[];let x=5;const rnd=()=>(x=(x*16807)%2147483647)/2147483647;
+ for(let i=0;i<400;i++){const h=1+(i%8),a=1+((i+3)%8);if(h===a)continue;const sh=Array.from({length:11},(_,k)=>h*100+k),sa=Array.from({length:11},(_,k)=>a*100+k);
+   const gh=rnd()<.3,row=(ids,t,g)=>ids.map((p,k)=>[p,t,90,68,g&&k<4?1:0,0,0,0,0,0,0]);E2[i+1]={t:1e9+i*3600,h,a,s:[sh,sa],r:[...row(sh,h,gh),...row(sa,a,false)]};R.push({id:i+1,b:[40,28,32],o:i%3,t:1e9+i*3600})}
+ const F=lineupFeatures(E2);const k=String(200),f0=F.get(k);const E3=JSON.parse(JSON.stringify(E2));E3[k].r=E3[k].r.map(r=>(r[4]=1,r));
+ assert(f0&&JSON.stringify(f0.hot)===JSON.stringify(lineupFeatures(E3).get(k).hot),"gol di laga itu sendiri tidak dipakai");
+ assert([...F.values()].some(f=>f.hot&&(f.hot[0]>=3||f.hot[1]>=3)),"starter panas terdeteksi");const X=lineupExp(R,E2);assert(X.fac.starterPanas&&X.fac.starterPanas.n>20&&X.fac.starterSepi.n>20,"uji faktor tercatat: "+JSON.stringify(X.fac))}
+console.log("OK    V45: performa pemain + uji faktor starter panas");
 {// V29: koreksi terarah menemukan bias pelatih baru & habis Eropa yang ditanam
  let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
  for(let i=0;i<3000;i++){const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28];
