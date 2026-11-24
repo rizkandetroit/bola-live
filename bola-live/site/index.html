@@ -1595,26 +1595,32 @@ var TP={id:null,lid:null};
 function tpOpen(id,lid){id=Number(id);if(!isFinite(id))return;TP.id=id;var M0=(D&&D.matches||[]).find(function(m){return m.hid===id||m.aid===id});
   TP.lid=lid!=null&&lid!==""&&isFinite(Number(lid))?Number(lid):M0&&M0.lid!=null?M0.lid:null;
   $("#tp").hidden=false;document.body.style.overflow="hidden";var bx=$("#tp .mcbox");if(bx)bx.scrollTop=0;$("#tp").scrollTop=0;
-  var l=TP.lid,L=l!=null&&(AN.lg[l]!==undefined?AN.lg[l]:KL.cache&&KL.cache[l]);
-  if(l!=null&&L===undefined&&!AN.busy["l"+l]){AN.busy["l"+l]=1;fj("lg/"+l+".json").then(function(j){AN.lg[l]=j||null},function(){AN.lg[l]=null}).then(anRedraw)}
+  tpLg(TP.lid);
   if(!AN.pf&&!AN.busy.pf){AN.busy.pf=1;fj("pf.json").then(function(j){AN.pf=j&&j.t||{}},function(){AN.pf={}}).then(anRedraw)}
   if(!KL.tm&&!AN.tm&&!AN.busy.t){AN.busy.t=1;fj("teams.json").then(function(j){AN.tm=j&&j.t||{}},function(){AN.tm={}}).then(anRedraw)}
   tpDraw()}
+function tpLg(l){if(l==null)return null;var L=AN.lg[l]!==undefined?AN.lg[l]:KL.cache&&KL.cache[l];if(L!==undefined)return L;
+  if(!AN.busy["l"+l]){AN.busy["l"+l]=1;fj("lg/"+l+".json").then(function(j){AN.lg[l]=j||null},function(){AN.lg[l]=null}).then(anRedraw)}return undefined}
 function tpClose(){$("#tp").hidden=true;TP.id=null;if($("#mc").hidden)document.body.style.overflow=""}
 function tpRow(L,id){if(!L)return null;var R=[];if(L.standings&&L.standings.length&&!L.grouped)R=[L.standings];else if(L.groups)Object.keys(L.groups).forEach(function(k){var g=L.groups[k],r=Array.isArray(g)?g:g&&g.standings;if(r)R.push(r)});
   for(var i=0;i<R.length;i++){var r=R[i].find(function(q){return q.team_id===id});if(r)return{r:r,n:R[i].length,grp:R.length>1}}return null}
 function tpDraw(){var b=$("#tp-body");if(!b||TP.id==null)return;try{b.innerHTML=tpHtml(TP.id,TP.lid)}catch(e){b.innerHTML='<div class="em">Profil tim belum bisa ditampilkan.</div>'}}
 function tpHtml(id,lid){var M=(D&&D.matches||[]).filter(function(m){return m.hid===id||m.aid===id}),side=function(m){return m.hid===id?m.home:m.away},opp=function(m){return m.hid===id?m.away:m.home};
-  var L=lid!=null?(AN.lg[lid]!==undefined?AN.lg[lid]:KL.cache&&KL.cache[lid]):null,R=L&&realTbl(L.name,(L.standings||[]).length||99)?tpRow(L,id):null,T=(KL.tm||AN.tm||{})[id]||null,PF=AN.pf?AN.pf[id]:null;
+  var T=(KL.tm||AN.tm||{})[id]||null,PF=AN.pf?AN.pf[id]:null,dom=T&&T.lg!=null?T.lg:lid;   /* V47b: liga utama tim (kekuatan & keberuntungan dihitung di liga ini) */
+  var rowOf=function(l){var L=tpLg(l);return L&&realTbl(L.name,(L.standings||[]).length||99)?{L:L,x:tpRow(L,id)}:null};
+  var D0=rowOf(dom),R=D0&&D0.x,L=D0&&D0.L,C0=lid!=null&&lid!==dom?rowOf(lid):null;
   var me=M.length?side(M[0]):null,name=me&&me.name||R&&R.r.team_name||"Tim",crest=me&&me.crest||(R&&R.r.logo)||IMG+"team/"+id+"/";
-  var lgn=M.find(function(m){return m.lid===lid});lgn=lgn?lgLabel(lgn.league||"",lgn.lc):L&&L.name?L.name:"";
+  var lgName=function(l,LL){var mm=M.find(function(m){return m.lid===l});return mm?lgLabel(mm.league||"",mm.lc):LL&&LL.name?lgLabel(LL.name,LL.country):""};
+  var lgn=lgName(dom,L);
   var h='<div class="tph">'+cr(crest)+'<div><h2>'+esc(name)+'</h2><div class="cap">'+esc(lgn)+'</div></div></div>';
   var k=[];if(R){var r=R.r;k.push(['Posisi'+(R.grp?' (grup)':''),'#'+esc(r.position)+' <small style="display:inline">dari '+R.n+'</small>']);k.push(['Poin',esc(r.pts)+' <small style="display:inline">('+esc(r.played)+' laga)</small>']);
     k.push(['M-S-K',esc(r.won)+'-'+esc(r.drawn)+'-'+esc(r.lost)]);if(r.gf!=null)k.push(['Gol',esc(r.gf)+':'+esc(r.ga)]);if(r.form)k.push(['Form 5',frm(r.form)])}
+  if(C0&&C0.x){var c=C0.x.r;k.push([esc(lgName(lid,C0.L))+(C0.x.grp?' (grup)':''),'#'+esc(c.position)+' <small style="display:inline">dari '+C0.x.n+' · '+esc(c.pts)+' poin</small>'])}
   if(T&&T.sr!=null&&T.sn)k.push(['Kekuatan asli','#'+T.sr+' <small style="display:inline">dari '+T.sn+'</small>']);
   if(T&&T.luck&&T.luck.xpN>=5&&T.luck.xpts!=null&&T.luck.pts!=null){var dl=T.luck.pts-T.luck.xpts;k.push(['Poin vs harapan xG',T.luck.pts+' / '+n1(T.luck.xpts)+' <small style="display:inline;color:'+(dl>=3?'#16a34a':dl<=-3?'#dc2626':'inherit')+'">'+(dl>=3?'beruntung':dl<=-3?'kurang beruntung':'wajar')+'</small>'])}
   if(k.length)h+='<div class="tpk">'+k.map(function(q){return'<div><small>'+q[0]+'</small><b>'+q[1]+'</b></div>'}).join("")+'</div>';
   else h+='<p class="cap">Klasemen dan peringkat kekuatan tim ini belum tersedia.</p>';
+  if(k.length&&(R||T&&T.sr!=null))h+='<p class="cap">'+(R?'Posisi dan poin dari klasemen '+esc(lgn||"liga utama tim"):'Angka dari '+esc(lgn||"liga utama tim"))+(T&&T.sr!=null?'; kekuatan asli'+(T.luck&&T.luck.xpN>=5?' dan poin vs harapan xG':'')+' juga dihitung di liga ini':'')+'.</p>';
   var li=function(m){var t=Date.parse(m.utc),q=preP(m),hm=m.hid===id,pc=q?Math.round(hm?q.h:q.a):null,dr=q?Math.round(q.d):null;
     var right=m.status==="FT"?'<b>'+(rkSc(m)||"Selesai")+'</b>'+resTag(m):m.status==="LIVE"?'<span class="st lv">LIVE'+(rkSc(m)?' · '+rkSc(m):'')+'</span>':(pc!=null?'menang '+pc+'%, seri '+dr+'%':'');
     return'<li'+(m.eid?' data-mc="'+m.eid+'" role="button" tabindex="0"':'')+'><span><span class="m">'+df.format(new Date(t))+' '+tf.format(new Date(t))+' · '+(hm?'kandang':'tandang')+'</span><br>vs <b>'+esc(opp(m).name)+'</b> <span class="m">'+esc(lgLabel(m.league||"",m.lc))+'</span></span><span style="text-align:right">'+right+'</span></li>'};

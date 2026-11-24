@@ -343,7 +343,9 @@ console.log("test-ui V46 ok");
  assert(/Pemain paling sering main.*I\. Thiago F 92% menit · rating 7,4 · €45,0 jt/.test(t),"pemain inti");assert(h.includes('data-mc="11"')&&h.includes('data-mc="12"'));
  assert(!/undefined|NaN|null/.test(t),"rapi: "+(t.match(/.{30}(undefined|NaN|null).{20}/)||[""])[0]);
  const e=F.tpHtml(999,null).replace(/<[^>]+>/g," ");assert(/Klasemen dan peringkat kekuatan tim ini belum tersedia/.test(e)&&!/undefined|NaN/.test(e),"tim tak dikenal tetap rapi");
- F.AN.lg[2]={name:"UCL",grouped:true,groups:{A:[{position:2,team_id:16,pts:6,played:3,won:2,drawn:0,lost:1}],B:[{position:1,team_id:50}]}};assert(/Posisi \(grup\) #2 dari 1/.test(F.tpHtml(16,2).replace(/<[^>]+>/g," ").replace(/\s+/g," ")),"grup")}
+ F.AN.lg[2]={name:"UCL",grouped:true,groups:{A:[{position:2,team_id:16,pts:6,played:3,won:2,drawn:0,lost:1}],B:[{position:1,team_id:50}]}};
+ const g=F.tpHtml(16,2).replace(/<[^>]+>/g," ").replace(/\s+/g," ");assert(/Posisi #9 dari 20/.test(g)&&/UCL \(grup\) #2 dari 1 · 6 poin/.test(g)&&/klasemen Liga Inggris; kekuatan asli dan poin vs harapan xG juga dihitung di liga ini/.test(g),"liga utama + kompetisi lain: "+g.slice(0,400));
+ F.KL.tm={};F.AN.lg[3]={name:"Cup",grouped:true,groups:{A:[{position:2,team_id:77,pts:6,played:3,won:2,drawn:0,lost:1}]}};const g3=F.tpHtml(77,3).replace(/<[^>]+>/g," ");assert(/Posisi #2 dari 1/.test(F.tpHtml(77,3).replace(/<[^>]+>/g," ").replace(/\s+/g," ")),"grup: "+g3.slice(0,300))}
 console.log("test-ui V47 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
