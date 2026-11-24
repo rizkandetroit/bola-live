@@ -517,6 +517,7 @@ table.kl td b{font-family:var(--mono)}
 .tpl .m{color:var(--mut);font-size:12px}
 @media(max-width:600px){.tpl li{flex-direction:column;gap:2px}.tpl li>span:last-child{text-align:left!important}.tph h2{font-size:18px}}
 .lpb{border:1px solid var(--ln);border-left:4px solid #16a34a;border-radius:12px;padding:10px 14px;margin:10px 0 14px;background:var(--pn)}.lpb summary{cursor:pointer}.lpb ul,.lpb ol{margin:8px 0 4px;padding-left:20px;font-size:13px;line-height:1.6}
+.wst{border:0;background:none;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;color:var(--mut);margin-left:6px}.wst.on{color:#eab308}.wst.big{font-size:13px;border:1px solid var(--ln);border-radius:8px;padding:2px 8px}.wlb{border:1px solid var(--ln);border-left:4px solid #eab308;border-radius:12px;padding:10px 12px;margin:10px 0 12px;background:var(--pn)}.wlh{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.wlh button,.wl2 button{font:inherit;font-size:12px;border:1px solid var(--ln);border-radius:8px;background:var(--pn);color:inherit;padding:2px 8px;cursor:pointer}.wll{list-style:none;padding:0;margin:6px 0 0}.wll li{padding:7px 4px;border-top:1px solid var(--ln);cursor:pointer;font-size:13px}.wll li.chg{background:rgba(234,179,8,.08)}.wl1{display:flex;justify-content:space-between;gap:8px;align-items:center}.wl2{font-size:12px;margin-top:4px;color:#92400e;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
 .rlb{font-size:12px;margin:6px 0 10px;padding:8px 10px;border-radius:10px;border:1px solid var(--ln)}.rlb.lv0{border-left:4px solid #dc2626}.rlb.lv1{border-left:4px solid #eab308}.rlb.lv2{border-left:4px solid #16a34a}
 .lxb{font-size:13px;margin:6px 0 12px;padding:10px 12px;border:1px solid var(--ln);border-left:4px solid #3b82f6;border-radius:10px}.lxb.big{border-left-color:#f59e0b}.lxf{font-size:11px;background:#fef3c7;color:#92400e;border-radius:6px;padding:1px 6px;margin-left:6px}.lxb table{margin:6px 0}.lxd{font-size:11px;font-weight:700}.lxd.up{color:#16a34a}.lxd.dn{color:#dc2626}.lxr{margin:4px 0;padding-left:18px}
 .hdot{width:11px;height:11px;border-radius:50%;border:0;padding:0;margin-left:8px;cursor:pointer;vertical-align:middle;background:#9ca3af}.hdot.ok{background:#16a34a}.hdot.warn{background:#eab308}.hdot.bad{background:#dc2626}
@@ -563,7 +564,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V53</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V54</span>
     <button id="hd-dot" class="hdot" data-hd="1" title="Kesehatan data" aria-label="Kesehatan data" hidden></button>
   </div>
   <div class="nvb">
@@ -595,6 +596,7 @@ table.kl td b{font-family:var(--mono)}
 
     </div>
     <div class="dstrip" id="ds" role="group" aria-label="Pilih tanggal"></div>
+    <div id="wl"></div>
     <div id="list"></div>
     </div><aside class="jpanel" id="mcp" aria-label="Match Center"><div id="mcp-body"><div class="em">Pilih laga untuk melihat Match Center.</div></div></aside></div>
   </div>
@@ -839,7 +841,7 @@ function card_0(x,rank){
   return'<div class="c cc'+rc+(x.status==="LIVE"?" lv":"")+(String(MC.id)===String(x.eid)?" sel":"")+'"'+(x.eid?' data-mc="'+x.eid+'" role="button" tabindex="0" aria-label="Buka Match Center '+esc(x.home.name)+' vs '+esc(x.away.name)+'"':"")+'><div class="tp">'
     +(rank?'<span class="rk '+rkClass(ri)+'">#'+rank+" · "+cr(x.lgc,"lgc")+lgName(x)+'</span>':'<span>'+cr(x.lgc,"lgc")+lgName(x)+'</span>')
     +(x.src==="BSD"?' <span class="tag l2" title="Peluang dari model BSD (machine learning)">BSD</span>':x.src==="HL"?' <span class="tag l3" title="'+(x.p&&x.p.engine==="poisson"?"Prediksi model Poisson + Elo Bola Live":"Data dan prediksi dari Highlightly")+'">'+(x.p&&x.p.engine==="poisson"?"Model BL":"Highlightly")+'</span>':x.src?' <span class="tag l1">komunitas</span>':"")+(x.lim?' <span class="tag l1">terbatas</span>':"")+tierTag(x)
-    +'<span class="tme">'+stt(x)+'</span></div>'
+    +'<span class="tme">'+stt(x)+'</span>'+wBtn(x)+'</div>'
     +'<div class="tm"><div><div class="n">'+cr(x.home.crest)+'<span class="nm">'+tpN(x.hid,x.lid,esc(x.home.name))+'</span></div>'+ttag(x,x.home)+'<div class="s">'+(x.home.pos?(x.status==="FT"?"kini ":"")+"#"+x.home.pos+", "+x.home.pts+" poin":"")+'</div></div>'+mid(x)+'<div class="r"><div class="n">'+'<span class="nm">'+tpN(x.aid,x.lid,esc(x.away.name))+'</span>'+cr(x.away.crest)+'</div>'+ttag(x,x.away)+'<div class="s">'+(x.away.pos?(x.status==="FT"?"kini ":"")+"#"+x.away.pos+", "+x.away.pts+" poin":"")+'</div></div></div>'
     +pb(x)+'<div class="ft2"><span style="font-size:12px">'+(drawTop(x)?'Berimbang: <b>seri</b> paling mungkin':(isOpen(x)?openTxt(x):'Condong ke <b title="'+esc(pkD(x).name)+'">'+esc(shortNm(pkD(x).name))+'</b>'))+resTag(x)+(!drawTop(x)&&conflict(x)?' <span class="tag l1" title="Sebagian besar indikator menunjuk ke lawan">indikator berlawanan</span>':"")+'</span>'+cfTag(x)+'</div>'+riskLine(x)+drawRisk(x)+whyLine(x)+blLine(x)+mixLine(x)+pinLine(x)+(S.st==="FAV"?favLine(x):"")+cardDet(x)
     +valTag(x)+'</div>'
@@ -1089,6 +1091,36 @@ function facHtml(M){
   h+='</table></div><p class="cap">"BSD terlalu tinggi/rendah menilai" = selisihnya melebihi batas kebetulan (± 2 kali galat baku) pada minimal 30 laga — itulah celah yang bisa dipakai. Data pelatih tersedia untuk '+(c.coach||0)+'% laga, jarak tempuh '+(c.travel||0)+'% (riwayat lama diisi bertahap).</p>';
   return h+'</div>'}
 /* V40: uji "xG BSD bertentangan dengan peluang menang BSD" (uji mundur 90 hari, paruh 1 pilih setelan, paruh 2 nilai) */
+/* V54 (Tahap 5): WATCHLIST — disimpan di perangkat ini saja (localStorage, aman bila tidak tersedia). Perubahan hanya dari data nyata
+   yang berbeda dengan potret saat laga terakhir dilihat; setiap perubahan tampil sekali sampai ditandai "sudah dilihat". */
+var WK="bl.watch.v1",WMEM=null;
+function wLoad(){if(WMEM)return WMEM;var o=null;try{o=JSON.parse(localStorage.getItem(WK)||"null")}catch(e){}WMEM=o&&o.items&&typeof o.items==="object"?o:{v:1,items:{}};return WMEM}
+function wSave(){try{localStorage.setItem(WK,JSON.stringify(WMEM))}catch(e){}}
+function wHas(id){return!!(id!=null&&wLoad().items[String(id)])}
+function wSnap(x){var r=function(a){return a?a.map(function(v){return Math.round(v)}):null};return{st:x.status,sc:x.score&&x.score[0]!=null?[x.score[0],x.score[1]]:null,u:x.utc,p:x.p&&!x.np?r([x.p.h,x.p.d,x.p.a]):null,bl:x.bl?r([x.bl.h,x.bl.d,x.bl.a]):null,lu:x.lx&&x.lx.sx?1:0,big:lxBig(x)?1:0,h:x.home&&x.home.name,a:x.away&&x.away.name,lg:x.league||""}}
+function wBtn(x,big){if(!x||!x.eid)return"";var on=wHas(x.eid);return'<button class="wst'+(on?' on':'')+(big?' big':'')+'" data-w="'+x.eid+'" aria-pressed="'+on+'" title="'+(on?'Hapus dari pantauan':'Pantau laga ini')+'">'+(on?'★':'☆')+(big?(on?' Dipantau':' Pantau'):'')+'</button>'}
+function wToggle(id){var W=wLoad(),k=String(id);if(W.items[k])delete W.items[k];else{var x=findM(id);if(!x)return;if(Object.keys(W.items).length>=40){alertLine("Pantauan penuh (40 laga). Hapus sebagian dulu.");return}W.items[k]={a:new Date().toISOString(),s:wSnap(x)}}wSave();wRefresh()}
+function alertLine(t){var b=$("#wl");if(b)b.insertAdjacentHTML("afterbegin",'<div class="em">'+esc(t)+'</div>')}
+/* daftar perubahan nyata dibanding potret s */
+function wChanges(x,s){var c=[];if(!s)return c;if(!x)return["Laga tidak ada lagi di jadwal saat ini (mungkin ditunda atau di luar pekan ini)."];var n=wSnap(x),j=function(a){return a?a.join("/"):"–"};
+  if(n.st!==s.st)c.push(n.st==="LIVE"?"Laga dimulai.":n.st==="FT"?"Selesai"+(n.sc?": "+n.sc[0]+"-"+n.sc[1]:"")+".":"Status berubah: "+s.st+" → "+n.st+".");
+  else if(n.st==="LIVE"&&n.sc&&(!s.sc||n.sc[0]!==s.sc[0]||n.sc[1]!==s.sc[1]))c.push("Skor berubah: "+(s.sc?s.sc.join("-"):"0-0")+" → "+n.sc.join("-")+".");
+  if(n.st==="NS"&&s.u&&n.u&&Math.abs(Date.parse(n.u)-Date.parse(s.u))>=6e4)c.push("Jam kickoff berubah: "+tf.format(new Date(s.u))+" → "+tf.format(new Date(n.u))+" WITA.");
+  var big=function(a,b){if(!a||!b)return false;for(var i=0;i<3;i++)if(Math.abs(a[i]-b[i])>=3)return true;return false};
+  if(n.st==="NS"&&big(s.p,n.p))c.push("Peluang BSD berubah: "+j(s.p)+" → "+j(n.p)+".");
+  if(n.st==="NS"&&big(s.bl,n.bl))c.push("Peluang Model BL berubah: "+j(s.bl)+" → "+j(n.bl)+".");
+  if(!s.lu&&n.lu)c.push("Line-up resmi keluar"+(n.big?" — peluang berubah berarti (lihat Analisa).":"."));else if(!s.big&&n.big)c.push("Peluang berubah berarti setelah line-up resmi.");
+  return c}
+function wList(){var W=wLoad(),out=[];Object.keys(W.items).forEach(function(k){var it=W.items[k],x=findM(k);out.push({k:k,it:it,x:x,c:wChanges(x,it.s)})});
+  return out.sort(function(a,b){return String(a.x?a.x.utc:a.it.s&&a.it.s.u).localeCompare(String(b.x?b.x.utc:b.it.s&&b.it.s.u))})}
+function wPrune(){var W=wLoad(),now=Date.now(),ch=false;Object.keys(W.items).forEach(function(k){var it=W.items[k],x=findM(k),u=Date.parse(x?x.utc:it.s&&it.s.u);if((x&&x.status==="FT"&&now-u>48*36e5)||(!x&&now-u>7*864e5)){delete W.items[k];ch=true}});if(ch)wSave()}
+function wHtml(){var L=wList();if(!L.length)return"";var nc=L.reduce(function(a,q){return a+(q.c.length?1:0)},0);
+  var h='<div class="wlb"><div class="wlh"><b>★ Pantauan</b> <span class="cap">'+L.length+' laga'+(nc?' · <b>'+nc+' ada perubahan</b>':' · tidak ada perubahan baru')+' · tersimpan di perangkat ini saja</span>'+(nc?' <button data-wa="seen">Tandai semua sudah dilihat</button>':'')+'</div><ul class="wll">';
+  h+=L.map(function(q){var x=q.x,s=q.it.s||{},nm=x?esc(x.home.name)+' vs '+esc(x.away.name):esc((s.h||"?")+" vs "+(s.a||"?")),t=x?(x.status==="LIVE"?'<span class="st lv">LIVE'+(rkSc(x)?' '+rkSc(x):'')+'</span>':x.status==="FT"?'<b>'+(rkSc(x)||"Selesai")+'</b>'+resTag(x):df.format(new Date(x.utc))+' '+tf.format(new Date(x.utc))):'–';
+    return'<li class="'+(q.c.length?'chg':'')+'"'+(x?' data-mc="'+x.eid+'" role="button" tabindex="0"':'')+'><div class="wl1"><span>'+nm+' <small class="cap">'+esc(lgLabel(x?x.league:s.lg||""))+'</small></span><span>'+t+' '+(x?wBtn(x):'<button class="wst on" data-w="'+esc(q.k)+'" title="Hapus dari pantauan">★</button>')+'</span></div>'+(q.c.length?'<div class="wl2">'+q.c.map(function(c){return'<span>• '+esc(c)+'</span>'}).join("")+' <button data-wa="seen:'+esc(q.k)+'">Sudah dilihat</button></div>':'')+'</li>'}).join("");
+  return h+'</ul></div>'}
+function wAct(a){var W=wLoad();if(a==="seen"){Object.keys(W.items).forEach(function(k){var x=findM(k);if(x)W.items[k].s=wSnap(x)})}else if(a.indexOf("seen:")===0){var k=a.slice(5),x=findM(k);if(W.items[k]){if(x)W.items[k].s=wSnap(x);else delete W.items[k]}}wSave();wRefresh()}
+function wRefresh(){var b=$("#wl");if(b)b.innerHTML=wHtml();[].forEach.call(document.querySelectorAll("[data-w]"),function(el){var on=wHas(el.dataset.w),big=el.classList.contains("big");el.classList.toggle("on",on);el.setAttribute("aria-pressed",on);el.title=on?'Hapus dari pantauan':'Pantau laga ini';el.textContent=(on?'★':'☆')+(big?(on?' Dipantau':' Pantau'):'')})}
 /* V53: RELIABILITAS ANALISIS (bsd-backtest.json -> rl). Terpisah dari peluang: seberapa bisa dipercaya angka BSD di laga sejenis.
    Ukuran "kejutan berlebih" = log loss − entropi peluang (0 = terkalibrasi, + = terlalu yakin). Skor per laga hanya tampil bila uji lolos. */
 var RLN=["rendah","sedang","tinggi"];
@@ -1279,7 +1311,7 @@ function rkLine(x){var q=preP(x),dr=drawTop(x),f=q.h>=q.a?x.home:x.away,m=Math.m
 function rkSt(x){return x.ht?"Turun minum":x.pend?(x.pendLate?"Menunggu data":"Baru mulai"):x.min!=null?x.min+"'":"Live"}   /* V42e: sama dengan tab Live; skor hanya bila sudah ada */
 function rkSc(x){var c=x.score||[];return c[0]==null||c[1]==null?"":scoreTxt(x)}
 function rkCard_0(x,i){var stx=x.status==="LIVE"?'<span class="st lv">'+rkSt(x)+(rkSc(x)?' · '+rkSc(x):'')+'</span>':x.status==="FT"?'<b>'+(rkSc(x)||"Selesai")+'</b>'+resTag(x):tf.format(new Date(x.utc))+' WITA';
-  return'<div class="rkc"'+(x.eid?' data-mc="'+x.eid+'" role="button" tabindex="0"':'')+'><div class="k1"><span><span class="kn">'+(i+1)+'.</span>'+esc(lgLabel(x.league||"",x.lc))+'</span><span>'+stx+'</span></div><div class="k2">'+tpN(x.hid,x.lid,esc(x.home.name))+' vs '+tpN(x.aid,x.lid,esc(x.away.name))+' '+cfTag(x)+(lxBig(x)?' <span class="lxf" title="Peluang berubah berarti setelah line-up resmi (lihat Analisa)">berubah setelah line-up</span>':'')+'</div><div class="k3">'+rkLine(x)+'</div></div>'}
+  return'<div class="rkc"'+(x.eid?' data-mc="'+x.eid+'" role="button" tabindex="0"':'')+'><div class="k1"><span><span class="kn">'+(i+1)+'.</span>'+esc(lgLabel(x.league||"",x.lc))+'</span><span>'+stx+wBtn(x)+'</span></div><div class="k2">'+tpN(x.hid,x.lid,esc(x.home.name))+' vs '+tpN(x.aid,x.lid,esc(x.away.name))+' '+cfTag(x)+(lxBig(x)?' <span class="lxf" title="Peluang berubah berarti setelah line-up resmi (lihat Analisa)">berubah setelah line-up</span>':'')+'</div><div class="k3">'+rkLine(x)+'</div></div>'}
 /* V48: laporan pagi (laporan.json dari pipeline) — rekap hari bola kemarin, penilaian sama dengan tanda di web */
 var LP=null,LPb=0;
 function lpBox(){if(!LP&&!LPb){LPb=1;fj("laporan.json").then(function(j){LP=j||{n:0}},function(){LP={n:0}}).then(function(){if(VIEW==="r")renderRk()})}
@@ -1383,6 +1415,7 @@ function catHtml(q){
 
 function draw(){
   if(VIEW==="r")setTimeout(renderRk,0);   /* V42 */
+  try{wPrune();var wlb=$("#wl");if(wlb)wlb.innerHTML=wHtml()}catch(e){try{console.warn("pantauan gagal",e&&e.message)}catch(z){}}   /* V54 */
   [].forEach.call(document.querySelectorAll("#vw button"),function(b){b.className=b.dataset.v===S.v?"on":""});
   var M=D.matches,
     open=M.filter(function(x){return x.status!=="FT"&&!x.np&&(!x.tier||x.tier<3)}),
@@ -2029,7 +2062,7 @@ function drawMC(x,d,loading){
   if(NEUTRAL){tabs=tabs.filter(function(t){return t[0]!=="odds"});if(MC.tab==="odds")MC.tab="sum"}   // V20: mode netral tanpa tab Odds
   var isHL=(d&&d.src==="HL")||(x&&x.src==="HL");if(isHL){tabs=tabs.filter(function(t){return["an","sum","pred","stats","inc"].indexOf(t[0])>=0});if(!tabs.some(function(t){return t[0]===MC.tab}))MC.tab="sum"}
   var st=x.status==="LIVE"?'<span class="st lv">'+(x.ht?"Turun minum":x.pend?(x.pendLate?"Menunggu data":"Baru mulai"):x.min!=null?x.min+"\'":"Live")+'</span>':x.status==="FT"?'<span class="st ft">Selesai</span>':df.format(new Date(x.utc))+" "+tf.format(new Date(x.utc))+" WITA";
-  var h='<div class="cap">'+cr(x.lgc,"lgc")+esc(lgLabel(x.league||"",x.lc))+(x.rl?" · "+esc(rlId(x.rl)):"")+'</div><div class="mchd"><div>'+cr(x.home.crest)+'<b'+(x.hid!=null?' data-tp="'+x.hid+'" data-tl="'+(x.lid!=null?x.lid:"")+'" role="button" tabindex="0" title="Profil tim"':'')+'>'+esc(x.home.name)+'</b></div><div><div class="bs">'+scoreTxt(x)+'</div>'+st+'</div><div>'+cr(x.away.crest)+'<b'+(x.aid!=null?' data-tp="'+x.aid+'" data-tl="'+(x.lid!=null?x.lid:"")+'" role="button" tabindex="0" title="Profil tim"':'')+'>'+esc(x.away.name)+'</b></div></div>';
+  var h='<div class="cap">'+cr(x.lgc,"lgc")+esc(lgLabel(x.league||"",x.lc))+(x.rl?" · "+esc(rlId(x.rl)):"")+(x.eid?' '+wBtn(x,1):'')+'</div><div class="mchd"><div>'+cr(x.home.crest)+'<b'+(x.hid!=null?' data-tp="'+x.hid+'" data-tl="'+(x.lid!=null?x.lid:"")+'" role="button" tabindex="0" title="Profil tim"':'')+'>'+esc(x.home.name)+'</b></div><div><div class="bs">'+scoreTxt(x)+'</div>'+st+'</div><div>'+cr(x.away.crest)+'<b'+(x.aid!=null?' data-tp="'+x.aid+'" data-tl="'+(x.lid!=null?x.lid:"")+'" role="button" tabindex="0" title="Profil tim"':'')+'>'+esc(x.away.name)+'</b></div></div>';
   h+='<div class="mctabs">'+tabs.map(function(t){return'<button data-mct="'+t[0]+'"'+(MC.tab===t[0]?' class="on"':"")+'>'+t[1]+'</button>'}).join("")+'</div>';
   var body;
   if(MC.tab==="an")body=anHtml(x,d,loading)+(!d&&loading?'<p class="cap">Memuat detail (form, H2H, absen)…</p>':!d?'<p class="cap">'+(x.status==="FT"?'Detail laga ini (xG, kejadian) belum tersimpan; dilengkapi bertahap.':'Detail form, H2H, dan daftar absen hanya disiapkan untuk laga 4 hari ke depan; analisa di atas memakai data ringkas.')+'</p>':"");
@@ -2040,6 +2073,8 @@ function drawMC(x,d,loading){
 document.addEventListener("click",function(e){
   var t=e.target;if(!t.closest)return;
   if(t.closest(".cdt"))return;/* V24b: buka/tutup Detail kartu tanpa membuka Match Center */
+  var wb=t.closest("[data-w]");if(wb){e.stopPropagation();e.preventDefault();wToggle(wb.dataset.w);return}   /* V54 */
+  var wa=t.closest("[data-wa]");if(wa){e.stopPropagation();e.preventDefault();wAct(wa.dataset.wa);return}
   var tpb=t.closest("[data-tp]");if(tpb){e.stopPropagation();e.preventDefault();tpOpen(tpb.dataset.tp,tpb.dataset.tl);return}   /* V47 */
   if(t.closest("[data-tpx]")||t.id==="tp"){tpClose();return}
   if(t.closest("#tp")&&t.closest("[data-mc]"))tpClose();

@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V53</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V54</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -440,6 +440,29 @@ console.log("test-ui V52 ok");
  assert(/Reliabilitas analisis: rendah/.test(l)&&/rekam jejak liga ini 120 laga, BSD cenderung terlalu yakin/.test(l)&&/bukan peluang menang/.test(l));
  assert(F.anHtml({...x,rel:{lv:2,n:500,ex:0,xg:true}},null).indexOf("Reliabilitas analisis: tinggi")>=0)}
 console.log("test-ui V53 ok");
+{// V54: watchlist
+ const F=new Function(pre+`;return {wToggle,wHas,wChanges,wSnap,wHtml,wAct,wPrune,wLoad,card_0,rkCard,setD:function(d){D=d}}`)();
+ const now=Date.now(),iso=t=>new Date(t).toISOString();
+ const x={id:"b5",eid:5,src:"BSD",lid:1,league:"Premier League",hid:1,aid:2,utc:iso(now+3*36e5),status:"NS",home:{name:"Arsenal"},away:{name:"Chelsea"},score:[null,null],p:{h:50,d:25,a:25},bl:{h:48,d:26,a:26,xg:[1,1],ms:[1,0],k:[0,0]},pick:"h",edge:25,level:"Kuat"};
+ const old={...x,eid:6,id:"b6",status:"FT",score:[1,0],utc:iso(now-60*36e5)};
+ F.setD({matches:[x,old],week:["2026-11-20","2026-11-30"]});
+ assert(!F.wHas(5));F.wToggle(5);assert(F.wHas(5),"ditambah");assert(F.card_0(x,1).includes('data-w="5"')&&F.card_0(x,1).includes("★"));assert(F.rkCard(x,0).includes('data-w="5"'));
+ const s0=F.wLoad().items["5"].s;assert.deepEqual(F.wChanges(x,s0),[],"tanpa perubahan: tidak ada peringatan");
+ // perubahan kecil (<3 poin) tidak dilaporkan; perubahan nyata dilaporkan
+ assert.deepEqual(F.wChanges({...x,p:{h:52,d:24,a:24}},s0),[]);
+ const y={...x,p:{h:56,d:23,a:21},bl:{...x.bl,h:40,d:28,a:32},utc:iso(now+4*36e5),lx:{sp:{t:"a",p:[50,25,25],bl:[48,26,26]},sx:{t:"b",p:[56,23,21],bl:[40,28,32],in:null,out:null}}};
+ const c=F.wChanges(y,s0);assert(c.some(t=>/Jam kickoff berubah/.test(t))&&c.some(t=>/Peluang BSD berubah: 50\/25\/25 → 56\/23\/21/.test(t))&&c.some(t=>/Model BL berubah/.test(t))&&c.some(t=>/Line-up resmi keluar — peluang berubah berarti/.test(t)),JSON.stringify(c));
+ assert.deepEqual(F.wChanges({...x,status:"LIVE",score:[0,0]},s0),["Laga dimulai."]);
+ assert.deepEqual(F.wChanges({...x,status:"LIVE",score:[1,0]},{...s0,st:"LIVE",sc:[0,0]}),["Skor berubah: 0-0 → 1-0."]);
+ assert.deepEqual(F.wChanges({...x,status:"FT",score:[2,1]},{...s0,st:"LIVE",sc:[2,1]}),["Selesai: 2-1."]);
+ assert(/tidak ada lagi di jadwal/.test(F.wChanges(null,s0)[0]));
+ // tampil sekali sampai ditandai sudah dilihat
+ F.setD({matches:[y,old],week:["2026-11-20","2026-11-30"]});let h=F.wHtml().replace(/<[^>]+>/g," ").replace(/\s+/g," ");assert(/★ Pantauan 1 laga · 1 ada perubahan/.test(h)&&/Peluang BSD berubah/.test(h),h);
+ F.wAct("seen:5");h=F.wHtml().replace(/<[^>]+>/g," ");assert(/tidak ada perubahan baru/.test(h)&&!/Peluang BSD berubah/.test(h),"sesudah dilihat: tidak diulang");
+ // laga selesai >48 jam dibuang otomatis; hapus
+ F.wToggle(6);assert(F.wHas(6));F.wPrune();assert(!F.wHas(6),"laga lama dibuang");F.wToggle(5);assert(!F.wHas(5));assert.equal(F.wHtml(),"");
+ assert(!/undefined|NaN|null/.test(h))}
+console.log("test-ui V54 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");
