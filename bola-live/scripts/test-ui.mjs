@@ -362,7 +362,7 @@ console.log("test-ui V47 ok");
 console.log("test-ui V48 ok");
 {const F=new Function(pre+`;return {trapHtml}`)();const q={n:300,win:40,bsd:55,gap:-15,se:2.8,draw:30};
  const h=F.trapHtml({tp:{n:5600,from:"2026-08-15T00:00Z",to:"2026-11-24T00:00Z",n30:3,maxN:31,trap:{teams:12,first:q,second:{n:120,win:52,bsd:56,gap:-4,se:4.5}},rel:{teams:9,first:q,second:{n:0}},worst:[{nm:"Santos",win:30,bsd:58,n:12}],best:[],verdict:"data per tim kurang"}}).replace(/<[^>]+>/g," ").replace(/\s+/g," ");
- assert(/Tim "penipu"/.test(h)&&/Sering gagal — paruh kedua \(uji\) 12 120 52,0% 56,0% -4 ± 9/.test(h)&&/Santos 30% vs 58% \(12\)/.test(h)&&/Belum lolos/.test(h)&&/terlalu sedikit/.test(h)&&!/undefined|NaN/.test(h),h);assert.equal(F.trapHtml({}),"")}
+ assert(/Tim "penipu"/.test(h)&&/Sering gagal — paruh kedua \(uji\) 12 120 52,0% 56,0% -4 ± 9/.test(h)&&/Santos menang 30% vs 58% kata BSD, 12 laga/.test(h)&&/Belum lolos/.test(h)&&/terlalu sedikit/.test(h)&&!/undefined|NaN/.test(h),h);assert.equal(F.trapHtml({}),"")}
 console.log("test-ui V49 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
