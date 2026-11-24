@@ -734,7 +734,9 @@ T.push(["V43b peringkat kekuatan hanya tim klasemen musim ini",async()=>{const {
  assert.equal(strengthRanks(M,9,new Set([1,2])).size,28,"set terlalu kecil diabaikan");
  // tim promosi masih tercatat di liga lama (lg 8, liga lebih lemah): tetap ikut, dinilai dengan tingkat liganya
  team.set(40,{lg:8,n:10,a:.2,d:.1});M.lg.set(8,{A:-.6,D:-.4});const c2=new Set([...cur,40]);const R2=strengthRanks(M,9,c2);
- assert.equal(R2.size,25,"tim promosi ikut");assert(R2.get(40)>R2.get(2),"tim promosi dari liga lemah tidak langsung #1");return "28 -> 24, promosi ikut"}]);
+ assert.equal(R2.size,25,"tim promosi ikut");assert(R2.get(40)>R2.get(2),"tim promosi dari liga lemah tidak langsung #1");// kompetisi antarklub: tim dari liga lain semua -> tanpa peringkat
+ const eu=new Set([1,2,3,4,5,6,7,8].map(i=>100+i));for(const i of eu)team.set(i,{lg:50+i%3,n:10,a:0,d:0});assert.equal(strengthRanks(M,7,eu).size,0,"Liga Champions: tanpa peringkat lintas liga");
+ return "28 -> 24, promosi ikut, antarklub kosong"}]);
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}
 srv.close();console.log(bad?`\n${bad} GAGAL`:"\ntest-bsd ok");process.exit(bad?1:0);

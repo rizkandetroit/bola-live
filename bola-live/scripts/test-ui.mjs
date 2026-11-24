@@ -425,7 +425,7 @@ console.log("test-ui V38e ok");
  const R=F.rkList(mid),DX={1:{form:{home:{overall:{form:"WWDLW"}},away:{overall:{form:"LLDWL"}}},h2h:{total_matches:5,home_wins:3,draws:1,away_wins:1},lineups:{lineup_status:"confirmed"}}};
  const LG={4:{name:"Serie A",standings:Array.from({length:20},(_,i)=>({position:i+1,team_id:[11,51][i]||100+i,pts:40-i}))}};
  const h=F.prHtml(R,DX,LG,mid),tx=h.replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/\s+/g," ");
- for(const w of ["Cara membaca","Jadwal ringkas","Unggul jelas (1 laga)","Cukup (1 laga)","Terbuka (1 laga)","Sudah selesai (1 laga","dari 531 laga lama","MMSKM (10 poin)","klasemen #1 dari 20","H2H 5 laga","Line-up: resmi","Absen","P. Inti","Model BL sepakat","Model BL berbeda","Lebih dari 2,5 gol: 55%","Klasemen menipu","line-up resmi: 1 dari 3","5.968 laga","Selasa"])assert(tx.includes(w),"cetak harus memuat: "+w);
+ for(const w of ["Cara membaca","Jadwal ringkas","Unggul jelas (1 laga)","Cukup (1 laga)","Terbuka (1 laga)","Sudah selesai (1 laga","dari 531 laga lama","Form 5 laga: Home1 MMSKM (10 poin)","terbaru di kiri (M = menang","klasemen #1 dari 20","H2H 5 laga","Line-up: resmi","Absen","P. Inti","Model BL sepakat","Model BL berbeda","Lebih dari 2,5 gol: 55%","Klasemen menipu","line-up resmi: 1 dari 3","5.968 laga","Selasa"])assert(tx.includes(w),"cetak harus memuat: "+w);
  assert(!/\bundefined\b|\bNaN\b|\bnull\b|Infinity/.test(tx),"cetak bersih: "+(tx.match(/.{0,40}(undefined|NaN|null|Infinity).{0,20}/)||[""])[0]);
  assert((h.match(/<tr>/g)||[]).length>=5,"tabel jadwal");assert.equal(F.prForm({overall:{form:"WD"}}),"MS");assert.equal(F.prForm(null),null);
  assert.equal(F.prPos({name:"Club Friendlies",standings:[{team_id:1,position:1970}]},1),null);

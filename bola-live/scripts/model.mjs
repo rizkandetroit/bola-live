@@ -199,6 +199,10 @@ export function strengthRanks(M,l,cur){let c=RK.get(M);if(!c){c=new Map();RK.set
   // dengan cur: semua tim klasemen musim ini ikut, termasuk tim promosi/degradasi yang di model masih tercatat di liga lamanya;
   // kekuatannya memakai tingkat liga asal tim itu (M.lg.get(t.lg)), jadi tim promosi dari liga lebih rendah tetap dinilai adil.
   const L=M.lg.get(l)||{A:0,D:0},T=[];
+  // V43f: hanya untuk liga domestik (mayoritas tim klasemen memang tercatat di liga ini). Kompetisi antarklub (Liga Champions dsb.)
+  // berisi tim dari banyak liga -> peringkat lintas liga belum teruji -> tidak dibuat (sama seperti sebelum V43b).
+  const dom=use&&[...cur].filter(id=>{const t=M.team.get(id);return t&&t.lg===l}).length>=cur.size*.5;
+  if(use&&!dom)return c.set(key,new Map()).get(key);
   if(use){for(const id of cur){const t=M.team.get(id);if(!t||t.n<4)continue;const G=M.lg.get(t.lg)||L;T.push([id,G.A+t.a+G.D+t.d])}}
   else for(const [id,t] of M.team)if(t.lg===l&&t.n>=4)T.push([id,L.A+t.a+L.D+t.d]);
   T.sort((x,y)=>y[1]-x[1]);const R=new Map(T.map(([id],i)=>[id,i+1]));c.set(key,R);return R}
