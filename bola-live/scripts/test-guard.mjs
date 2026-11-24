@@ -43,4 +43,5 @@ const run=(d,mode,env={})=>spawnSync(process.execPath,[join(here,"guard.mjs"),mo
 // ringkasan run tertulis ke halaman Actions
 {const d=mk();put(d,"state/results.json",rows(1200));put(d,"prev/all.json",{matches:[]});run(d,"before");put(d,"site/all.json",{matches:[],bsd:{tm:{liga:3}}});
  const o=run(d,"after",{GITHUB_STEP_SUMMARY:join(d,"sum.md")});assert.equal(o.status,0);const md=readFileSync(join(d,"sum.md"),"utf8");assert(md.includes("Kesehatan data")&&md.includes("results.json | 1200"))}
+{const d=mk();put(d,"state/rekam-index.json",{total:900,months:[]});assert.equal(counts(join(d,"state")+"/")["rekam-index.json"],900);assert.equal(check({"rekam-index.json":900},{"rekam-index.json":850}).length,1,"V50: arsip rekam jejak menyusut -> ditolak");assert.deepEqual(check({"rekam-index.json":900},{"rekam-index.json":950}),[])}
 console.log("guard ok");

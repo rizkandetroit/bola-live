@@ -8,6 +8,8 @@ import {trainStack,trainLean,applyStack,trainMarket,marketP,poolMarket,labelOf} 
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow,formOf,formNeedNames} from "./players.mjs";
 import {morningReport,reportText} from "./laporan.mjs";
 import {teamTrap} from "./trap.mjs";
+import {mergeRekam,byMonth,rekIndex} from "./rekam.mjs";
+const isoOr=v=>{const t=Date.parse(v);return Number.isFinite(t)?new Date(t).toISOString():null};   // V50: waktu selalu ISO UTC (akhiran Z)
 export const FRIENDLY_RE=/friendl|persahabatan|amical|amistos|testspiel/i;   // V46: sama dengan FRIENDLY di index.html
 import {level,r1} from "./lib.mjs";
 // V32: sakelar pemasangan hasil uji coba. Dinyalakan HANYA setelah lolos uji mundur dan disetujui pemilik (lihat Evaluasi > Uji coba).
@@ -67,7 +69,7 @@ export function toRecord(e,pred,leagues){
   if(ms)bits.push("Skor paling mungkin "+ms+".");
   if(pred.model&&pred.model.confidence!=null)bits.push("Keyakinan model "+Math.round(pred.model.confidence*100)+"%.");
   return{...base,
-    p:{h,d,a,xg:num(xg.home)!=null&&num(xg.away)!=null?[num(xg.home),num(xg.away)]:null,ou,bt,engine:"bsd"},
+    p:{h,d,a,xg:num(xg.home)!=null&&num(xg.away)!=null?[num(xg.home),num(xg.away)]:null,ou,bt,engine:"bsd",pu:isoOr(pred.updated_at||pred.created_at),mv:(pred.model&&pred.model.version)||null},   // V50: pu = waktu BSD membuat/memperbarui prediksi (UTC), mv = versi model BSD
     pick,edge,level:level(edge),est:true,tier:2,note:bits.join(" ")};
 }
 
@@ -176,9 +178,12 @@ export function updateHistory(hist,matches,now){
   const H=new Map((hist||[]).map(e=>[e.id,e]));
   for(const m of matches){
     if(!m.eid)continue;const t=Date.parse(m.utc),e=H.get(m.eid);
-    if(m.status==="NS"&&t>now&&m.p&&!m.np&&m.p.h!=null){
-      const v=bestVal(m);
-      H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:[m.p.h,m.p.d,m.p.a],ou:m.p.ou??null,bt:m.p.bt??null,
+    // V50 (rekam jejak): catatan hanya diperbarui SEBELUM kickoff (status NS, jam kickoff di masa depan) dan selama hasil belum ada.
+    // Setelah kickoff angka prediksi terkunci; yang boleh berubah hanya hasil (r). t0/p0 = pertama kali tercatat (tidak pernah ditimpa),
+    // ts = waktu angka p terakhir diambil, tc = waktu angka p terakhir berubah (jam server, UTC), pu/mv = waktu & versi prediksi menurut BSD. Catatan lama tanpa t0/p0 dibiarkan null (tidak dikarang).
+    if(m.status==="NS"&&t>now&&m.p&&!m.np&&m.p.h!=null&&!(e&&e.r)){
+      const v=bestVal(m),P=[m.p.h,m.p.d,m.p.a],nowI=new Date(now).toISOString();
+      H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:P,t0:e?(e.t0??null):nowI,p0:e?(e.p0??null):P,ts:nowI,tc:e&&e.p&&e.p.join()===P.join()?(e.tc??null):nowI,pu:m.p.pu??null,mv:m.p.mv??null,ou:m.p.ou??null,bt:m.p.bt??null,
         o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:(e&&e.o)||null,v:v,r:e&&e.r||null,
         po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null,sk:m.sk?[m.sk.h,m.sk.d,m.sk.a]:(e&&e.sk)||null,lu:m.bl&&m.bl.lu?m.bl.lu:(e&&e.lu)||null,xq:m.p.xg!=null?1:0,xg:m.p.xg||(e&&e.xg)||null});   // V25c: xq = BSD punya xG (syarat data lengkap tab Favorit)
     }
@@ -734,6 +739,11 @@ async function main(){
     // V37 (Analisa Tahap 3): tebakan yang dicatat sebelum kickoff ikut ditempel ke laga selesai, untuk bedah sesudah laga
     {const HM=new Map(hist.map(e=>[e.id,e]));for(const m of matches){if(m.status!=="FT"||!m.eid)continue;const e=HM.get(m.eid);if(e&&e.p)m.pm={p:e.p,bl:e.bl||null}}}deep.missF=fillMissFacts(hist,now,id=>{try{return JSON.parse(readFileSync(dir+"m/"+id+".json","utf8"))}catch(e){return null}});
     writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now),miss:evalMiss(hist,now)}))}
+    // V50: arsip rekam jejak per bulan (tayang + data internal). Hanya bila riwayat terbaca (tidak menulis arsip dari riwayat kosong).
+    if(hist.length){try{const I0=await readState("rekam-index.json"),prev=[],miss=[];if(I0&&Array.isArray(I0.months))for(const q of I0.months){const R=await readState("rekam-"+q.m+".json");if(R&&Array.isArray(R.rows))prev.push(...R.rows);else miss.push(q.m)}
+      if(miss.length)throw new Error("arsip bulan "+miss.join(", ")+" tidak terbaca; arsip tidak ditulis ulang agar tidak menyusut");
+      const{rows,st}=mergeRekam(prev,hist,now),G=byMonth(rows);for(const m in G)writeState("rekam-"+m+".json",{v:1,m,rows:G[m]},{pub:true,dir});
+      writeState("rekam-index.json",rekIndex(G,now,st),{pub:true,dir});deep.rekam=rows.length;if(st.conflicts)ghWarn("rekam jejak: "+st.conflicts+" laga punya angka berbeda setelah kickoff; angka lama dipertahankan")}catch(e){errors.push("rekam jejak: "+e.message)}}
     try{const LP=morningReport(hist,now);writeFileSync(dir+"laporan.json",JSON.stringify(LP));writeFileSync(dir+"laporan.txt",reportText(LP))}catch(e){errors.push("laporan pagi: "+e.message)}   // V48
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,

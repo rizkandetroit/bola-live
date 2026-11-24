@@ -283,6 +283,51 @@ console.log("OK    V48: laporan pagi");
  const B=teamTrap(mk(false));assert.notEqual(B.verdict,"lolos","tanpa efek tidak lolos: "+JSON.stringify(B.trap)+JSON.stringify(B.rel));
  assert.equal(teamTrap([]).verdict,"data kurang")}
 console.log("OK    V49: tim penipu");
+{// V50: INTEGRITAS REKAM JEJAK PREDIKSI (updateHistory = kunci pertama, mergeRekam = arsip kedua)
+ const {mergeRekam,byMonth,rekIndex,monthOf}=await import("./rekam.mjs");
+ const K0=Date.parse("2026-12-01T20:00:00Z"),H=36e5,iso=t=>new Date(t).toISOString();
+ const m=(st,p,o={})=>({eid:77,league:"Premier League",utc:iso(K0),home:{name:"A"},away:{name:"B"},status:st,score:st==="NS"?[null,null]:o.sc||[null,null],p:p?{h:p[0],d:p[1],a:p[2],ou:55,bt:50,pu:"2026-11-30T02:15:00.000Z",mv:"dc-blend-v1"}:null,...o.x});
+ // 1) sebelum kickoff: catatan baru lengkap dengan waktu (UTC) dan angka awal
+ let Hh=updateHistory([],[m("NS",[50,25,25])],K0-48*H);let e=Hh[0];
+ assert.deepEqual([e.t0,e.ts,e.tc,e.pu,e.mv],[iso(K0-48*H),iso(K0-48*H),iso(K0-48*H),"2026-11-30T02:15:00.000Z","dc-blend-v1"]);assert.deepEqual(e.p0,[50,25,25]);assert(/Z$/.test(e.ts),"UTC");
+ // 2) refresh sebelum kickoff: angka sama -> tc tetap; angka berubah -> p & tc berubah, t0/p0 TIDAK berubah
+ Hh=updateHistory(Hh,[m("NS",[50,25,25])],K0-24*H);e=Hh[0];assert.equal(e.tc,iso(K0-48*H));assert.equal(e.ts,iso(K0-24*H));
+ Hh=updateHistory(Hh,[m("NS",[55,24,21])],K0-2*H);e=Hh[0];assert.deepEqual(e.p,[55,24,21]);assert.deepEqual(e.p0,[50,25,25]);assert.equal(e.t0,iso(K0-48*H));assert.equal(e.tc,iso(K0-2*H));
+ const lock=JSON.stringify(e);
+ // 3) setelah kickoff: status masih NS (BSD telat), LIVE, atau FT dengan angka lain -> angka prediksi TIDAK berubah
+ Hh=updateHistory(Hh,[m("NS",[70,20,10])],K0+60e3);assert.equal(JSON.stringify(Hh[0]),lock,"NS lewat kickoff terkunci");
+ Hh=updateHistory(Hh,[m("LIVE",[80,15,5])],K0+30*6e4);assert.equal(JSON.stringify(Hh[0]),lock,"LIVE terkunci");
+ Hh=updateHistory(Hh,[m("FT",[10,10,80],{sc:[1,1]})],K0+3*H);e=Hh[0];assert.deepEqual(e.r,[1,1]);assert.equal(JSON.stringify({...e,r:null}),JSON.stringify({...JSON.parse(lock),r:null}),"FT: hanya hasil berubah");
+ // 4) koreksi hasil: dalam 48 jam boleh, sesudahnya tidak
+ Hh=updateHistory(Hh,[m("FT",null,{sc:[2,1]})],K0+20*H);assert.deepEqual(Hh[0].r,[2,1]);Hh=updateHistory(Hh,[m("FT",null,{sc:[0,0]})],K0+50*H);assert.deepEqual(Hh[0].r,[2,1]);
+ // 5) data aneh: sudah ada hasil tapi sumber melaporkan NS di masa depan -> tetap terkunci
+ Hh=updateHistory(Hh,[{...m("NS",[33,33,34]),utc:iso(K0+90*24*H)}],K0+51*H);assert.deepEqual(Hh[0].p,[55,24,21]);assert.deepEqual(Hh[0].r,[2,1]);
+ // 6) catatan lama (sebelum V50, tanpa t0/p0): tidak dikarang
+ const old=[{id:88,lg:"X",u:iso(K0),h:"C",a:"D",p:[40,30,30],r:null}];const H6=updateHistory(old,[{...m("NS",[41,30,29]),eid:88}],K0-5*H);
+ assert.equal(H6[0].t0,null);assert.equal(H6[0].p0,null);assert.equal(H6[0].ts,iso(K0-5*H));assert.equal(H6[0].tc,iso(K0-5*H));
+ // 7) duplikat id di riwayat (mis. hasil pemulihan ganda) -> satu catatan
+ assert.equal(updateHistory([...Hh,...Hh],[],K0+52*H).length,1);
+ // 8) pemulihan: riwayat dari cadangan (JSON) + refresh berulang -> catatan terkunci identik
+ const back=JSON.parse(JSON.stringify(Hh));let Hr=updateHistory(back,[m("FT",[1,1,98],{sc:[2,1]})],K0+53*H);Hr=updateHistory(Hr,[m("FT",[1,1,98],{sc:[2,1]})],K0+54*H);assert.deepEqual(Hr,back,"pemulihan + refresh tidak mengubah apa pun");
+ // ARSIP (mergeRekam)
+ const now0=K0-H,h1=updateHistory([],[m("NS",[50,25,25]),{...m("NS",[30,30,40]),eid:78,utc:iso(K0+5*24*H)}],now0);
+ let A=mergeRekam([],h1,now0);assert.equal(A.rows.length,2);assert.equal(A.st.added,2);assert(!A.rows.some(r=>r.o||r.po||r.pc||r.v),"arsip tanpa odds");
+ // sebelum kickoff: pembaruan masuk, t0/p0 arsip tetap
+ const h2=updateHistory(h1,[m("NS",[58,22,20])],K0-10*6e4);let B=mergeRekam(A.rows,h2,K0-10*6e4);let r=B.rows.find(x=>x.id===77);assert.deepEqual(r.p,[58,22,20]);assert.deepEqual(r.p0,[50,25,25]);assert.equal(B.st.updated,1);
+ // sesudah kickoff: sumber (mis. riwayat rusak/dibangun ulang) membawa angka lain -> arsip TETAP, konflik dihitung; hasil diisi
+ const bad=h2.map(x=>x.id===77?{...x,p:[90,5,5],p0:[90,5,5],t0:iso(K0),r:[0,3]}:x);let C=mergeRekam(B.rows,bad,K0+3*H);r=C.rows.find(x=>x.id===77);
+ assert.deepEqual(r.p,[58,22,20]);assert.deepEqual(r.p0,[50,25,25]);assert.deepEqual(r.r,[0,3]);assert.equal(C.st.conflicts,1);assert.equal(C.st.results,1);
+ // koreksi hasil sesudah 48 jam diabaikan; angka kosong tidak diisi sesudah kickoff
+ const D2=mergeRekam(C.rows,bad.map(x=>x.id===77?{...x,r:[1,3],bl:[1,2,97]}:x),K0+60*H);r=D2.rows.find(x=>x.id===77);assert.deepEqual(r.r,[0,3]);assert.equal(r.bl,null);
+ // riwayat terpotong (120 hari) -> arsip tetap menyimpan; berulang (idempoten); duplikat arsip dibuang
+ const E2=mergeRekam(D2.rows,[],K0+200*24*H);assert.equal(E2.rows.length,2);assert.deepEqual(mergeRekam(E2.rows,bad,K0+201*24*H).rows,mergeRekam(mergeRekam(E2.rows,bad,K0+201*24*H).rows,bad,K0+201*24*H).rows);
+ const F2=mergeRekam([...E2.rows,E2.rows[0]],[],K0);assert.equal(F2.rows.length,2);assert.equal(F2.st.dup,1);
+ // dijadwal ulang (kickoff lewat, belum ada hasil, jadwal baru di masa depan) -> boleh diperbarui
+ const G2=mergeRekam([{id:9,u:iso(K0),p:[50,25,25],p0:[50,25,25],t0:iso(K0-H),r:null}],[{id:9,u:iso(K0+7*24*H),lg:"X",h:"A",a:"B",p:[45,30,25],ts:iso(K0+H)}],K0+H);assert.deepEqual(G2.rows[0].p,[45,30,25]);assert.deepEqual(G2.rows[0].p0,[50,25,25]);
+ // bulan menurut WITA
+ assert.equal(monthOf("2026-11-30T17:00:00Z"),"2026-12");assert.equal(monthOf("2026-11-30T15:59:00Z"),"2026-11");
+ const I=rekIndex(byMonth(E2.rows),K0,E2.st);assert.equal(I.total,2);assert(I.months.length>=1&&/Z$/.test(I.updated))}
+console.log("OK    V50: integritas rekam jejak prediksi");
 {// V29: koreksi terarah menemukan bias pelatih baru & habis Eropa yang ditanam
  let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
  for(let i=0;i<3000;i++){const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28];
@@ -545,7 +590,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
   const cp=(o,f)=>{try{writeFileSync(join(st,f),readFileSync(join(o,f)))}catch(e){}};
   try{
     // run 1: riwayat baru sebagian (90 hari + 30 minggu) -> model ditandai "partial"
-    const r1=await go();assert.equal(r1.c,0,r1.e);for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json","xi.json"])cp(r1.out,f);
+    const r1=await go();assert.equal(r1.c,0,r1.e);{const I=JSON.parse(readFileSync(join(r1.out,"rekam-index.json"),"utf8")),Hs=JSON.parse(readFileSync(join(st,"bsd-history.json"),"utf8"));assert(I.total>0&&I.total===Hs.length,"arsip rekam jejak dibuat: "+I.total+" vs "+Hs.length);for(const q of I.months)assert(existsSync(join(r1.out,"rekam-"+q.m+".json"))&&existsSync(join(st,"rekam-"+q.m+".json")),"arsip bulan tayang & tersimpan")}for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json","xi.json"])cp(r1.out,f);
     const res1=JSON.parse(readFileSync(join(st,"results.json"),"utf8"));assert(res1.rows.length>900,"riwayat: "+res1.rows.length);
     const m1=JSON.parse(readFileSync(join(r1.out,"model-bl.json"),"utf8"));assert.equal(m1.partial,true);
     // run 2: lanjut isi mundur sampai setahun -> model lengkap

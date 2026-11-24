@@ -517,6 +517,7 @@ table.kl td b{font-family:var(--mono)}
 .tpl .m{color:var(--mut);font-size:12px}
 @media(max-width:600px){.tpl li{flex-direction:column;gap:2px}.tpl li>span:last-child{text-align:left!important}.tph h2{font-size:18px}}
 .lpb{border:1px solid var(--ln);border-left:4px solid #16a34a;border-radius:12px;padding:10px 14px;margin:10px 0 14px;background:var(--pn)}.lpb summary{cursor:pointer}.lpb ul,.lpb ol{margin:8px 0 4px;padding-left:20px;font-size:13px;line-height:1.6}
+.rkf{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:end;margin:8px 0}.rkf label{display:flex;flex-direction:column;font-size:11px;color:var(--mut);gap:2px}.rkf select,.rkf input,.rkf button{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--ln);border-radius:8px;background:var(--pn);color:inherit}.rkf button,[data-rkx]{cursor:pointer}.rkt td,.rkt th{white-space:nowrap}.rkt td:nth-child(2){white-space:normal;min-width:160px}
 .rkc .kn{display:inline-block;min-width:20px;margin-right:5px;font-weight:700;color:var(--mut)}.rkc .rsk{color:#b45309}.rk-sec{margin:14px 0 6px;font-weight:700}
 @media screen{#rk-print{display:none}}
 @media print{@page{size:A4;margin:12mm 11mm 15mm 11mm;@bottom-center{content:"⚽ Bola Live  ·  halaman " counter(page) " dari " counter(pages);font-size:8pt;color:#6a7589}}
@@ -558,7 +559,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V49</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V50</span>
   </div>
   <div class="nvb">
     <div class="seg" id="nv" aria-label="Halaman">
@@ -910,7 +911,7 @@ function bsdEvalHtml(e){
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
 function loadEval(){var gj=function(f){return fetch(f,NC).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
-  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=rekapHtml(a[1]&&a[1].rk)+favRaporHtml(a[1]&&a[1].rk)+missHtml(a[1]&&a[1].miss)+btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+facHtml(a[2])+xcHtml(a[0])+trapHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
+  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=rekapHtml(a[1]&&a[1].rk)+favRaporHtml(a[1]&&a[1].rk)+missHtml(a[1]&&a[1].miss)+'<div id="rek-box"></div>'+btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+facHtml(a[2])+xcHtml(a[0])+trapHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk);rekLoad()})}
 /* V13.4: pergerakan harga Pinnacle (buka -> terkini/tutup) */
 function dvg(o){if(!o||o.length!==3||!o.every(function(x){return x>1}))return null;var q=o.map(function(x){return 1/x}),t=q[0]+q[1]+q[2];return q.map(function(x){return x/t*100})}
 function pinMove(x){var a=x&&x.pin&&dvg(x.pin.o),b=x&&x.pin&&dvg(x.pin.c);if(!a||!b)return null;var d=b.map(function(v,i){return v-a[i]}),k=0;
@@ -1009,8 +1010,10 @@ function blWhy(x){var b=x.bl;if(!b||x.status!=="NS")return"";var nm=[shortNm(x.h
   else if(b.k){if(b.k[0])why.push(b.k[0]+" pemain inti "+esc(nm[0])+" tidak main");if(b.k[1])why.push(b.k[1]+" pemain inti "+esc(nm[1])+" tidak main")}
   if(b.r){if(b.r[0])why.push(esc(nm[0])+" baru main ≤3 hari lalu");if(b.r[1])why.push(esc(nm[1])+" baru main ≤3 hari lalu")}
   return why.length?'<div class="acl blw">'+why.join("<br>")+'</div>':""}
-function blLine(x){var b=x.bl;if(!b||x.status!=="NS")return"";var g=x.bg;
-  var tt='Model BL: perkiraan gol '+b.xg[0]+' - '+b.xg[1]+', skor paling mungkin '+b.ms[0]+'-'+b.ms[1]+', over 2,5 '+Math.round(b.ou)+'%, BTTS '+Math.round(b.bt)+'%'+(b.lsrc==="xi"||b.src==="xi"?". Memakai line-up resmi.":b.lsrc==="pred"?". Memakai line-up perkiraan BSD.":"");
+function blLine(x){var b=x.bl;if(!b||x.status!=="NS"||b.h==null||b.d==null||b.a==null)return"";var g=x.bg;
+  /* V50: bagian keterangan yang datanya kosong dilewati (dulu: galat "reading '0'" bila xg/ms null); angka valid tetap sama persis */
+  var two=function(a){return Array.isArray(a)&&a.length>=2&&a[0]!=null&&a[1]!=null},tp=[];if(two(b.xg))tp.push('perkiraan gol '+b.xg[0]+' - '+b.xg[1]);if(two(b.ms))tp.push('skor paling mungkin '+b.ms[0]+'-'+b.ms[1]);if(b.ou!=null)tp.push('over 2,5 '+Math.round(b.ou)+'%');if(b.bt!=null)tp.push('BTTS '+Math.round(b.bt)+'%');
+  var tt='Model BL'+(tp.length?': '+tp.join(', '):'')+(b.lsrc==="xi"||b.src==="xi"?". Memakai line-up resmi.":b.lsrc==="pred"?". Memakai line-up perkiraan BSD.":"");
   if(x.sk&&x.sk.u){var h2='<div class="acl bl" title="'+tt+'">BSD: '+Math.round(x.p.h)+' / '+Math.round(x.p.d)+' / '+Math.round(x.p.a)+' · Model BL: '+Math.round(b.h)+' / '+Math.round(b.d)+' / '+Math.round(b.a)+'</div>';return h2}
   var h=g?'<div class="acl blg" title="'+tt+'. Gabungan: BSD '+Math.round(g.w*100)+'% + Model BL '+Math.round((1-g.w)*100)+'%, bobot dipilih dari uji mundur.">Prediksi gabungan BSD + Model BL: <b>'+Math.round(g.h)+'</b> / '+Math.round(g.d)+' / <b>'+Math.round(g.a)+'</b></div>'
     :'<div class="acl bl" title="'+tt+'">Model BL: '+Math.round(b.h)+' / '+Math.round(b.d)+' / '+Math.round(b.a)+'</div>';
@@ -1081,6 +1084,47 @@ function facHtml(M){
   h+='</table></div><p class="cap">"BSD terlalu tinggi/rendah menilai" = selisihnya melebihi batas kebetulan (± 2 kali galat baku) pada minimal 30 laga — itulah celah yang bisa dipakai. Data pelatih tersedia untuk '+(c.coach||0)+'% laga, jarak tempuh '+(c.travel||0)+'% (riwayat lama diisi bertahap).</p>';
   return h+'</div>'}
 /* V40: uji "xG BSD bertentangan dengan peluang menang BSD" (uji mundur 90 hari, paruh 1 pilih setelan, paruh 2 nilai) */
+/* V50: REKAM JEJAK PREDIKSI per laga (rekam-index.json + rekam-YYYY-MM.json). Penilaian tanda sama dengan web/laporan pagi;
+   Brier & log loss per laga memakai rumus yang sama dengan Evaluasi (evalHistory). Angka dikunci saat kickoff (lihat scripts/rekam.mjs). */
+var RK={idx:null,m:null,rows:null,f:{from:"",to:"",lg:"",st:"",q:""},pg:0};
+function rkJudge(p,r){var o=r[0]>r[1]?0:r[0]===r[1]?1:2;if(p[1]>p[0]&&p[1]>p[2])return{k:"seri",ok:o===1,o:o};var f=p[0]>=p[2]?0:2;
+  if(Math.max(p[0],p[2])<45)return{k:"terbuka",f:f,ok:o!==(f===0?2:0),seri:o===1,o:o};return{k:"arah",f:f,ok:o===f,imb:o===1,o:o}}
+function rkTag(j){return j.ok?(j.k==="terbuka"?(j.seri?"✓ Tepat · seri":"✓ Tepat · menang"):"✓ Tepat"):j.imb?"~ Imbang":"✕ Meleset"}
+function rkMet(p,r){var o=r[0]>r[1]?0:r[0]===r[1]?1:2,q=p.map(function(x){return x/100});return{br:q.reduce(function(a,x,i){return a+Math.pow(x-(i===o?1:0),2)},0),ll:-Math.log(Math.max(1e-6,q[o])),hit:q.indexOf(Math.max.apply(null,q))===o}}
+function rkW(iso,full){if(!iso)return"–";var t=new Date(Date.parse(iso)+8*36e5);if(!isFinite(t))return"–";var z=function(n){return String(n).padStart(2,"0")};return(full?t.getUTCFullYear()+"-":"")+z(t.getUTCMonth()+1)+"-"+z(t.getUTCDate())+" "+z(t.getUTCHours())+"."+z(t.getUTCMinutes())}
+function rekFilter(rows,f){var d0=f.from?Date.parse(f.from+"T00:00:00+08:00"):-Infinity,d1=f.to?Date.parse(f.to+"T23:59:59+08:00"):Infinity,q=(f.q||"").toLowerCase();
+  return(rows||[]).filter(function(r){var t=Date.parse(r.u);if(!(t>=d0&&t<=d1))return false;if(f.lg&&r.lg!==f.lg)return false;if(q&&String((r.h||"")+" "+(r.a||"")).toLowerCase().indexOf(q)<0)return false;
+    if(f.st==="done"&&!r.r)return false;if(f.st==="wait"&&r.r)return false;if((f.st==="ok"||f.st==="no")&&(!r.r||!r.p||rkJudge(r.p,r.r).ok!==(f.st==="ok")))return false;return true})}
+function rekSum(L){var D2=L.filter(function(r){return r.r&&r.p}),s={n:D2.length,tag:0,hit:0,br:0,ll:0,ouN:0,ouOk:0,btN:0,btOk:0,ts:L.filter(function(r){return r.ts}).length};
+  D2.forEach(function(r){var m=rkMet(r.p,r.r);if(rkJudge(r.p,r.r).ok)s.tag++;if(m.hit)s.hit++;s.br+=m.br;s.ll+=m.ll;var g=r.r[0]+r.r[1];if(r.ou!=null){s.ouN++;if((r.ou>=50)===(g>2.5))s.ouOk++}if(r.bt!=null){s.btN++;if((r.bt>=50)===(r.r[0]>0&&r.r[1]>0))s.btOk++}});return s}
+function rekCsv(L){var c=function(v){v=v==null?"":String(v);return/[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v},P=function(a,i){return a&&a[i]!=null?a[i]:""};
+  var H=["id","kickoff_utc","kickoff_wita","liga","tuan_rumah","tamu","dicatat_pertama_utc","diambil_terakhir_utc","berubah_terakhir_utc","waktu_prediksi_bsd_utc","versi_model_bsd","awal_m","awal_s","awal_k","bsd_m","bsd_s","bsd_k","model_bl_m","model_bl_s","model_bl_k","over25","btts","gol_tuan_rumah","gol_tamu","tanda","brier","log_loss"];
+  return"﻿"+H.join(",")+"\n"+L.map(function(r){var m=r.r&&r.p?rkMet(r.p,r.r):null;return[r.id,r.u,rkW(r.u,1),r.lg,r.h,r.a,r.t0,r.ts,r.tc,r.pu,r.mv,P(r.p0,0),P(r.p0,1),P(r.p0,2),P(r.p,0),P(r.p,1),P(r.p,2),P(r.bl,0),P(r.bl,1),P(r.bl,2),r.ou,r.bt,P(r.r,0),P(r.r,1),r.r&&r.p?rkTag(rkJudge(r.p,r.r)):"belum ada hasil",m?m.br.toFixed(4):"",m?m.ll.toFixed(4):""].map(c).join(",")}).join("\n")+"\n"}
+function rekHtml(){var I=RK.idx;if(!I||!I.months||!I.months.length)return'<div class="evs"><h2>Rekam jejak prediksi</h2><p class="cap">Arsip rekam jejak belum tersedia.</p></div>';
+  var h='<div class="evs" id="rek"><h2>Rekam jejak prediksi <small>per laga · angka dicatat sebelum kickoff, dikunci saat kickoff</small></h2>';
+  h+='<div class="rkf"><label>Bulan <select data-rkf="m">'+I.months.map(function(q){return'<option value="'+q.m+'"'+(q.m===RK.m?' selected':'')+'>'+q.m+' ('+q.n+')</option>'}).join("")+'</select></label>';
+  var L0=RK.rows||[],lgs=[];L0.forEach(function(r){if(r.lg&&lgs.indexOf(r.lg)<0)lgs.push(r.lg)});lgs.sort();
+  h+='<label>Dari <input type="date" data-rkf="from" value="'+esc(RK.f.from)+'"></label><label>Sampai <input type="date" data-rkf="to" value="'+esc(RK.f.to)+'"></label>';
+  h+='<label>Liga <select data-rkf="lg"><option value="">Semua</option>'+lgs.map(function(g){return'<option'+(g===RK.f.lg?' selected':'')+' value="'+esc(g)+'">'+esc(lgLabel(g))+'</option>'}).join("")+'</select></label>';
+  h+='<label>Status <select data-rkf="st">'+[["","Semua"],["done","Sudah ada hasil"],["wait","Belum ada hasil"],["ok","✓ Tepat"],["no","Tidak tepat"]].map(function(q){return'<option value="'+q[0]+'"'+(q[0]===RK.f.st?' selected':'')+'>'+q[1]+'</option>'}).join("")+'</select></label>';
+  h+='<label>Tim <input type="search" data-rkf="q" placeholder="nama tim" value="'+esc(RK.f.q)+'"></label><button data-rkx="csv">Unduh CSV</button></div>';
+  if(!RK.rows)return h+'<p class="cap">Memuat '+esc(RK.m||"")+'…</p></div>';
+  var L=rekFilter(RK.rows,RK.f),S=rekSum(L),f4=function(x){return x.toFixed(3).replace(".",",")};
+  h+='<p class="cap">'+L.length+' laga'+(S.n?' · '+S.n+' sudah ada hasil: ✓ Tepat (tanda web) '+S.tag+' ('+Math.round(S.tag/S.n*100)+'%) · hasil paling mungkin '+Math.round(S.hit/S.n*100)+'% · Brier '+f4(S.br/S.n)+' · log loss '+f4(S.ll/S.n)+(S.ouN?' · O/U 2,5 '+Math.round(S.ouOk/S.ouN*100)+'%':'')+(S.btN?' · BTTS '+Math.round(S.btOk/S.btN*100)+'%':''):'')+' · '+S.ts+' laga punya waktu pencatatan.</p>';
+  var pg=Math.max(0,Math.min(RK.pg,Math.floor(Math.max(0,L.length-1)/100))),V=L.slice().reverse().slice(pg*100,pg*100+100);
+  h+='<div class="ov"><table class="ev rkt"><tr><th style="text-align:left">Kickoff (WITA)</th><th style="text-align:left">Laga</th><th>Dicatat</th><th>BSD M/S/K</th><th>Awal</th><th>Hasil</th><th>Tanda</th><th>Brier</th><th>Log loss</th></tr>';
+  h+=V.map(function(r){var j=r.r&&r.p?rkJudge(r.p,r.r):null,m=j?rkMet(r.p,r.r):null,P=function(a){return a?a.map(function(x){return Math.round(x)}).join("/"):"–"};
+    var aw=r.p0&&r.p&&P(r.p0)!==P(r.p)?P(r.p0):r.p0?"sama":"–";
+    return'<tr><td style="text-align:left">'+rkW(r.u)+'</td><td style="text-align:left">'+esc(r.h||"")+' vs '+esc(r.a||"")+'<br><small class="cap">'+esc(lgLabel(r.lg||""))+'</small></td><td title="pertama '+esc(rkW(r.t0,1))+' · terakhir diambil '+esc(rkW(r.ts,1))+' · terakhir berubah '+esc(rkW(r.tc,1))+(r.pu?' · waktu BSD '+esc(rkW(r.pu,1)):'')+' (WITA)">'+(r.ts?rkW(r.ts):'<small class="cap">tidak tercatat</small>')+'</td><td>'+P(r.p)+'</td><td>'+aw+'</td><td>'+(r.r?'<b>'+r.r[0]+'-'+r.r[1]+'</b>':'<small class="cap">belum</small>')+'</td><td>'+(j?'<span class="rt '+(j.ok?'ok':j.imb?'dr':'no')+'">'+rkTag(j)+'</span>':'–')+'</td><td>'+(m?f4(m.br):'–')+'</td><td>'+(m?f4(m.ll):'–')+'</td></tr>'}).join("")+'</table></div>';
+  var np=Math.ceil(L.length/100);if(np>1)h+='<p class="cap">Halaman '+(pg+1)+' dari '+np+' · <button data-rkx="prev"'+(pg?'':' disabled')+'>‹ Sebelumnya</button> <button data-rkx="next"'+(pg+1<np?'':' disabled')+'>Berikutnya ›</button> (terbaru dulu)</p>';
+  h+='<p class="cap">"Dicatat" = waktu angka terakhir diambil sebelum kickoff (arahkan kursor untuk waktu pertama, waktu berubah, dan waktu prediksi menurut BSD). "Awal" = angka pertama kali tercatat bila berbeda. Catatan sebelum 25 Nov 2026 tidak punya waktu pencatatan dan angka awal (tidak dikarang). Brier = jumlah kuadrat selisih 3 hasil (0 sempurna, makin kecil makin baik); log loss = −ln(peluang hasil yang terjadi).'+(I.st&&I.st.conflicts?' Peringatan: '+I.st.conflicts+' laga mendapat angka berbeda setelah kickoff dari sumber; arsip tetap memakai angka lama.':'')+'</p>';
+  return h+'</div>'}
+function rekDraw(){var b=$("#rek-box");if(b)b.innerHTML=rekHtml()}
+function rekMonth(){RK.rows=null;rekDraw();if(!RK.m)return;var m=RK.m;fj("rekam-"+m+".json").then(function(j){if(RK.m===m){RK.rows=j&&j.rows||[];RK.pg=0;rekDraw()}},function(){if(RK.m===m){RK.rows=[];rekDraw()}})}
+function rekLoad(){if(RK.idx){if(RK.rows)rekDraw();else rekMonth();return}rekDraw();fj("rekam-index.json").then(function(j){RK.idx=j&&j.months?j:{months:[]};if(!RK.m&&RK.idx.months.length)RK.m=RK.idx.months[RK.idx.months.length-1].m;rekMonth()},function(){RK.idx={months:[]};rekDraw()})}
+document.addEventListener("change",function(e){var k=e.target&&e.target.dataset&&e.target.dataset.rkf;if(!k)return;if(k==="m"){RK.m=e.target.value;rekMonth();return}RK.f[k]=e.target.value;RK.pg=0;rekDraw()});
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-rkx]");if(!b)return;var k=b.dataset.rkx;if(k==="prev"){RK.pg=Math.max(0,RK.pg-1);rekDraw()}else if(k==="next"){RK.pg++;rekDraw()}
+  else if(k==="csv"&&RK.rows){var bl=new Blob([rekCsv(rekFilter(RK.rows,RK.f))],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download="rekam-jejak-bola-live-"+(RK.m||"")+".csv";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}});
 /* V49: uji "tim penipu" (bsd-backtest.json -> tp): tim ditandai dari paruh pertama, dinilai di paruh kedua */
 function trapHtml(B){var X=B&&B.tp;if(!X||!X.trap)return"";var f=function(x){return(x>=0?"+":"")+String(x).replace(".",",")};
   var row=function(lab,q,k){return'<tr><td style="text-align:left">'+lab+'</td><td>'+k+'</td><td>'+(q.n||0)+'</td><td>'+(q.n?pc(q.win):'–')+'</td><td>'+(q.n?pc(q.bsd):'–')+'</td><td>'+(q.n?f(q.gap)+' <small>± '+String(Math.round(q.se*20)/10).replace(".",",")+'</small>':'–')+'</td></tr>'};

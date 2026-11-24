@@ -21,9 +21,9 @@ export function counts(sd){
   g("results.json",o=>(o.rows||[]).length);g("xg.json",o=>Object.keys(o.e||{}).length);g("bsd-history.json",o=>Array.isArray(o)?o.length:0);
   g("players.json",o=>Object.keys(o.t||{}).length);g("values.json",o=>Object.keys(o.p||{}).length);g("starters.json",o=>Object.keys(o.t||{}).length);
   g("xi.json",o=>Object.keys(o.e||{}).length);g("xi2.json",o=>Object.keys(o.e||{}).length);g("hl.json",o=>Object.values(o.matches||{}).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0));
-  g("model-bl.json",o=>o.nMatches||0);return c}
+  g("model-bl.json",o=>o.nMatches||0);g("rekam-index.json",o=>o.total||0);return c}   // V50: arsip rekam jejak tidak boleh menyusut
 // ambang: file baru boleh lebih kecil, tapi tidak boleh di bawah sekian persen dari sebelumnya (bila sebelumnya cukup besar)
-export const RULES={"results.json":[1000,.85],"xg.json":[300,.7],"bsd-history.json":[200,.85],"players.json":[50,.5],"values.json":[100,.7],"starters.json":[50,.5],"hl.json":[20,.5],"model-bl.json":[1000,.7],"xi2.json":[500,.5]};
+export const RULES={"results.json":[1000,.85],"xg.json":[300,.7],"bsd-history.json":[200,.85],"players.json":[50,.5],"values.json":[100,.7],"starters.json":[50,.5],"hl.json":[20,.5],"model-bl.json":[1000,.7],"xi2.json":[500,.5],"rekam-index.json":[200,.98]};
 export function check(before,after,rules=RULES){const bad=[];for(const [f,[min,ratio]] of Object.entries(rules)){const b=before[f]||0,a=after[f]||0;if(b>=min&&a<b*ratio)bad.push(`${f}: ${b} -> ${a}`)}return bad}
 
 // V19 (audit): kesehatan data & model -> peringatan (tidak menggagalkan run) + ringkasan di halaman run Actions

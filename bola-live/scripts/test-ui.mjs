@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V49</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V50</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -364,6 +364,30 @@ console.log("test-ui V48 ok");
  const h=F.trapHtml({tp:{n:5600,from:"2026-08-15T00:00Z",to:"2026-11-24T00:00Z",n30:3,maxN:31,trap:{teams:12,first:q,second:{n:120,win:52,bsd:56,gap:-4,se:4.5}},rel:{teams:9,first:q,second:{n:0}},worst:[{nm:"Santos",win:30,bsd:58,n:12}],best:[],verdict:"data per tim kurang"}}).replace(/<[^>]+>/g," ").replace(/\s+/g," ");
  assert(/Tim "penipu"/.test(h)&&/Sering gagal — paruh kedua \(uji\) 12 120 52,0% 56,0% -4 ± 9/.test(h)&&/Santos menang 30% vs 58% kata BSD, 12 laga/.test(h)&&/Belum lolos/.test(h)&&/terlalu sedikit/.test(h)&&!/undefined|NaN/.test(h),h);assert.equal(F.trapHtml({}),"")}
 console.log("test-ui V49 ok");
+{// V50: rekam jejak (UI) + kartu tahan data kosong
+ const {judge}=await import("./laporan.mjs");
+ const F=new Function(pre+`;return {rkJudge,rkTag,rkMet,rekFilter,rekSum,rekCsv,rekHtml,blLine,card_0,card,safeC,RK,setD:function(d){D=d}}`)();
+ let sd=5;const rn=()=>(sd=(sd*16807)%2147483647)/2147483647;
+ for(let i=0;i<3000;i++){const h=Math.round(rn()*80),d=Math.round(rn()*(100-h)),p=[h,d,100-h-d],r=[Math.floor(rn()*4),Math.floor(rn()*4)],a=F.rkJudge(p,r),b=judge(p,r);
+   assert.equal(a.ok,b.ok,"penilaian web = laporan pagi: "+p+" "+r);assert.equal(!!a.imb,!!b.imb)}
+ const m=F.rkMet([50,25,25],[2,0]);assert(Math.abs(m.br-(0.25+0.0625+0.0625))<1e-9&&Math.abs(m.ll-Math.log(2))<1e-9&&m.hit);
+ const R=[{id:1,u:"2026-11-24T19:45:00Z",lg:"Championship",h:"Norwich",a:"QPR",t0:"2026-11-22T02:00:00.000Z",ts:"2026-11-24T19:40:00.000Z",tc:"2026-11-24T18:00:00.000Z",pu:"2026-11-24T02:15:00.000Z",mv:"v1",p0:[45,27,28],p:[47,26,27],bl:[43,27,30],ou:55,bt:52,r:[2,0]},
+   {id:2,u:"2026-11-24T20:00:00Z",lg:"Champions League",h:"Arsenal",a:'Dortmund, "BVB"',t0:null,ts:null,tc:null,pu:null,mv:null,p0:null,p:[67,20,13],bl:null,ou:null,bt:null,r:[1,1]},
+   {id:3,u:"2026-11-25T20:00:00Z",lg:"Champions League",h:"Inter",a:"Stuttgart",t0:"2026-11-23T00:00:00.000Z",ts:"2026-11-25T19:00:00.000Z",tc:null,pu:null,mv:null,p0:[67,18,15],p:[67,18,15],bl:null,ou:null,bt:null,r:null}];
+ assert.equal(F.rekFilter(R,{from:"2026-11-25",to:"",lg:"",st:"",q:""}).length,3,"periode WITA: 24 Nov 19.45 UTC = 25 Nov 03.45 WITA");
+ assert.equal(F.rekFilter(R,{from:"",to:"2026-11-25",lg:"",st:"",q:""}).length,2);assert.equal(F.rekFilter(R,{lg:"Champions League"}).length,2);assert.equal(F.rekFilter(R,{st:"wait"}).length,1);
+ assert.equal(F.rekFilter(R,{st:"ok"}).length,1);assert.equal(F.rekFilter(R,{st:"no"}).length,1);assert.equal(F.rekFilter(R,{q:"arsen"}).length,1);
+ const S=F.rekSum(R);assert.equal(S.n,2);assert.equal(S.tag,1);assert.equal(S.ts,2);assert.equal(S.ouN,1);
+ const csv=F.rekCsv(R),lines=csv.replace(/^﻿/,"").trim().split("\n");assert.equal(lines.length,4);assert(lines[0].startsWith("id,kickoff_utc,kickoff_wita"));assert(lines[1].includes("2026-11-25 03.45")&&lines[1].includes("2026-11-22T02:00:00.000Z")&&lines[1].includes("✓ Tepat"));
+ assert(lines[2].includes('"Dortmund, ""BVB"""')&&lines[2].includes("~ Imbang"),"CSV aman untuk koma/kutip: "+lines[2]);assert(lines[3].includes("belum ada hasil"));
+ F.RK.idx={months:[{m:"2026-11",n:3}],st:{conflicts:0}};F.RK.m="2026-11";F.RK.rows=R;
+ const h=F.rekHtml().replace(/<[^>]+>/g," ").replace(/\s+/g," ");assert(/Rekam jejak prediksi/.test(h)&&/3 laga · 2 sudah ada hasil: ✓ Tepat \(tanda web\) 1 \(50%\)/.test(h)&&/tidak tercatat/.test(h)&&/45\/27\/28/.test(h)&&!/undefined|NaN|null/.test(h),h.slice(0,600));
+ F.RK.rows=null;assert(/Memuat/.test(F.rekHtml()));F.RK.idx={months:[]};assert(/belum tersedia/.test(F.rekHtml()));
+ // kartu: bl tanpa xg/ms/ou/bt tidak lagi galat; bl tanpa peluang tidak ditampilkan; galat lain tetap tertangkap pengaman dan dicatat
+ const x={id:"b1",eid:1004,src:"BSD",status:"NS",league:"Premier League",utc:new Date(Date.now()+36e5).toISOString(),home:{name:"A"},away:{name:"B"},score:[null,null],p:{h:50,d:25,a:25,xg:[1.4,1]},pick:"h",edge:25,level:"Kuat",bl:{h:50,d:25,a:25,ms:null,xg:null,k:null,ou:null,bt:null}};
+ F.setD({matches:[x],week:["2026-11-20","2026-11-30"]});const c=F.card_0(x,1);assert(c.includes("Model BL: 50 / 25 / 25")&&!/undefined|NaN|null/.test(c.replace(/<[^>]+>/g," ")),"kartu 1004 tanpa galat");
+ assert.equal(F.blLine({...x,bl:{h:null,d:null,a:null}}),"");const w=console.warn;let warned=0;console.warn=()=>{warned++};const g=F.safeC(()=>{throw new Error("uji")},x,"card");console.warn=w;assert(g.includes('data-mc="1004"')&&warned===1,"galat tak terduga tetap dicatat")}
+console.log("test-ui V50 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");
