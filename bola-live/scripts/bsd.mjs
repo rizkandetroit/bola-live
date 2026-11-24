@@ -491,7 +491,7 @@ async function main(){
   // V15: Model BL ikut memakai riwayat ini (prediksi BSD per laga) untuk menilai dan memilih bobot gabungan.
   const pullS=f=>readState(f);   // V19: data internal (STATE_DIR), cadangan: situs tayang (migrasi)
   const prevM=process.env.BL!=="0"?await pullS("model-bl.json"):null;
-  const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial||!(prevM.srCur>=4));   // V43b/d: model lama tanpa srCur -> latih ulang sekali
+  const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial||!(prevM.srCur>=5));   // V43b/d, V46: versi model naik -> latih ulang sekali (lp, uji V45, peringkat grup)
   let btEnt=null,btE=[];
   {const BTD=Number(process.env.BSD_BACKTEST_DAYS??90);let prev=await pullS("bsd-backtest.json");
     const fresh=prev&&prev.n&&prev.dc&&prev.xc&&now-Date.parse(prev.updated)<20*36e5;   // V25: ringkasan lama tanpa dc -> hitung ulang sekali
@@ -669,7 +669,7 @@ async function main(){
         const ev=EV.get(m.eid)||{},fe=FE.get("u"+m.eid)||{};const q=predictModel(M,{h:m.hid,a:m.aid,l:m.lid,n:ev.is_neutral_ground?1:0,t:Date.parse(m.utc),zv:ZV.has(m.hid)&&ZV.has(m.aid)?[ZV.get(m.hid),ZV.get(m.aid)]:null,dby:ev.is_local_derby?1:0,tb:fe.tb||null,nc:fe.nc||null});
         const SRk=strengthRanks(M,m.lid,curOf(m.lid,m.hid,m.aid)),sr=SRk.get(m.hid)!=null&&SRk.get(m.aid)!=null?[SRk.get(m.hid),SRk.get(m.aid),SRk.size]:null;
         pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,lp:q.lp,n:q.n,f:{tb:fe.tb?fe.tb.map(r2):null,nc:fe.nc||null,eu:fe.eu||null,tr:fe.tr||null,sr}}}
-      MB={updated:new Date(now).toISOString(),srCur:4,temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
+      MB={updated:new Date(now).toISOString(),srCur:5,temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
         bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
         useful,w:wa?wa.w:1,core:CORE,cov:M.cov,xrHist:XRH?1:0,v20,stk:STK,blLg,dis:J.length?disagree(J):null,exp:J.length?experiments(J,id=>NM.get(id)||""):null,lu2:J.length&&typeof X2!=="undefined"&&X2&&X2.e?lineupExp(J,X2.e):null,drw:J.length?(()=>{try{const d=drawExp(J);if(d){const LGN=new Map((leagues||[]).map(l=>[l.id,l.name]));d.lg=d.lg.map(x=>[LGN.get(x[0])||String(x[0]),...x.slice(1)])}return d}catch(e){errors.push("analisis seri: "+e.message);return null}})():null,tbl,fac,pred};   // V22d: dis = BSD vs BL berbeda arah
       // ringkasan per tim untuk tampilan (Tahap 4): peringkat kekuatan, keberuntungan musim ini, data pemain
