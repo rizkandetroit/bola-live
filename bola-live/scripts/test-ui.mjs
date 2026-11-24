@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V43</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V44</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -425,9 +425,9 @@ console.log("test-ui V38e ok");
  const R=F.rkList(mid),DX={1:{form:{home:{overall:{form:"WWDLW"}},away:{overall:{form:"LLDWL"}}},h2h:{total_matches:5,home_wins:3,draws:1,away_wins:1},lineups:{lineup_status:"confirmed"}}};
  const LG={4:{name:"Serie A",standings:Array.from({length:20},(_,i)=>({position:i+1,team_id:[11,51][i]||100+i,pts:40-i}))}};
  const h=F.prHtml(R,DX,LG,mid),tx=h.replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/\s+/g," ");
- for(const w of ["Cara membaca","Jadwal ringkas","Unggul jelas (1 laga)","Cukup (1 laga)","Terbuka (1 laga)","Sudah selesai (1 laga","dari 531 laga lama","Form 5 laga: Home1 MMSKM (10 poin)","terbaru di kiri (M = menang","klasemen #1 dari 20","H2H 5 laga","Line-up: resmi","Absen","P. Inti","Model BL sepakat","Model BL berbeda","Lebih dari 2,5 gol: 55%","Klasemen menipu","line-up resmi: 1 dari 3","5.968 laga","Selasa"])assert(tx.includes(w),"cetak harus memuat: "+w);
+ for(const w of ["Cara membaca","Jadwal ringkas","Unggul jelas (1 laga)","Cukup (1 laga)","Terbuka (1 laga)","Sudah selesai (1 laga","dari 531 laga lama","Form 5 laga: Home1 MMSKM (10 poin)","terbaru di kiri (M = menang","klasemen #1 dari 20","H2H 5 laga","Line-up: resmi","Absen","P. Inti","Model BL sepakat","Model BL berbeda","Lebih dari 2,5 gol: 55%","Klasemen menipu","1/3 line-up resmi","Unggul jelas (1 laga)","Waspada","5.968 laga","Selasa"])assert(tx.includes(w),"cetak harus memuat: "+w);
  assert(!/\bundefined\b|\bNaN\b|\bnull\b|Infinity/.test(tx),"cetak bersih: "+(tx.match(/.{0,40}(undefined|NaN|null|Infinity).{0,20}/)||[""])[0]);
- assert((h.match(/<tr>/g)||[]).length>=5,"tabel jadwal");assert.equal(F.prForm({overall:{form:"WD"}}),"MS");assert.equal(F.prForm(null),null);
+ assert((h.match(/<tr>/g)||[]).length>=5,"tabel jadwal");assert.equal(F.prForm({overall:{form:"WD"}}).replace(/<[^>]*>/g,""),"MS");assert(F.prForm({overall:{form:"WWDLW"}}).includes('<span class="p-L">K</span>'));assert.equal(F.prForm(null),null);
  assert.equal(F.prPos({name:"Club Friendlies",standings:[{team_id:1,position:1970}]},1),null);
  assert.deepEqual(F.prPos({name:"Serie C",grouped:true,groups:{A:Array.from({length:20},(_,i)=>({team_id:i+1,position:i+1,pts:1}))}},3),{p:3,n:20,pts:1,g:1});
  {const k=F.prMk(M[2],null,LG).replace(/<[^>]*>/g,"");assert(!/ - ·|Away3 -/.test(k),"tanpa form: tidak ada tanda '-': "+k);assert(!/Klasemen: [^|]*klasemen/.test(k),"tanpa kata dobel: "+k)}
