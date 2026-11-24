@@ -19,6 +19,7 @@ Dasbor jadwal, skor live, dan analisis prediksi sepak bola. Berjalan otomatis di
 | `highlightly.mjs` | Liga Asia Tenggara dari Highlightly (dengan batas kuota harian) |
 | `model.mjs`, `stack.mjs`, `factors.mjs`, `players.mjs`, `xgc.mjs` | Model BL (Dixon-Coles), koreksi bertumpuk, uji faktor, kekuatan pemain, uji xG vs peluang |
 | `rekam.mjs` | Arsip rekam jejak prediksi per laga (`rekam-index.json`, `rekam-YYYY-MM.json`): angka dikunci saat kickoff, hanya hasil yang diisi sesudahnya |
+| `reliab.mjs` | Uji reliabilitas analisis (kejutan berlebih per kelompok, tanpa bocor); label per laga hanya bila lolos |
 | `laporan.mjs`, `trap.mjs` | Laporan pagi (rekap hari bola kemarin) dan uji "tim penipu" |
 | `lib.mjs` | Fungsi model dasar (Poisson + Elo) yang dipakai bersama |
 | `net.mjs` | Utilitas jaringan & penyimpanan state |

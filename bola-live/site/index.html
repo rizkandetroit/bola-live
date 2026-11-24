@@ -517,6 +517,7 @@ table.kl td b{font-family:var(--mono)}
 .tpl .m{color:var(--mut);font-size:12px}
 @media(max-width:600px){.tpl li{flex-direction:column;gap:2px}.tpl li>span:last-child{text-align:left!important}.tph h2{font-size:18px}}
 .lpb{border:1px solid var(--ln);border-left:4px solid #16a34a;border-radius:12px;padding:10px 14px;margin:10px 0 14px;background:var(--pn)}.lpb summary{cursor:pointer}.lpb ul,.lpb ol{margin:8px 0 4px;padding-left:20px;font-size:13px;line-height:1.6}
+.rlb{font-size:12px;margin:6px 0 10px;padding:8px 10px;border-radius:10px;border:1px solid var(--ln)}.rlb.lv0{border-left:4px solid #dc2626}.rlb.lv1{border-left:4px solid #eab308}.rlb.lv2{border-left:4px solid #16a34a}
 .lxb{font-size:13px;margin:6px 0 12px;padding:10px 12px;border:1px solid var(--ln);border-left:4px solid #3b82f6;border-radius:10px}.lxb.big{border-left-color:#f59e0b}.lxf{font-size:11px;background:#fef3c7;color:#92400e;border-radius:6px;padding:1px 6px;margin-left:6px}.lxb table{margin:6px 0}.lxd{font-size:11px;font-weight:700}.lxd.up{color:#16a34a}.lxd.dn{color:#dc2626}.lxr{margin:4px 0;padding-left:18px}
 .hdot{width:11px;height:11px;border-radius:50%;border:0;padding:0;margin-left:8px;cursor:pointer;vertical-align:middle;background:#9ca3af}.hdot.ok{background:#16a34a}.hdot.warn{background:#eab308}.hdot.bad{background:#dc2626}
 .hdt td,.hdt th{vertical-align:top}.dq{font-size:12px;margin:6px 0 10px;padding:8px 10px;border:1px solid var(--ln);border-radius:10px}.dq.lim{border-color:#eab308;background:rgba(234,179,8,.08)}.dqi{display:inline-block;margin:2px 8px 2px 0;white-space:nowrap}.dqi.y{color:#16a34a}.dqi.p{color:#b45309}.dqi.n{color:var(--mut)}
@@ -562,7 +563,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V52</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V53</span>
     <button id="hd-dot" class="hdot" data-hd="1" title="Kesehatan data" aria-label="Kesehatan data" hidden></button>
   </div>
   <div class="nvb">
@@ -915,7 +916,7 @@ function bsdEvalHtml(e){
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
 function loadEval(){var gj=function(f){return fetch(f,NC).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
-  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML='<div id="health-box">'+healthHtml(HL0)+'</div>'+rekapHtml(a[1]&&a[1].rk)+favRaporHtml(a[1]&&a[1].rk)+missHtml(a[1]&&a[1].miss)+'<div id="rek-box"></div>'+btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+facHtml(a[2])+xcHtml(a[0])+trapHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk);rekLoad();hdLoad(function(){var hb=$("#health-box");if(hb)hb.innerHTML=healthHtml(HL0)})})}
+  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML='<div id="health-box">'+healthHtml(HL0)+'</div>'+rekapHtml(a[1]&&a[1].rk)+favRaporHtml(a[1]&&a[1].rk)+missHtml(a[1]&&a[1].miss)+'<div id="rek-box"></div>'+btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+facHtml(a[2])+xcHtml(a[0])+trapHtml(a[0])+relHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk);rekLoad();hdLoad(function(){var hb=$("#health-box");if(hb)hb.innerHTML=healthHtml(HL0)})})}
 /* V13.4: pergerakan harga Pinnacle (buka -> terkini/tutup) */
 function dvg(o){if(!o||o.length!==3||!o.every(function(x){return x>1}))return null;var q=o.map(function(x){return 1/x}),t=q[0]+q[1]+q[2];return q.map(function(x){return x/t*100})}
 function pinMove(x){var a=x&&x.pin&&dvg(x.pin.o),b=x&&x.pin&&dvg(x.pin.c);if(!a||!b)return null;var d=b.map(function(v,i){return v-a[i]}),k=0;
@@ -1088,6 +1089,17 @@ function facHtml(M){
   h+='</table></div><p class="cap">"BSD terlalu tinggi/rendah menilai" = selisihnya melebihi batas kebetulan (± 2 kali galat baku) pada minimal 30 laga — itulah celah yang bisa dipakai. Data pelatih tersedia untuk '+(c.coach||0)+'% laga, jarak tempuh '+(c.travel||0)+'% (riwayat lama diisi bertahap).</p>';
   return h+'</div>'}
 /* V40: uji "xG BSD bertentangan dengan peluang menang BSD" (uji mundur 90 hari, paruh 1 pilih setelan, paruh 2 nilai) */
+/* V53: RELIABILITAS ANALISIS (bsd-backtest.json -> rl). Terpisah dari peluang: seberapa bisa dipercaya angka BSD di laga sejenis.
+   Ukuran "kejutan berlebih" = log loss − entropi peluang (0 = terkalibrasi, + = terlalu yakin). Skor per laga hanya tampil bila uji lolos. */
+var RLN=["rendah","sedang","tinggi"];
+function relHtml(B){var X=B&&B.rl;if(!X||!X.second)return"";var f=function(v){return(v>=0?"+":"")+String(v).replace(".",",")},row=function(l,q){return'<tr><td style="text-align:left">'+l+'</td><td>'+(q.n||0)+'</td><td>'+(q.n?f(q.ex)+' <small>± '+String(Math.round(q.se*2000)/1000).replace(".",",")+'</small>':'–')+'</td><td>'+(q.n?pc(q.hit):'–')+'</td><td>'+(q.n?pc(q.stated):'–')+'</td><td>'+(q.n?f(q.gap):'–')+'</td></tr>'};
+  var h='<div class="evs"><h2>Reliabilitas analisis <small>uji: apakah angka BSD lebih bisa dipercaya di sebagian laga?</small></h2><div class="ov"><table class="ev"><tr><th style="text-align:left">Kelompok (paruh kedua, uji)</th><th>Laga</th><th>Kejutan berlebih</th><th>Tebakan teratas tepat</th><th>Peluang yang dinyatakan</th><th>Selisih</th></tr>';
+  h+=row("Reliabilitas rendah",X.second.lo)+row("Sedang",X.second.mid)+row("Tinggi",X.second.hi)+'</table></div>';
+  h+='<p class="cap">'+X.n.toLocaleString("id-ID")+' laga uji mundur; bobot dipasang di paruh pertama, dinilai di paruh kedua (mulai '+esc(String(X.cut).slice(0,10))+'). Fitur: rekam jejak liga (dari laga sebelumnya saja), jumlah sampel liga, ada/tidaknya xG. "Kejutan berlebih" 0 = peluang BSD terkalibrasi; positif = BSD terlalu yakin. ';
+  h+=X.verdict==="lolos"?'<b>Lolos uji</b>: kelompok rendah nyata lebih sering mengejutkan (selisih '+f(X.dif)+' ± '+String(Math.round(X.dse*2000)/1000).replace(".",",")+'). Label reliabilitas ditampilkan per laga.':'<b>Belum lolos</b>: selisih kelompok rendah vs tinggi '+(X.dif!=null?f(X.dif)+' ± '+String(Math.round(X.dse*2000)/1000).replace(".",","):'–')+' masih dalam batas kebetulan, jadi label reliabilitas <b>tidak</b> ditampilkan per laga. Diuji ulang otomatis setiap hari.';
+  return h+'</p></div>'}
+function relLine(x){var q=x&&x.rel;if(!q||q.lv==null)return"";var w=[];w.push(q.n?'rekam jejak liga ini '+q.n+' laga'+(q.ex>0.02?', BSD cenderung terlalu yakin di liga ini':q.ex<-0.02?', BSD cenderung terlalu hati-hati di liga ini':', angka BSD di liga ini terkalibrasi'):'belum ada rekam jejak liga ini');w.push(q.xg?'xG tersedia':'tanpa xG');
+  return'<div class="rlb lv'+q.lv+'"><b>Reliabilitas analisis: '+RLN[q.lv]+'</b> <span class="cap">('+esc(w.join("; "))+'). Ini bukan peluang menang: menunjukkan seberapa bisa dipercaya angka peluang di laga sejenis, dari uji mundur.</span></div>'}
 /* V52: SEBELUM vs SESUDAH LINE-UP RESMI (m.lx dari riwayat: sp = potret terakhir sebelum line-up resmi, sx = dengan line-up resmi).
    Hanya data yang tercatat; penjelasan = perubahan nyata (pemain masuk/keluar dari perkiraan, jumlah pemain inti tidak main). */
 function lxSafe(x){try{return lxHtml(x)}catch(e){return""}}
@@ -1900,7 +1912,7 @@ function anPost(x,d){var nm=[shortNm(x.home.name),shortNm(x.away.name)],sc=x.sco
       w==="apes"||w==="telat"||w==="merah"?li("Artinya prediksinya masuk akal; hasilnya dibelokkan oleh jalannya laga, bukan karena salah baca."):w==="salah"?li("Artinya lawan memang bermain lebih baik dari perkiraan — bahan evaluasi model."):""])}
   else if(P)box("Catatan",[li("Tebakan BSD sesuai hasil.")]);
   return'<div class="an"><div class="anc"><b>Selesai · '+esc(nm[0])+' '+sc[0]+'-'+sc[1]+' '+esc(nm[1])+'</b> — '+res+'.</div>'+sec.join("")+'<p class="cap">Bedah otomatis dari skor akhir, xG, dan kejadian laga. Kategori sama dengan Evaluasi › Bedah meleset.</p></div>'}
-function anHtml(x,d,ld){var h=anHtml_0(x,d);if(!x||!x.home)return h;var q='',l='';try{l=lxHtml(x)}catch(e){try{console.warn("potret line-up gagal",x&&x.eid,e&&e.message)}catch(z){}}if(ld&&!d)return l+h;try{q=dqHtml(x,d)}catch(e){try{console.warn("kelengkapan data gagal",x&&x.eid,e&&e.message)}catch(z){}}return q+l+h}   /* V51: baris kelengkapan data di atas Analisa */
+function anHtml(x,d,ld){var h=anHtml_0(x,d);if(!x||!x.home)return h;var q='',l='';try{l=lxHtml(x)}catch(e){try{console.warn("potret line-up gagal",x&&x.eid,e&&e.message)}catch(z){}}if(ld&&!d)return l+h;try{q=dqHtml(x,d)}catch(e){try{console.warn("kelengkapan data gagal",x&&x.eid,e&&e.message)}catch(z){}}var rr='';try{rr=relLine(x)}catch(e){}return q+rr+l+h}   /* V51: baris kelengkapan data di atas Analisa */
 function anHtml_0(x,d){
   if(!x||!x.home)return'<div class="em">Analisa belum tersedia.</div>';
   if(x.status==="LIVE")return anLive(x,d);

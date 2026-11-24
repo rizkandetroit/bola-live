@@ -349,6 +349,22 @@ console.log("OK    V50: integritas rekam jejak prediksi");
  // arsip tidak menyimpan daftar perkiraan
  const rr=rekRow({id:1,u:iso(K0),p:[1,2,97],sp:{t:"x",p:[1,2,97],xi:[[[1,"a"]],[]]}});assert(rr.sp&&!rr.sp.xi)}
 console.log("OK    V52: potret sebelum/sesudah line-up resmi");
+{// V53: reliabilitas (uji tanpa bocor)
+ const {surprise,reliability,relOf}=await import("./reliab.mjs");
+ assert(Math.abs(surprise([50,25,25],[1,0])-(Math.log(2)-(0.5*Math.log(2)+0.5*Math.log(4))))<1e-9,"kejutan = -ln p - H");
+ let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647;
+ const mk=eff=>{const E=[];for(let i=0;i<6000;i++){const lid=1+(i%30),ph=40+Math.floor(rnd()*35),pd=25,pa=100-ph-pd;
+   // efek: di liga 1-10 peluang yang BENAR jauh lebih datar daripada yang dinyatakan (BSD terlalu yakin)
+   const th=eff&&lid<=10?40:ph,td=eff&&lid<=10?30:pd,u=rnd()*100,r=u<th?[2,0]:u<th+td?[1,1]:[0,2];
+   E.push({u:new Date(Date.UTC(2026,7,12)+i*36e5).toISOString(),lid,lg:"L"+lid,p:[ph,pd,pa],r,xg:rnd()<.8?[1,1]:null})}return E};
+ const A=reliability(mk(true));assert.equal(A.verdict,"lolos",JSON.stringify({dif:A.dif,dse:A.dse,s:A.second}));assert(A.second.lo.ex>A.second.hi.ex);
+ const B=reliability(mk(false));assert.notEqual(B.verdict,"lolos","tanpa efek tidak lolos: "+JSON.stringify({dif:B.dif,dse:B.dse}));
+ assert.equal(reliability([]).verdict,"data kurang");
+ // tanpa bocor: mengubah hasil laga terakhir tidak mengubah fitur/skor laga itu sendiri -> keadaan liga hanya dipakai untuk laga sesudahnya
+ const E=mk(true),E2=E.map((e,i)=>i===E.length-1?{...e,r:[9,0]}:e);const a=reliability(E),b=reliability(E2);assert.deepEqual(a.w,b.w,"bobot dari paruh pertama saja");assert.deepEqual(a.t,b.t);
+ const q=relOf(A,{lid:1,p:{h:60,d:25,a:15,xg:[1,1]}}),q2=relOf(A,{lid:25,p:{h:60,d:25,a:15,xg:[1,1]}});assert(q&&q2&&q.lv<=q2.lv,"liga terlalu yakin -> reliabilitas lebih rendah: "+JSON.stringify([q,q2]));
+ assert.equal(relOf(A,{lid:999,p:{h:60,d:25,a:15}}).n,0);assert.equal(relOf(null,{}),null)}
+console.log("OK    V53: reliabilitas (uji tanpa bocor)");
 {// V29: koreksi terarah menemukan bias pelatih baru & habis Eropa yang ditanam
  let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
  for(let i=0;i<3000;i++){const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28];

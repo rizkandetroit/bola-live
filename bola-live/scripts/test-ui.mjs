@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V52</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V53</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -429,6 +429,17 @@ console.log("test-ui V51 ok");
  // piala tanpa klasemen tidak dinilai kurang; liga tanpa klasemen tetap dinilai
  F.AN.lg[7]=null;assert(!F.dqOf({...x,lid:7,league:"Puchar Polski"},null).it.some(i=>i[0]==="Klasemen"));assert(F.dqOf({...x,lid:7,league:"Ekstraklasa"},null).it.some(i=>i[0]==="Klasemen"&&i[1]===0))}
 console.log("test-ui V52 ok");
+{// V53: tampilan reliabilitas
+ const F=new Function(pre+`;return {relHtml,relLine,anHtml,setD:function(d){D=d}}`)();
+ const q={n:900,ex:0.061,se:0.02,hit:48.5,stated:52.1,gap:-3.6},q2={n:900,ex:-0.01,se:0.018,hit:55,stated:54,gap:1};
+ const h=F.relHtml({rl:{n:6759,cut:"2026-10-10T00:00:00Z",second:{lo:q,mid:q2,hi:q2},dif:0.071,dse:0.027,verdict:"lolos"}}).replace(/<[^>]+>/g," ").replace(/\s+/g," ");
+ assert(/Reliabilitas analisis/.test(h)&&/Reliabilitas rendah 900 \+0,061 ± 0,04 48,5% 52,1% -3,6/.test(h)&&/Lolos uji/.test(h)&&!/undefined|NaN|null/.test(h),h);
+ const h2=F.relHtml({rl:{n:6759,cut:"2026-10-10",second:{lo:q2,mid:q2,hi:q2},dif:0,dse:0.03,verdict:"tidak"}});assert(/Belum lolos/.test(h2)&&/tidak<\/b> ditampilkan per laga/.test(h2));assert.equal(F.relHtml({}),"");
+ const x={eid:9,src:"BSD",lid:1,league:"Premier League",hid:1,aid:2,utc:new Date(Date.now()+36e5).toISOString(),status:"NS",home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25,xg:[1,1]}};F.setD({matches:[x],week:["2026-11-20","2026-11-30"]});
+ assert.equal(F.relLine(x),"","tanpa rel (uji belum lolos): tidak tampil");const l=F.relLine({...x,rel:{lv:0,n:120,ex:0.05,xg:true}}).replace(/<[^>]+>/g," ");
+ assert(/Reliabilitas analisis: rendah/.test(l)&&/rekam jejak liga ini 120 laga, BSD cenderung terlalu yakin/.test(l)&&/bukan peluang menang/.test(l));
+ assert(F.anHtml({...x,rel:{lv:2,n:500,ex:0,xg:true}},null).indexOf("Reliabilitas analisis: tinggi")>=0)}
+console.log("test-ui V53 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");

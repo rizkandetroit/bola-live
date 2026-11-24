@@ -8,6 +8,7 @@ import {trainStack,trainLean,applyStack,trainMarket,marketP,poolMarket,labelOf} 
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow,formOf,formNeedNames} from "./players.mjs";
 import {morningReport,reportText} from "./laporan.mjs";
 import {teamTrap} from "./trap.mjs";
+import {reliability,relOf} from "./reliab.mjs";
 import {mergeRekam,byMonth,rekIndex} from "./rekam.mjs";
 const isoOr=v=>{const t=Date.parse(v);return Number.isFinite(t)?new Date(t).toISOString():null};   // V50: waktu selalu ISO UTC (akhiran Z)
 export const FRIENDLY_RE=/friendl|persahabatan|amical|amistos|testspiel/i;   // V46: sama dengan FRIENDLY di index.html
@@ -353,7 +354,7 @@ export function backtestEntries(preds,events,leagues){
     const h=num(e.home_score),a=num(e.away_score);if(h==null||a==null)continue;
     const mr=(p.markets&&p.markets.match_result)||{},P=[num(mr.prob_home),num(mr.prob_draw),num(mr.prob_away)];if(P.some(x=>x==null)||P[0]+P[1]+P[2]<=0)continue;
     const s=P[0]+P[1]+P[2],lg=L.get(e.league_id)||{};seen.add(id);
-    out.push({id,u:e.event_date,hid:e.home_team_id??null,aid:e.away_team_id??null,hn:e.home_team||null,an:e.away_team||null,lg:e.league_name||lg.name||("Liga "+e.league_id),c:lg.country&&(lg.country.name||lg.country)||null,
+    out.push({id,u:e.event_date,lid:e.league_id??null,hid:e.home_team_id??null,aid:e.away_team_id??null,hn:e.home_team||null,an:e.away_team||null,lg:e.league_name||lg.name||("Liga "+e.league_id),c:lg.country&&(lg.country.name||lg.country)||null,
       p:P.map(x=>Math.round(x/s*1000)/10),r:[h,a],xg:(()=>{const x=p.markets.expected_goals||{},xh=num(x.home),xa=num(x.away);return xh!=null&&xa!=null?[xh,xa]:null})(),ou:num((p.markets.over_under||{}).prob_over_25),bt:num((p.markets.btts||{}).prob_yes),o:null,v:null})}
   return out;
 }
@@ -362,7 +363,8 @@ export function backtestSummary(entries,now,days){
   const u=entries.map(e=>e.u).sort();
   let xc=null;try{xc=xgConflict(entries)}catch(e){xc={err:String(e.message||e)}}   // V40
   let tp=null;try{tp=teamTrap(entries)}catch(e){tp={err:String(e.message||e)}}   // V49: tim penipu (uji tanpa bocor)
-  return{updated:new Date(now).toISOString(),days,from:u[0]||null,to:u[u.length-1]||null,...ev,pending:0,countries:c,xc,tp,
+  let rl=null;try{rl=reliability(entries)}catch(e){rl={err:String(e.message||e)}}   // V53: reliabilitas (uji tanpa bocor)
+  return{updated:new Date(now).toISOString(),days,from:u[0]||null,to:u[u.length-1]||null,...ev,pending:0,countries:c,xc,tp,rl,
     note:"Riwayat prediksi BSD vs hasil asli. Dicek: angka BSD tidak berubah setelah kickoff."};
 }
 
@@ -517,9 +519,9 @@ async function main(){
   const pullS=f=>readState(f);   // V19: data internal (STATE_DIR), cadangan: situs tayang (migrasi)
   const prevM=process.env.BL!=="0"?await pullS("model-bl.json"):null;
   const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial||!(prevM.srCur>=5));   // V43b/d, V46: versi model naik -> latih ulang sekali (lp, uji V45, peringkat grup)
-  let btEnt=null,btE=[];
+  let btEnt=null,btE=[],BTS=null;
   {const BTD=Number(process.env.BSD_BACKTEST_DAYS??105);/* V49: riwayat prediksi BSD mulai pertengahan Agustus 2026 -> ambil semuanya */let prev=await pullS("bsd-backtest.json");
-    const fresh=prev&&prev.n&&prev.dc&&prev.xc&&prev.tp&&now-Date.parse(prev.updated)<20*36e5;   // V25: ringkasan lama tanpa dc -> hitung ulang sekali
+    const fresh=prev&&prev.n&&prev.dc&&prev.xc&&prev.tp&&prev.rl&&prev.rl.lg&&now-Date.parse(prev.updated)<20*36e5;   // V25: ringkasan lama tanpa dc -> hitung ulang sekali
     if(process.env.BSD_BACKTEST!=="0"&&DEEP&&!LIGHT&&!fatal&&(!fresh||needModel)&&!overDeadline()){
       const P2=[],E2=[];
       for(let k=BTD;k>0&&!fatal&&!overDeadline();k-=7){
@@ -528,9 +530,9 @@ async function main(){
         E2.push(...await safe("uji mundur laga",()=>pages(`/events/?status=finished&date_from=${f}&date_to=${t}&limit=200`,60,{soft:true})));
       }
       const ent=backtestEntries(P2,E2,leagues);btEnt=ent;btE=E2;
-      if(ent.length>=50){writeState("bsd-backtest.json",backtestSummary(ent,now,BTD),{pub:true,dir});deep.backtest=ent.length}
-      else if(prev)writeState("bsd-backtest.json",prev,{pub:true,dir});
-    }else if(prev)writeState("bsd-backtest.json",prev,{pub:true,dir});
+      if(ent.length>=50){BTS=backtestSummary(ent,now,BTD);writeState("bsd-backtest.json",BTS,{pub:true,dir});deep.backtest=ent.length}
+      else if(prev){BTS=prev;writeState("bsd-backtest.json",prev,{pub:true,dir})}
+    }else if(prev){BTS=prev;writeState("bsd-backtest.json",prev,{pub:true,dir})}
   }
   lap("model_mulai");
   // V15: Model BL — lihat model.mjs. Riwayat hasil (results.json) dan line-up resmi (starters.json) disimpan di situs dan diperbarui sedikit demi sedikit.
@@ -751,6 +753,8 @@ async function main(){
   // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
   let hist=[];{if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
     else{const h=await readState("bsd-history.json");if(Array.isArray(h))hist=h}}
+  // V53: reliabilitas per laga — HANYA bila uji tanpa bocor lolos (lihat reliab.mjs); kalau tidak, tidak ada yang ditempel
+  if(BTS&&BTS.rl&&BTS.rl.verdict==="lolos"){for(const m of every){if(m.status==="FT"||!m.p||m.np)continue;const q=relOf(BTS.rl,m);if(q)m.rel=q}}
   // V52: status & susunan line-up dari detail Match Center (hanya laga BSD yang belum mulai)
   const LUX=new Map();for(const m of every){if(m.status!=="NS"||!m.dx||m.src==="HL"||!m.eid)continue;let o=null;try{o=JSON.parse(readFileSync(dir+"m/"+m.eid+".json","utf8"))}catch(e){}const lu=o&&o.lineups;if(!lu||!lu.lineup_status)continue;
     const side=s=>lu.lineups&&lu.lineups[s],ids=s=>{const L=side(s);return L&&Array.isArray(L.players)&&L.players.length>=11?L.players.map(p=>p&&p.id).filter(x=>x!=null):null},nm={};
