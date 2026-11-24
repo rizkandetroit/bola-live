@@ -7,6 +7,7 @@ import {factorTests,EU_RE} from "./factors.mjs";
 import {trainStack,trainLean,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow,formOf,formNeedNames} from "./players.mjs";
 import {morningReport,reportText} from "./laporan.mjs";
+import {teamTrap} from "./trap.mjs";
 export const FRIENDLY_RE=/friendl|persahabatan|amical|amistos|testspiel/i;   // V46: sama dengan FRIENDLY di index.html
 import {level,r1} from "./lib.mjs";
 // V32: sakelar pemasangan hasil uji coba. Dinyalakan HANYA setelah lolos uji mundur dan disetujui pemilik (lihat Evaluasi > Uji coba).
@@ -331,7 +332,7 @@ export function backtestEntries(preds,events,leagues){
     const h=num(e.home_score),a=num(e.away_score);if(h==null||a==null)continue;
     const mr=(p.markets&&p.markets.match_result)||{},P=[num(mr.prob_home),num(mr.prob_draw),num(mr.prob_away)];if(P.some(x=>x==null)||P[0]+P[1]+P[2]<=0)continue;
     const s=P[0]+P[1]+P[2],lg=L.get(e.league_id)||{};seen.add(id);
-    out.push({id,u:e.event_date,lg:e.league_name||lg.name||("Liga "+e.league_id),c:lg.country&&(lg.country.name||lg.country)||null,
+    out.push({id,u:e.event_date,hid:e.home_team_id??null,aid:e.away_team_id??null,hn:e.home_team||null,an:e.away_team||null,lg:e.league_name||lg.name||("Liga "+e.league_id),c:lg.country&&(lg.country.name||lg.country)||null,
       p:P.map(x=>Math.round(x/s*1000)/10),r:[h,a],xg:(()=>{const x=p.markets.expected_goals||{},xh=num(x.home),xa=num(x.away);return xh!=null&&xa!=null?[xh,xa]:null})(),ou:num((p.markets.over_under||{}).prob_over_25),bt:num((p.markets.btts||{}).prob_yes),o:null,v:null})}
   return out;
 }
@@ -339,7 +340,8 @@ export function backtestSummary(entries,now,days){
   const ev=evalHistory(entries),c={};for(const e of entries)if(e.c&&!c[e.lg])c[e.lg]=e.c;
   const u=entries.map(e=>e.u).sort();
   let xc=null;try{xc=xgConflict(entries)}catch(e){xc={err:String(e.message||e)}}   // V40
-  return{updated:new Date(now).toISOString(),days,from:u[0]||null,to:u[u.length-1]||null,...ev,pending:0,countries:c,xc,
+  let tp=null;try{tp=teamTrap(entries)}catch(e){tp={err:String(e.message||e)}}   // V49: tim penipu (uji tanpa bocor)
+  return{updated:new Date(now).toISOString(),days,from:u[0]||null,to:u[u.length-1]||null,...ev,pending:0,countries:c,xc,tp,
     note:"Riwayat prediksi BSD vs hasil asli. Dicek: angka BSD tidak berubah setelah kickoff."};
 }
 
@@ -495,8 +497,8 @@ async function main(){
   const prevM=process.env.BL!=="0"?await pullS("model-bl.json"):null;
   const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial||!(prevM.srCur>=5));   // V43b/d, V46: versi model naik -> latih ulang sekali (lp, uji V45, peringkat grup)
   let btEnt=null,btE=[];
-  {const BTD=Number(process.env.BSD_BACKTEST_DAYS??90);let prev=await pullS("bsd-backtest.json");
-    const fresh=prev&&prev.n&&prev.dc&&prev.xc&&now-Date.parse(prev.updated)<20*36e5;   // V25: ringkasan lama tanpa dc -> hitung ulang sekali
+  {const BTD=Number(process.env.BSD_BACKTEST_DAYS??105);/* V49: riwayat prediksi BSD mulai pertengahan Agustus 2026 -> ambil semuanya */let prev=await pullS("bsd-backtest.json");
+    const fresh=prev&&prev.n&&prev.dc&&prev.xc&&prev.tp&&now-Date.parse(prev.updated)<20*36e5;   // V25: ringkasan lama tanpa dc -> hitung ulang sekali
     if(process.env.BSD_BACKTEST!=="0"&&DEEP&&!LIGHT&&!fatal&&(!fresh||needModel)&&!overDeadline()){
       const P2=[],E2=[];
       for(let k=BTD;k>0&&!fatal&&!overDeadline();k-=7){

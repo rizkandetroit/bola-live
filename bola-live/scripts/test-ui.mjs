@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V48</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V49</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -360,6 +360,10 @@ console.log("test-ui V47 ok");
  const L=F.lpBox().replace(/<[^>]+>/g," ").replace(/\s+/g," ");assert(/Laporan hari bola kemarin Selasa, 24 Nov · ✓ Tepat 2 dari 4 \(50%\)/.test(L),"kotak laporan: "+L.slice(0,200));
  assert(/P 0-1 Q \(Liga Inggris\) ?: P menang 65%/.test(L)&&/Paling sulit: Liga Italia 1\/4/.test(L)&&!/undefined|NaN/.test(L),L);F.setLP({n:0});assert.equal(F.lpBox(),"")}
 console.log("test-ui V48 ok");
+{const F=new Function(pre+`;return {trapHtml}`)();const q={n:300,win:40,bsd:55,gap:-15,se:2.8,draw:30};
+ const h=F.trapHtml({tp:{n:5600,from:"2026-08-15T00:00Z",to:"2026-11-24T00:00Z",n30:3,maxN:31,trap:{teams:12,first:q,second:{n:120,win:52,bsd:56,gap:-4,se:4.5}},rel:{teams:9,first:q,second:{n:0}},worst:[{nm:"Santos",win:30,bsd:58,n:12}],best:[],verdict:"data per tim kurang"}}).replace(/<[^>]+>/g," ").replace(/\s+/g," ");
+ assert(/Tim "penipu"/.test(h)&&/Sering gagal — paruh kedua \(uji\) 12 120 52,0% 56,0% -4 ± 9/.test(h)&&/Santos 30% vs 58% \(12\)/.test(h)&&/Belum lolos/.test(h)&&/terlalu sedikit/.test(h)&&!/undefined|NaN/.test(h),h);assert.equal(F.trapHtml({}),"")}
+console.log("test-ui V49 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");

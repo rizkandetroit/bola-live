@@ -558,7 +558,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V48</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V49</span>
   </div>
   <div class="nvb">
     <div class="seg" id="nv" aria-label="Halaman">
@@ -910,7 +910,7 @@ function bsdEvalHtml(e){
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
 function loadEval(){var gj=function(f){return fetch(f,NC).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
-  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=rekapHtml(a[1]&&a[1].rk)+favRaporHtml(a[1]&&a[1].rk)+missHtml(a[1]&&a[1].miss)+btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+facHtml(a[2])+xcHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
+  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=rekapHtml(a[1]&&a[1].rk)+favRaporHtml(a[1]&&a[1].rk)+missHtml(a[1]&&a[1].miss)+btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+facHtml(a[2])+xcHtml(a[0])+trapHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
 /* V13.4: pergerakan harga Pinnacle (buka -> terkini/tutup) */
 function dvg(o){if(!o||o.length!==3||!o.every(function(x){return x>1}))return null;var q=o.map(function(x){return 1/x}),t=q[0]+q[1]+q[2];return q.map(function(x){return x/t*100})}
 function pinMove(x){var a=x&&x.pin&&dvg(x.pin.o),b=x&&x.pin&&dvg(x.pin.c);if(!a||!b)return null;var d=b.map(function(v,i){return v-a[i]}),k=0;
@@ -1081,6 +1081,16 @@ function facHtml(M){
   h+='</table></div><p class="cap">"BSD terlalu tinggi/rendah menilai" = selisihnya melebihi batas kebetulan (± 2 kali galat baku) pada minimal 30 laga — itulah celah yang bisa dipakai. Data pelatih tersedia untuk '+(c.coach||0)+'% laga, jarak tempuh '+(c.travel||0)+'% (riwayat lama diisi bertahap).</p>';
   return h+'</div>'}
 /* V40: uji "xG BSD bertentangan dengan peluang menang BSD" (uji mundur 90 hari, paruh 1 pilih setelan, paruh 2 nilai) */
+/* V49: uji "tim penipu" (bsd-backtest.json -> tp): tim ditandai dari paruh pertama, dinilai di paruh kedua */
+function trapHtml(B){var X=B&&B.tp;if(!X||!X.trap)return"";var f=function(x){return(x>=0?"+":"")+String(x).replace(".",",")};
+  var row=function(lab,q,k){return'<tr><td style="text-align:left">'+lab+'</td><td>'+k+'</td><td>'+(q.n||0)+'</td><td>'+(q.n?pc(q.win):'–')+'</td><td>'+(q.n?pc(q.bsd):'–')+'</td><td>'+(q.n?f(q.gap)+' <small>± '+String(Math.round(q.se*20)/10).replace(".",",")+'</small>':'–')+'</td></tr>'};
+  var h='<div class="evs"><h2>Tim "penipu" <small>saat diunggulkan BSD (≥50% menang)</small></h2><div class="ov"><table class="ev"><tr><th style="text-align:left">Kelompok</th><th>Tim</th><th>Laga</th><th>Menang nyata</th><th>Kata BSD</th><th>Selisih</th></tr>';
+  h+=row('Sering gagal — paruh pertama (penanda)',X.trap.first,X.trap.teams)+row('<b>Sering gagal — paruh kedua (uji)</b>',X.trap.second,X.trap.teams)+row('Bisa diandalkan — paruh pertama',X.rel.first,X.rel.teams)+row('<b>Bisa diandalkan — paruh kedua (uji)</b>',X.rel.second,X.rel.teams)+'</table></div>';
+  var nm=function(t){return esc(t.nm||"?")+' <small class="cap">'+t.win+'% vs '+t.bsd+'% ('+t.n+')</small>'};
+  if(X.worst&&X.worst.length)h+='<p class="cap"><b>Paling sering gagal saat diunggulkan</b> (seluruh data, ≥10 laga): '+X.worst.slice(0,5).map(nm).join(' · ')+'</p>';
+  if(X.best&&X.best.length)h+='<p class="cap"><b>Paling bisa diandalkan</b>: '+X.best.slice(0,5).map(nm).join(' · ')+'</p>';
+  h+='<p class="cap">'+X.n.toLocaleString("id-ID")+' laga ('+esc(String(X.from).slice(0,10))+' s.d. '+esc(String(X.to).slice(0,10))+'). Tim dengan ≥30 laga sebagai unggulan: '+X.n30+' (terbanyak '+X.maxN+' laga). '+(X.verdict==="lolos"?'<b>Lolos uji</b>: tim yang ditandai di paruh pertama tetap berbeda nyata di paruh kedua.':'<b>Belum lolos</b>: tim yang tampak "penipu" di paruh pertama tidak terus meleset di paruh kedua — kemungkinan besar kebetulan. '+(X.verdict==="data per tim kurang"?'Data per tim juga masih terlalu sedikit (riwayat BSD baru sejak Agustus 2026); diuji ulang otomatis setiap hari.':''))+' Daftar nama di atas hanya informasi, bukan peringatan.</p>';
+  return h+'</div>'}
 function xcHtml(B){var X=B&&B.xc;if(!X||!X.thr)return"";var f=function(x){return(x>=0?"+":"")+x.toFixed(1).replace(".",",")};
   var h='<div class="evs"><h2>xG BSD vs peluang menang BSD <small>saat keduanya menunjuk tim berbeda</small></h2><div class="ov"><table class="ev"><tr><th style="text-align:left">Selisih xG minimal</th><th>Laga</th><th>Tebakan BSD menang</th><th>Peluang dari BSD</th><th>Tim unggul xG menang</th><th>Peluang dari BSD</th><th>Seri</th></tr>';
   ["0","0.15","0.3","0.5"].forEach(function(k){var q=X.thr[k];if(!q)return;h+='<tr><td style="text-align:left">'+(k==="0"?"berapa pun":String(k).replace(".",","))+'</td><td>'+q.n+'</td><td>'+pc(q.pick.win)+'</td><td>'+pc(q.pick.bsd)+'</td><td>'+pc(q.xg.win)+'</td><td>'+pc(q.xg.bsd)+' <small>('+f(q.xg.gap)+' ± '+(2*q.xg.se).toFixed(1).replace(".",",")+')</small></td><td>'+pc(q.draw)+'</td></tr>'});

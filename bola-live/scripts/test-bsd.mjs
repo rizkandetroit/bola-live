@@ -275,6 +275,14 @@ console.log("OK    V46: laga terakhir tim (istirahat)");
  const T=reportText(R);assert(/Hari bola Selasa, 24 November/.test(T)&&/4 laga selesai \(1 belum ada hasil\): ✓ Tepat 2 dari 4 \(50%\), ~ Imbang 1, ✕ Meleset 1/.test(T)&&/1\. P 0-1 Q \(A\): P menang 65%, absen 3-0/.test(T),T);
  assert(/belum ada laga/.test(reportText(morningReport([],now))));assert(!/undefined|NaN/.test(T))}
 console.log("OK    V48: laporan pagi");
+{// V49: tim penipu
+ const {teamTrap}=await import("./trap.mjs");let x=7;const rnd=()=>(x=(x*16807)%2147483647)/2147483647;
+ const mk=eff=>{const E=[];for(let i=0;i<4000;i++){const h=1+Math.floor(rnd()*40),a=1+((h+1+Math.floor(rnd()*38))%40)||1;if(a===h)continue;const ph=55+Math.floor(rnd()*20),pd=20,pa=100-ph-pd;
+   let w=rnd()*100<ph;if(eff&&h<=8)w=rnd()<.25;if(eff&&h>=33)w=rnd()<.92;const r=w?[2,0]:rnd()<.5?[1,1]:[0,1];E.push({u:new Date(Date.UTC(2026,7,15)+i*36e5).toISOString(),hid:h,aid:a,hn:"T"+h,an:"T"+a,lg:"L",p:[ph,pd,pa],r})}return E};
+ const A=teamTrap(mk(true));assert.equal(A.verdict,"lolos",JSON.stringify(A.trap));assert(A.trap.second.gap<-10&&A.worst[0].id<=8,"tim penipu terdeteksi");
+ const B=teamTrap(mk(false));assert.notEqual(B.verdict,"lolos","tanpa efek tidak lolos: "+JSON.stringify(B.trap)+JSON.stringify(B.rel));
+ assert.equal(teamTrap([]).verdict,"data kurang")}
+console.log("OK    V49: tim penipu");
 {// V29: koreksi terarah menemukan bias pelatih baru & habis Eropa yang ditanam
  let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
  for(let i=0;i<3000;i++){const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28];
