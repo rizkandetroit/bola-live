@@ -409,7 +409,7 @@ console.log("test-ui V50 ok");
  const q2=F.dqOf({...x,p:{h:50,d:25,a:25},bl:null},null);assert.equal(q2.lim,true,"tanpa xG, tanpa Model BL, tanpa detail -> data terbatas");
  assert.equal(F.dqOf({...x,np:true,p:null},null).lim,true);assert(!F.dqOf({...x,league:"Club Friendlies"},null).it.some(i=>i[0]==="Klasemen"),"persahabatan: klasemen tidak dinilai");
  const h=F.dqHtml({...x,p:{h:50,d:25,a:25},bl:null},null).replace(/<[^>]+>/g," ");assert(/Kelengkapan data/.test(h)&&/Data terbatas/.test(h)&&!/undefined|NaN|null/.test(h));
- const a=F.anHtml(x,null);assert(a.indexOf("Kelengkapan data")>=0&&a.indexOf("Kelengkapan data")<200,"baris kelengkapan di atas Analisa");assert.equal(F.anHtml(null,null),'<div class="em">Analisa belum tersedia.</div>')}
+ const a=F.anHtml(x,null);assert(a.indexOf("Kelengkapan data")>=0&&a.indexOf("Kelengkapan data")<200,"baris kelengkapan di atas Analisa");assert.equal(F.anHtml(null,null),'<div class="em">Analisa belum tersedia.</div>');assert(F.anHtml(x,null,true).indexOf("Kelengkapan data")<0,"saat detail masih dimuat: belum dinilai")}
 console.log("test-ui V51 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
