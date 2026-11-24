@@ -517,6 +517,7 @@ table.kl td b{font-family:var(--mono)}
 .tpl .m{color:var(--mut);font-size:12px}
 @media(max-width:600px){.tpl li{flex-direction:column;gap:2px}.tpl li>span:last-child{text-align:left!important}.tph h2{font-size:18px}}
 .lpb{border:1px solid var(--ln);border-left:4px solid #16a34a;border-radius:12px;padding:10px 14px;margin:10px 0 14px;background:var(--pn)}.lpb summary{cursor:pointer}.lpb ul,.lpb ol{margin:8px 0 4px;padding-left:20px;font-size:13px;line-height:1.6}
+.nvb-w{display:inline-block;margin-left:4px;font-size:10px;font-weight:700;background:#eab308;color:#fff;border-radius:8px;padding:0 5px;vertical-align:top}
 .wst{border:0;background:none;cursor:pointer;font-size:16px;line-height:1;padding:0 2px;color:var(--mut);margin-left:6px}.wst.on{color:#eab308}.wst.big{font-size:13px;border:1px solid var(--ln);border-radius:8px;padding:2px 8px}.wlb{border:1px solid var(--ln);border-left:4px solid #eab308;border-radius:12px;padding:10px 12px;margin:10px 0 12px;background:var(--pn)}.wlh{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.wlh button,.wl2 button{font:inherit;font-size:12px;border:1px solid var(--ln);border-radius:8px;background:var(--pn);color:inherit;padding:2px 8px;cursor:pointer}.wll{list-style:none;padding:0;margin:6px 0 0}.wll li{padding:7px 4px;border-top:1px solid var(--ln);cursor:pointer;font-size:13px}.wll li.chg{background:rgba(234,179,8,.08)}.wl1{display:flex;justify-content:space-between;gap:8px;align-items:center}.wl2{font-size:12px;margin-top:4px;color:#92400e;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
 .rlb{font-size:12px;margin:6px 0 10px;padding:8px 10px;border-radius:10px;border:1px solid var(--ln)}.rlb.lv0{border-left:4px solid #dc2626}.rlb.lv1{border-left:4px solid #eab308}.rlb.lv2{border-left:4px solid #16a34a}
 .lxb{font-size:13px;margin:6px 0 12px;padding:10px 12px;border:1px solid var(--ln);border-left:4px solid #3b82f6;border-radius:10px}.lxb.big{border-left-color:#f59e0b}.lxf{font-size:11px;background:#fef3c7;color:#92400e;border-radius:6px;padding:1px 6px;margin-left:6px}.lxb table{margin:6px 0}.lxd{font-size:11px;font-weight:700}.lxd.up{color:#16a34a}.lxd.dn{color:#dc2626}.lxr{margin:4px 0;padding-left:18px}
@@ -569,7 +570,7 @@ table.kl td b{font-family:var(--mono)}
   </div>
   <div class="nvb">
     <div class="seg" id="nv" aria-label="Halaman">
-      <button data-n="j">Jadwal</button>
+      <button data-n="j">Jadwal<span class="nvb-w" id="nv-w" hidden></span></button>
       <button data-n="s">Live</button>
       <button data-n="k">Klasemen</button>
       <button data-n="r">Rangkuman</button>
@@ -1120,7 +1121,8 @@ function wHtml(){var L=wList();if(!L.length)return"";var nc=L.reduce(function(a,
     return'<li class="'+(q.c.length?'chg':'')+'"'+(x?' data-mc="'+x.eid+'" role="button" tabindex="0"':'')+'><div class="wl1"><span>'+nm+' <small class="cap">'+esc(lgLabel(x?x.league:s.lg||""))+'</small></span><span>'+t+' '+(x?wBtn(x):'<button class="wst on" data-w="'+esc(q.k)+'" title="Hapus dari pantauan">★</button>')+'</span></div>'+(q.c.length?'<div class="wl2">'+q.c.map(function(c){return'<span>• '+esc(c)+'</span>'}).join("")+' <button data-wa="seen:'+esc(q.k)+'">Sudah dilihat</button></div>':'')+'</li>'}).join("");
   return h+'</ul></div>'}
 function wAct(a){var W=wLoad();if(a==="seen"){Object.keys(W.items).forEach(function(k){var x=findM(k);if(x)W.items[k].s=wSnap(x)})}else if(a.indexOf("seen:")===0){var k=a.slice(5),x=findM(k);if(W.items[k]){if(x)W.items[k].s=wSnap(x);else delete W.items[k]}}wSave();wRefresh()}
-function wRefresh(){var b=$("#wl");if(b)b.innerHTML=wHtml();[].forEach.call(document.querySelectorAll("[data-w]"),function(el){var on=wHas(el.dataset.w),big=el.classList.contains("big");el.classList.toggle("on",on);el.setAttribute("aria-pressed",on);el.title=on?'Hapus dari pantauan':'Pantau laga ini';el.textContent=(on?'★':'☆')+(big?(on?' Dipantau':' Pantau'):'')})}
+function wBadge(){var e=$("#nv-w");if(!e||!e.style)return;var n=0;try{n=wList().filter(function(q){return q.c.length}).length}catch(z){}e.hidden=!n;e.textContent=n?"★"+n:"";e.title=n?n+" laga pantauan berubah":""}
+function wRefresh(){wBadge();var b=$("#wl");if(b)b.innerHTML=wHtml();[].forEach.call(document.querySelectorAll("[data-w]"),function(el){var on=wHas(el.dataset.w),big=el.classList.contains("big");el.classList.toggle("on",on);el.setAttribute("aria-pressed",on);el.title=on?'Hapus dari pantauan':'Pantau laga ini';el.textContent=(on?'★':'☆')+(big?(on?' Dipantau':' Pantau'):'')})}
 /* V53: RELIABILITAS ANALISIS (bsd-backtest.json -> rl). Terpisah dari peluang: seberapa bisa dipercaya angka BSD di laga sejenis.
    Ukuran "kejutan berlebih" = log loss − entropi peluang (0 = terkalibrasi, + = terlalu yakin). Skor per laga hanya tampil bila uji lolos. */
 var RLN=["rendah","sedang","tinggi"];
@@ -1415,7 +1417,7 @@ function catHtml(q){
 
 function draw(){
   if(VIEW==="r")setTimeout(renderRk,0);   /* V42 */
-  try{wPrune();var wlb=$("#wl");if(wlb)wlb.innerHTML=wHtml()}catch(e){try{console.warn("pantauan gagal",e&&e.message)}catch(z){}}   /* V54 */
+  try{wPrune();wBadge();var wlb=$("#wl");if(wlb)wlb.innerHTML=wHtml()}catch(e){try{console.warn("pantauan gagal",e&&e.message)}catch(z){}}   /* V54 */
   [].forEach.call(document.querySelectorAll("#vw button"),function(b){b.className=b.dataset.v===S.v?"on":""});
   var M=D.matches,
     open=M.filter(function(x){return x.status!=="FT"&&!x.np&&(!x.tier||x.tier<3)}),
