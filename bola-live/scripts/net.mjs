@@ -1,4 +1,4 @@
-// Utilitas jaringan bersama (update.mjs, bsd.mjs, preflight.mjs).
+// Utilitas jaringan bersama (bsd.mjs, highlightly.mjs, preflight.mjs, guard.mjs, carry.mjs).
 import {fileURLToPath} from "node:url";
 import {readFileSync,writeFileSync,mkdirSync} from "node:fs";
 export const sleep=ms=>new Promise(r=>setTimeout(r,ms));

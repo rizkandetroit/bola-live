@@ -4,14 +4,6 @@ import {appendFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {cleanKey,tfetch} from "./net.mjs";
 
-export function checkKey(raw){
-  if(raw==null||String(raw).trim()==="")return{level:"error",msg:"Secret FOOTBALL_DATA_KEY kosong atau belum dibuat. Buka repo > Settings > Secrets and variables > Actions > New repository secret. Nama harus persis FOOTBALL_DATA_KEY."};
-  const k=cleanKey(raw);
-  if(k!==String(raw).trim())return{level:"warn",msg:"Secret FOOTBALL_DATA_KEY diapit tanda kutip; dibersihkan otomatis, tetapi sebaiknya tempel ulang tanpa kutip."};
-  if(/[^\x21-\x7e]/.test(k))return{level:"error",msg:"Secret FOOTBALL_DATA_KEY mengandung spasi/karakter tak valid di tengah. Tempel ulang hanya tokennya."};
-  if(!/^[A-Fa-f0-9]{32}$/.test(k))return{level:"warn",msg:`Panjang/format token tidak seperti biasanya (${k.length} karakter; token football-data.org umumnya 32 karakter heksadesimal). Pastikan yang ditempel adalah token, bukan kata sandi atau alamat email.`};
-  return{level:"ok",msg:"Secret FOOTBALL_DATA_KEY terisi dan formatnya wajar."};
-}
 
 // status = kode HTTP dari GET /repos/{repo}/pages, body = JSON atau null
 export function checkPages(status,body){

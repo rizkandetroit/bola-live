@@ -37,7 +37,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -e
-          for t in test.mjs test-bsd.mjs test-ui.mjs test-ci.mjs test-lite.mjs test-understat.mjs test-pitch.mjs test-intelligence.mjs test-guard.mjs; do
+          for t in test.mjs test-bsd.mjs test-ui.mjs test-ci.mjs test-guard.mjs; do
             echo "== $t"; node bola-live/scripts/$t
           done
 
