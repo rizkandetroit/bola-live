@@ -328,6 +328,27 @@ console.log("OK    V49: tim penipu");
  assert.equal(monthOf("2026-11-30T17:00:00Z"),"2026-12");assert.equal(monthOf("2026-11-30T15:59:00Z"),"2026-11");
  const I=rekIndex(byMonth(E2.rows),K0,E2.st);assert.equal(I.total,2);assert(I.months.length>=1&&/Z$/.test(I.updated))}
 console.log("OK    V50: integritas rekam jejak prediksi");
+{// V52: potret sebelum / sesudah line-up resmi
+ const {rekRow}=await import("./rekam.mjs");
+ const K0=Date.parse("2026-12-02T20:00:00Z"),H=36e5,iso=t=>new Date(t).toISOString();
+ const ids=(b,n=11)=>Array.from({length:n},(_,i)=>b+i),nm={};for(let i=0;i<40;i++)nm[100+i]="P"+(100+i);
+ const mm=(p,bl,k)=>({eid:90,league:"Premier League",utc:iso(K0),home:{name:"A"},away:{name:"B"},status:"NS",score:[null,null],p:{h:p[0],d:p[1],a:p[2]},bl:{h:bl[0],d:bl[1],a:bl[2],k}});
+ const pred={st:"predicted",ids:[ids(100),ids(120)],nm},conf={st:"confirmed",ids:[[...ids(100,10),111],[...ids(120,9),131,132]],nm};
+ let Hh=updateHistory([],[mm([50,25,25],[48,26,26],[0,0])],K0-30*H,{lu:()=>pred});let e=Hh[0];
+ assert(e.sp&&e.sp.t===iso(K0-30*H)&&e.sp.xi&&e.sp.xi[0].length===11&&!e.sx,"potret sebelum line-up + perkiraan disimpan");
+ Hh=updateHistory(Hh,[mm([52,24,24],[47,27,26],[0,1])],K0-2*H,{lu:()=>pred});e=Hh[0];assert.equal(e.sp.t,iso(K0-2*H));assert.deepEqual(e.sp.bl,[47,27,26]);
+ Hh=updateHistory(Hh,[mm([52,24,24],[55,24,21],[0,2])],K0-H,{lu:()=>conf});e=Hh[0];
+ assert.equal(e.sp.t,iso(K0-2*H),"potret sebelum dibekukan");assert(!e.sp.xi,"daftar perkiraan dibuang setelah resmi");assert.deepEqual(e.sp.bl,[47,27,26]);
+ assert.deepEqual(e.sx.bl,[55,24,21]);assert.equal(e.sx.t,iso(K0-H));assert.deepEqual(e.sx.in,[["P111"],["P131","P132"]]);assert.deepEqual(e.sx.out,[["P110"],["P129","P130"]]);assert.deepEqual(e.sx.k,[0,2]);
+ Hh=updateHistory(Hh,[mm([53,24,23],[56,24,20],[0,2])],K0-30*6e4,{lu:()=>conf});e=Hh[0];assert.equal(e.sx.t,iso(K0-H),"waktu resmi pertama tetap");assert.equal(e.sx.tu,iso(K0-30*6e4));assert.deepEqual(e.sx.in,[["P111"],["P131","P132"]]);
+ Hh=updateHistory(Hh,[mm([60,20,20],[40,30,30],[0,0])],K0-20*6e4,{lu:()=>pred});e=Hh[0];assert.deepEqual(e.sx.bl,[56,24,20],"tidak mundur ke perkiraan");assert.equal(e.sp.t,iso(K0-2*H));
+ Hh=updateHistory(Hh,[mm([61,20,19],[41,30,29],[0,0])],K0-10*6e4);e=Hh[0];assert(e.sp&&e.sx&&e.sx.tu===iso(K0-30*6e4),"tanpa info line-up: potret dibawa");
+ const lock=JSON.stringify({sp:e.sp,sx:e.sx});Hh=updateHistory(Hh,[{...mm([90,5,5],[90,5,5],[3,3]),status:"LIVE"}],K0+H,{lu:()=>conf});assert.equal(JSON.stringify({sp:Hh[0].sp,sx:Hh[0].sx}),lock,"terkunci saat kickoff");
+ // laga tanpa line-up resmi sampai kickoff: daftar perkiraan dibuang saat kickoff
+ let H2=updateHistory([],[{...mm([50,25,25],[50,25,25],[0,0]),eid:91}],K0-H,{lu:()=>pred});assert(H2[0].sp.xi);H2=updateHistory(H2,[],K0+60e3);assert(H2[0].sp&&!H2[0].sp.xi&&!H2[0].sx);
+ // arsip tidak menyimpan daftar perkiraan
+ const rr=rekRow({id:1,u:iso(K0),p:[1,2,97],sp:{t:"x",p:[1,2,97],xi:[[[1,"a"]],[]]}});assert(rr.sp&&!rr.sp.xi)}
+console.log("OK    V52: potret sebelum/sesudah line-up resmi");
 {// V29: koreksi terarah menemukan bias pelatih baru & habis Eropa yang ditanam
  let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
  for(let i=0;i<3000;i++){const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28];

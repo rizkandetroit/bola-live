@@ -5,10 +5,10 @@
 //  - bila sumber membawa angka berbeda untuk laga yang sudah kickoff, arsip tetap memakai angka lama dan menghitung "konflik";
 //  - satu id = satu catatan (tanpa duplikasi); laga yang dijadwal ulang ke masa depan sebelum ada hasil boleh diperbarui.
 // Arsip tidak ikut terpotong 120 hari seperti bsd-history, jadi rekam jejak lama tetap ada.
-export const PRED_FIELDS=["p0","p","bl","sk","ou","bt","t0","ts","tc","pu","mv","xq"];
+export const PRED_FIELDS=["p0","p","bl","sk","ou","bt","t0","ts","tc","pu","mv","xq","sp","sx"];   // V52: sp/sx = potret sebelum/sesudah line-up resmi
 const H48=48*36e5;
 export const monthOf=u=>new Date(Date.parse(u)+8*36e5).toISOString().slice(0,7);
-export function rekRow(e){const o={id:e.id,u:e.u,lg:e.lg??null,h:e.h??null,a:e.a??null,r:e.r??null};for(const k of PRED_FIELDS)o[k]=e[k]??null;return o}
+export function rekRow(e){const o={id:e.id,u:e.u,lg:e.lg??null,h:e.h??null,a:e.a??null,r:e.r??null};for(const k of PRED_FIELDS)o[k]=e[k]??null;if(o.sp&&o.sp.xi){o.sp={...o.sp};delete o.sp.xi}return o}
 const same=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
 // prev: array catatan arsip lama; hist: catatan bsd-history terbaru. Hasil: {rows, st:{added, updated, locked, results, conflicts, dup}}
 export function mergeRekam(prev,hist,now){

@@ -5,6 +5,7 @@ import {readFileSync,existsSync} from "node:fs";
 const J=f=>{try{return JSON.parse(readFileSync(f,"utf8"))}catch(e){return null}};
 const H=36e5;
 export const FRIENDLY_RE=/friendl|persahabatan|amical|amistos|testspiel/i;
+export const CUP_RE=/\b(cup|copa|coupe|pokal|coppa|ta[cç]a|puchar|beker|kupa|piala|trophy|shield|supercopa|supercup|super cup)\b/i;   // V52: piala tanpa klasemen tidak dihitung kurang
 // batas umur (jam): [peringatan, masalah]; dipakai juga oleh halaman
 export const AGE={"all.json":[.5,2],"model-bl.json":[26,50],"bsd-backtest.json":[26,50],"teams.json":[26,50],"pf.json":[3,26],"laporan.json":[.5,2],"rekam-index.json":[.5,2],"bsd-eval.json":[.5,2]};
 const sum3=p=>p.h+p.d+p.a,ok3=p=>p&&[p.h,p.d,p.a].every(v=>typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=100);
@@ -17,7 +18,7 @@ export function matchHealth(matches,now,{lg=()=>null,md=()=>null}={}){
     if(hp)c.pred++;else miss.push("prediksi");if(hp&&m.p.xg)c.xg++;else if(hp)miss.push("xG");if(m.bl)c.bl++;
     const d=m.eid&&m.src!=="HL"?md(m.eid):null;if(m.eid&&m.src!=="HL"){c.detNeed++;if(d)c.det++;else miss.push("detail")}
     if(d){if(Array.isArray(d.h2h)?d.h2h.length:d.h2h&&Object.keys(d.h2h).length)c.h2h++;if(d.form&&(d.form.home||d.form.away))c.form++}
-    if(m.lid!=null&&!FRIENDLY_RE.test(m.league||"")){c.tblNeed++;const o=lg(m.lid),rows=o&&((o.standings||[]).length||(o.groups&&Object.keys(o.groups).length));if(rows)c.tbl++;else miss.push("klasemen")}
+    if(m.lid!=null&&!FRIENDLY_RE.test(m.league||"")){const o=lg(m.lid),rows=o&&((o.standings||[]).length||(o.groups&&Object.keys(o.groups).length));if(rows||!CUP_RE.test(m.league||"")){c.tblNeed++;if(rows)c.tbl++;else miss.push("klasemen")}}
     if(m.status==="NS"&&t>=now&&t-now<=90*6e4&&m.src!=="HL"){c.lu.need++;const s=d&&d.lineups&&d.lineups.lineup_status;if(s==="confirmed")c.lu.confirmed++;else if(s)c.lu.predicted++;else{c.lu.none++;miss.push("line-up")}}
     if(miss.length){g.miss++;for(const k of miss)g.items[k]=(g.items[k]||0)+1}L.set(m.league,g);
     // anomali: hanya dari data yang benar-benar terlihat
@@ -55,7 +56,7 @@ export function dataHealth(dir,{now=Date.now(),guard={},warn=[]}={}){
   const c=mh.c,pc=(a,n)=>n?Math.round(a/n*100):null;
   add("pred","Prediksi BSD (laga 30 jam lalu – 72 jam ke depan)",pc(c.pred,c.n)>=80||!c.n?"ok":"warn",c.pred+" / "+c.n,"Laga tanpa prediksi tampil sebagai jadwal saja.");
   add("det","Detail Match Center",c.detNeed&&pc(c.det,c.detNeed)<70?"warn":"ok",c.det+" / "+c.detNeed,"Form, H2H, line-up, statistik; disiapkan untuk laga live, 4 hari ke depan, dan yang baru selesai.");
-  add("tbl","Klasemen",c.tblNeed&&pc(c.tbl,c.tblNeed)<70?"warn":"ok",c.tbl+" / "+c.tblNeed,"Laga persahabatan tidak dihitung.");
+  add("tbl","Klasemen",c.tblNeed&&pc(c.tbl,c.tblNeed)<70?"warn":"ok",c.tbl+" / "+c.tblNeed,"Laga persahabatan dan piala tanpa klasemen tidak dihitung.");
   add("lu","Line-up (laga ≤90 menit lagi)","info",c.lu.need?c.lu.confirmed+" resmi · "+c.lu.predicted+" perkiraan · "+c.lu.none+" belum ada":"tidak ada laga dalam 90 menit","Line-up resmi biasanya keluar ±1 jam sebelum kickoff.");
   add("xg","xG BSD",c.pred&&pc(c.xg,c.pred)<50?"warn":"ok",c.xg+" / "+c.pred,"Tidak semua liga punya xG.");
   add("an","Anomali data",mh.anN?"warn":"ok",mh.anN?mh.anN+" temuan":"tidak ada","Hanya dari data yang terlihat: peluang tidak valid, laga macet, belum mulai padahal lewat, tanpa skor, ganda.");

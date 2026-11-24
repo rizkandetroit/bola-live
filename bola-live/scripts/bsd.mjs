@@ -174,7 +174,21 @@ export function whyOf(m,f,bl){const W=[],nm=[m.home.name,m.away.name],sr=f&&f.sr
   if(f&&f.eu)[0,1].forEach(i=>{if(f.eu[i])W.push(nm[i]+" baru main di kompetisi Eropa (jadwal padat)")});
   if(bl&&m.p&&!m.np){const b=[m.p.h,m.p.d,m.p.a];if(b.indexOf(Math.max(...b))!==bl.indexOf(Math.max(...bl)))W.push("BSD dan Model BL berbeda arah")}
   return W.slice(0,3)}
-export function updateHistory(hist,matches,now){
+// V52 (Tahap 3): potret peluang SEBELUM dan SESUDAH line-up resmi, dicatat hanya sebelum kickoff (ikut terkunci saat kickoff).
+// sp = potret terakhir sebelum line-up resmi (beku begitu line-up resmi pertama terlihat); sx = potret dengan line-up resmi
+// (t = pertama kali resmi terlihat, tu = terakhir diperbarui sebelum kickoff). Perubahan pemain dihitung dari line-up perkiraan
+// terakhir (sp.xi, hanya disimpan selama menunggu) vs line-up resmi. L = {st:"confirmed"|"predicted", ids:[[..],[..]], nm:{id:nama}}.
+export function lineupSnap(rec,e,m,L,nowI){if(!rec)return;if(!L||!L.st){if(e&&e.sp)rec.sp=e.sp;if(e&&e.sx)rec.sx=e.sx;return}   // tanpa info line-up run ini: potret lama dibawa
+  const P=rec.p,B=m.bl?[m.bl.h,m.bl.d,m.bl.a]:null,K=m.bl&&m.bl.k||null,conf=L.st==="confirmed"&&L.ids&&L.ids[0]&&L.ids[1];
+  const sp0=e&&e.sp||null,sx0=e&&e.sx||null;
+  if(!conf){if(sx0){rec.sp=sp0;rec.sx=sx0;return}   // line-up resmi pernah terlihat: jangan mundur ke perkiraan
+    rec.sp={t:nowI,p:P,bl:B,k:K,xi:L.ids&&L.ids[0]&&L.ids[1]?L.ids.map(a=>a.map(id=>[id,(L.nm&&L.nm[id])||null])):(sp0&&sp0.xi)||null};return}
+  const sp=sp0?{...sp0}:null;let inn=null,out=null;
+  if(sx0&&sx0.in){inn=sx0.in;out=sx0.out}
+  else if(sp&&sp.xi){inn=[0,1].map(s=>{const pre=new Set(sp.xi[s].map(x=>x[0]));return L.ids[s].filter(id=>!pre.has(id)).map(id=>(L.nm&&L.nm[id])||null).filter(Boolean)});
+    out=[0,1].map(s=>{const now=new Set(L.ids[s]);return sp.xi[s].filter(x=>!now.has(x[0])).map(x=>x[1]||(L.nm&&L.nm[x[0]])||null).filter(Boolean)})}
+  if(sp)delete sp.xi;rec.sp=sp;rec.sx={t:sx0?sx0.t:nowI,tu:nowI,p:P,bl:B,k:K,in:inn,out:out}}
+export function updateHistory(hist,matches,now,o={}){
   const H=new Map((hist||[]).map(e=>[e.id,e]));
   for(const m of matches){
     if(!m.eid)continue;const t=Date.parse(m.utc),e=H.get(m.eid);
@@ -186,12 +200,14 @@ export function updateHistory(hist,matches,now){
       H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:P,t0:e?(e.t0??null):nowI,p0:e?(e.p0??null):P,ts:nowI,tc:e&&e.p&&e.p.join()===P.join()?(e.tc??null):nowI,pu:m.p.pu??null,mv:m.p.mv??null,ou:m.p.ou??null,bt:m.p.bt??null,
         o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:(e&&e.o)||null,v:v,r:e&&e.r||null,
         po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null,sk:m.sk?[m.sk.h,m.sk.d,m.sk.a]:(e&&e.sk)||null,lu:m.bl&&m.bl.lu?m.bl.lu:(e&&e.lu)||null,xq:m.p.xg!=null?1:0,xg:m.p.xg||(e&&e.xg)||null});   // V25c: xq = BSD punya xG (syarat data lengkap tab Favorit)
+      lineupSnap(H.get(m.eid),e,m,o.lu?o.lu(m.eid):null,nowI);
     }
     // V22c: skor akhir BSD = skor 90 menit (gol perpanjangan waktu terpisah di m.et). Saat laga baru selesai BSD kadang sempat
     // memberi skor termasuk perpanjangan, lalu mengoreksinya -> hasil diperbarui selama 48 jam setelah kickoff, bukan dicatat sekali.
     if(e&&m.status==="FT"&&t<=now&&m.score[0]!=null&&m.score[1]!=null&&(!e.r||now-t<48*36e5))e.r=[m.score[0],m.score[1]];
   }
-  for(const [k,e] of H){const t=Date.parse(e.u);if((!e.r&&t<now-3*864e5)||t<now-120*864e5)H.delete(k)}   // tanpa hasil >3 hari / >120 hari: buang
+  for(const [k,e] of H){const t=Date.parse(e.u);if(e.sp&&e.sp.xi&&t<=now){e.sp={...e.sp};delete e.sp.xi}   // V52: daftar line-up perkiraan hanya bantuan sementara, dibuang saat kickoff
+    if((!e.r&&t<now-3*864e5)||t<now-120*864e5)H.delete(k)}   // tanpa hasil >3 hari / >120 hari: buang
   return [...H.values()].sort((a,b)=>a.u.localeCompare(b.u)).slice(-6000);
 }
 function bestVal(m){if(!m.odds||!m.p)return null;let b=null;[[0,m.p.h,m.odds.h],[1,m.p.d,m.odds.d],[2,m.p.a,m.odds.a]].forEach(([k,p,o])=>{if(p==null||!o||!o.o||p<20||o.o>5)return;const v=p/100*o.o-1;if(v<.02)return;if(!b||v>b[1])b=[k,Math.round(v*1000)/1000,o.o]});return b}
@@ -735,9 +751,16 @@ async function main(){
   // catatan prediksi BSD (dibawa dari situs tayang) -> bsd-history.json + bsd-eval.json
   let hist=[];{if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
     else{const h=await readState("bsd-history.json");if(Array.isArray(h))hist=h}}
-  if(!fatal&&events.length){hist=updateHistory(hist,every,now);
+  // V52: status & susunan line-up dari detail Match Center (hanya laga BSD yang belum mulai)
+  const LUX=new Map();for(const m of every){if(m.status!=="NS"||!m.dx||m.src==="HL"||!m.eid)continue;let o=null;try{o=JSON.parse(readFileSync(dir+"m/"+m.eid+".json","utf8"))}catch(e){}const lu=o&&o.lineups;if(!lu||!lu.lineup_status)continue;
+    const side=s=>lu.lineups&&lu.lineups[s],ids=s=>{const L=side(s);return L&&Array.isArray(L.players)&&L.players.length>=11?L.players.map(p=>p&&p.id).filter(x=>x!=null):null},nm={};
+    for(const s of["home","away"]){const L=side(s);for(const p of[...(L&&L.players||[]),...(L&&L.substitutes||[])])if(p&&p.id!=null)nm[p.id]=p.short_name||p.name||null}
+    LUX.set(m.eid,{st:lu.lineup_status,ids:[ids("home"),ids("away")],nm})}
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now,{lu:id=>LUX.get(id)});
     // V37 (Analisa Tahap 3): tebakan yang dicatat sebelum kickoff ikut ditempel ke laga selesai, untuk bedah sesudah laga
-    {const HM=new Map(hist.map(e=>[e.id,e]));for(const m of matches){if(m.status!=="FT"||!m.eid)continue;const e=HM.get(m.eid);if(e&&e.p)m.pm={p:e.p,bl:e.bl||null}}}deep.missF=fillMissFacts(hist,now,id=>{try{return JSON.parse(readFileSync(dir+"m/"+id+".json","utf8"))}catch(e){return null}});
+    {const HM=new Map(hist.map(e=>[e.id,e]));for(const m of matches){if(m.status!=="FT"||!m.eid)continue;const e=HM.get(m.eid);if(e&&e.p)m.pm={p:e.p,bl:e.bl||null}}}
+    // V52: potret sebelum/sesudah line-up resmi ikut tayang di laga (tanpa daftar line-up perkiraan)
+    {const HM=new Map(hist.map(e=>[e.id,e]));for(const m of matches){if(!m.eid)continue;const e=HM.get(m.eid);if(e&&(e.sp||e.sx))m.lx={sp:e.sp?{t:e.sp.t,p:e.sp.p,bl:e.sp.bl,k:e.sp.k}:null,sx:e.sx||null}}}deep.missF=fillMissFacts(hist,now,id=>{try{return JSON.parse(readFileSync(dir+"m/"+id+".json","utf8"))}catch(e){return null}});
     writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now),miss:evalMiss(hist,now)}))}
     // V50: arsip rekam jejak per bulan (tayang + data internal). Hanya bila riwayat terbaca (tidak menulis arsip dari riwayat kosong).
     if(hist.length){try{const I0=await readState("rekam-index.json"),prev=[],miss=[];if(I0&&Array.isArray(I0.months))for(const q of I0.months){const R=await readState("rekam-"+q.m+".json");if(R&&Array.isArray(R.rows))prev.push(...R.rows);else miss.push(q.m)}
