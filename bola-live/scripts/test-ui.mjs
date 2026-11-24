@@ -429,5 +429,6 @@ console.log("test-ui V38e ok");
  assert(!/\bundefined\b|\bNaN\b|\bnull\b|Infinity/.test(tx),"cetak bersih: "+(tx.match(/.{0,40}(undefined|NaN|null|Infinity).{0,20}/)||[""])[0]);
  assert((h.match(/<tr>/g)||[]).length>=5,"tabel jadwal");assert.equal(F.prForm({overall:{form:"WD"}}),"MS");assert.equal(F.prForm(null),null);
  assert.equal(F.prPos({name:"Club Friendlies",standings:[{team_id:1,position:1970}]},1),null);
+ assert.deepEqual(F.prPos({name:"Serie C",grouped:true,groups:{A:Array.from({length:20},(_,i)=>({team_id:i+1,position:i+1,pts:1}))}},3),{p:3,n:20,pts:1,g:1});
  const h2=F.prHtml(R,{},{},mid);assert(!/\bundefined\b|\bNaN\b|\bnull\b/.test(h2.replace(/<[^>]*>/g," ")),"cetak tanpa detail tetap bersih")}
 console.log("test-ui V39 ok");
