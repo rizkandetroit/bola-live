@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V42</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V43</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -387,7 +387,7 @@ console.log("test-ui V38e ok");
   assert(c2.includes('role="button" tabindex="0"'))}
  const tx=F.rkText(mid);assert(tx.startsWith("Rangkuman harian Bola Live - "+td)&&tx.includes("1. ")&&tx.includes("SUDAH SELESAI")&&!/<[a-z]/.test(tx),tx)}
 // V42e: uji acak kasus aneh di semua fungsi tampilan utama (tidak boleh error / undefined / NaN / null / Infinity)
-{const F=new Function(pre+";return {card,row,card_0,row_0,rkCard_0,cardDet,rkCard,rkLine,rkText,cfTag,resTag,sc3,riskOf,anHtml,setD:function(d){D=d}}")();
+{const F=new Function(pre+";return {prMk,card,row,card_0,row_0,rkCard_0,cardDet,rkCard,rkLine,rkText,cfTag,resTag,sc3,riskOf,anHtml,setD:function(d){D=d}}")();
  let sd=11;const rn=()=>(sd=(sd*16807)%2147483647)/2147483647,pick=a=>a[Math.floor(rn()*a.length)];
  const BAD=/\bundefined\b|\bNaN\b|\bnull\b|Infinity|\[object/;const now=Date.now();let n=0;
  const mk=i=>{const st=pick(["NS","NS","LIVE","FT","FT"]),h=rn()*70+5,d=rn()*(95-h)*.6,a=100-h-d,hasP=rn()>.1;
@@ -402,7 +402,7 @@ console.log("test-ui V38e ok");
   if(rn()>.5)x.why=["Klasemen menipu: A #3"];if(rn()>.6){const nh=Math.floor(rn()*6),na=Math.floor(rn()*6),L=n=>Array.from({length:n},(_,j)=>["Pemain "+j,pick(["i","s","d"])]);x.ab={h:L(nh),a:L(na),nh,na}}if(x.bl&&rn()>.5)x.bl.mi=[["P. Satu"],[]];return x};
  const M=[];for(let i=0;i<400;i++)M.push(mk(i));F.setD({matches:M,week:["2026-11-20","2026-11-30"]});
  for(const x of M){for(const [nm,f] of [["card",()=>F.card_0(x,1)],["row",()=>F.row_0(x)],["cardDet",()=>F.cardDet(x)],["cfTag",()=>F.cfTag(x)],["resTag",()=>F.resTag(x)],["sc3",()=>F.sc3(x,null)],["risk",()=>F.riskOf(x).join(" ")],
-   ["rkCard",()=>x.p&&!x.np?F.rkCard_0(x,0):""],["rkLine",()=>x.p&&!x.np?F.rkLine(x):""],["anHtml",()=>F.anHtml(x,null)]]){
+   ["rkCard",()=>x.p&&!x.np?F.rkCard_0(x,0):""],["rkLine",()=>x.p&&!x.np?F.rkLine(x):""],["anHtml",()=>F.anHtml(x,null)],["prMk",()=>x.p&&!x.np?F.prMk(x,null,null):""]]){
   let o;try{o=String(f()??"")}catch(e){assert.fail("fuzz "+nm+" error: "+e.message+" "+JSON.stringify(x))}
   const tx=o.replace(/<[^>]*>/g," ");if(BAD.test(tx))assert.fail("fuzz "+nm+" teks rusak: "+tx.match(new RegExp(".{0,60}"+BAD.source+".{0,30}"))[0]+" | "+JSON.stringify({st:x.status,sc:x.score,pend:x.pend,p:!!x.p,bl:!!x.bl,et:x.et}));n++}}
  {const y={...M.find(x=>x.bl&&x.p&&x.status==="NS"&&x.eid)},z={...y,bl:{...y.bl,ms:null,xg:null,k:null}};const o=F.card(z,1)+F.row(z);assert(!/undefined|NaN/.test(o)&&o.includes("data-mc"),"pengaman kartu: "+o.slice(0,200))}
@@ -415,4 +415,19 @@ console.log("test-ui V38e ok");
  const st=Array.from({length:30},(_,i)=>({position:i+1,team_id:i+1,pts:60-i,played:10}));
  assert.equal(F.anSit({hid:1,aid:2},{name:"Club Friendlies",standings:st}),null,"laga persahabatan: tanpa situasi klasemen")}
 {const F=new Function(pre+";return {restTxt}")();assert.equal(F.restTxt({own:-.01,opp:0}),"gol sendiri -1%, kebobolan hampir tetap");assert.equal(F.restTxt({own:0,opp:.001}),"hampir tidak berpengaruh");assert.equal(F.restTxt(null),"hampir tidak berpengaruh")}
+// V43: versi cetak Rangkuman
+{const F=new Function(pre+";return {prHtml,prMk,prForm,prPos,prDay,rkList,setD:function(d){D=d},setBT:function(b){BT=b}}")();
+ const mid=Date.parse("2026-11-24T04:00:00Z"),iso=t=>new Date(t).toISOString();
+ const mk=(id,h,d,a,st,o={})=>({id:"b"+id,eid:id,lid:4,hid:10+id,aid:50+id,src:"BSD",status:st,utc:iso(mid+id*36e5),league:"Serie A",home:{name:"Home"+id},away:{name:"Away"+id},score:st==="NS"?[null,null]:[2,1],p:{h,d,a,ou:55,bt:52},level:"Sedang",edge:Math.abs(h-a),pick:h>=a?"h":"a",...o});
+ const M=[mk(1,70,18,12,"NS",{cf:{k:"jelas",hit:69.1,n:531},bl:{h:66,d:20,a:14,xg:[2,.8],ms:[2,0],src:"xi",mi:[["P. Inti"],[]],k:[1,0]},ab:{h:[["P. Inti","i"]],a:[],nh:1,na:0},why:["Klasemen menipu: Away1 #3"]}),
+   mk(2,40,30,30,"NS",{cf:{k:"terbuka",hit:41,n:900}}),mk(3,52,25,23,"NS",{cf:{k:"cukup",hit:52,n:700},bl:{h:30,d:30,a:40,xg:[1,1.2],ms:[1,1],src:"abs",k:[0,0]}}),mk(4,60,22,18,"FT",{pm:{p:[60,22,18]},utc:iso(mid-36e5)})];
+ F.setD({matches:M,allInfo:{updated:iso(mid)}});F.setBT({acc:52.8,n:5968,calib:[]});
+ const R=F.rkList(mid),DX={1:{form:{home:{overall:{form:"WWDLW"}},away:{overall:{form:"LLDWL"}}},h2h:{total_matches:5,home_wins:3,draws:1,away_wins:1},lineups:{lineup_status:"confirmed"}}};
+ const LG={4:{name:"Serie A",standings:Array.from({length:20},(_,i)=>({position:i+1,team_id:[11,51][i]||100+i,pts:40-i}))}};
+ const h=F.prHtml(R,DX,LG,mid),tx=h.replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/\s+/g," ");
+ for(const w of ["Cara membaca","Jadwal ringkas","Unggul jelas (1 laga)","Cukup (1 laga)","Terbuka (1 laga)","Sudah selesai (1 laga","dari 531 laga lama","MMSKM (10 poin)","klasemen #1 dari 20","H2H 5 laga","Line-up: resmi","Absen","P. Inti","Model BL sepakat","Model BL berbeda","Lebih dari 2,5 gol: 55%","Klasemen menipu","line-up resmi: 1 dari 3","5.968 laga","Selasa"])assert(tx.includes(w),"cetak harus memuat: "+w);
+ assert(!/\bundefined\b|\bNaN\b|\bnull\b|Infinity/.test(tx),"cetak bersih: "+(tx.match(/.{0,40}(undefined|NaN|null|Infinity).{0,20}/)||[""])[0]);
+ assert((h.match(/<tr>/g)||[]).length>=5,"tabel jadwal");assert.equal(F.prForm({overall:{form:"WD"}}),"MS");assert.equal(F.prForm(null),null);
+ assert.equal(F.prPos({name:"Club Friendlies",standings:[{team_id:1,position:1970}]},1),null);
+ const h2=F.prHtml(R,{},{},mid);assert(!/\bundefined\b|\bNaN\b|\bnull\b/.test(h2.replace(/<[^>]*>/g," ")),"cetak tanpa detail tetap bersih")}
 console.log("test-ui V39 ok");
