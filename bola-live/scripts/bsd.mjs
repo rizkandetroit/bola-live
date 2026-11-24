@@ -615,7 +615,8 @@ async function main(){
       // V48: 10 hasil terakhir tiap tim (dari riwayat hasil Model BL) untuk profil tim: [waktu, liga, lawan, 0 kandang/1 tandang, gol tim, gol lawan]
       try{const TS=await pullS("tn.json"),TN=TS&&TS.t||{};for(const[id,n]of LGN)TN[id]=n;for(const m of every){if(m.hid!=null&&m.home&&m.home.name)TN[m.hid]=m.home.name;if(m.aid!=null&&m.away&&m.away.name)TN[m.aid]=m.away.name}
         writeState("tn.json",{v:1,updated:new Date(now).toISOString(),t:TN},{dir});
-        const RS=await pullS("results.json"),HR=new Map();for(const r of RS&&RS.rows||[]){if(!r||r[5]==null||r[6]==null)continue;for(const s of[0,1]){const id=r[3+s];if(!tm.has(id))continue;(HR.get(id)||HR.set(id,[]).get(id)).push([r[1],r[2],TN[r[4-s]]||null,s,s?r[6]:r[5],s?r[5]:r[6]])}}
+        const tw=new Set();for(const m of every){if(m.hid!=null)tw.add(m.hid);if(m.aid!=null)tw.add(m.aid)}   // V48b: riwayat untuk semua tim di jadwal pekan ini
+        const RS=await pullS("results.json"),HR=new Map();for(const r of RS&&RS.rows||[]){if(!r||r[5]==null||r[6]==null)continue;for(const s of[0,1]){const id=r[3+s];if(!tw.has(id))continue;(HR.get(id)||HR.set(id,[]).get(id)).push([r[1],r[2],TN[r[4-s]]||null,s,s?r[6]:r[5],s?r[5]:r[6]])}}
         for(const[id,L]of HR){L.sort((a,b)=>b[0]-a[0]);(PF[id]||(PF[id]={n:0,p:[]})).hr=L.slice(0,10)}deep.hr=HR.size}catch(e){errors.push("riwayat hasil tim: "+e.message)}
       writeState("pf.json",{v:1,updated:new Date(now).toISOString(),t:PF},{pub:true,dir});deep.pf=Object.keys(PF).length;pfDone=true}catch(e){errors.push("performa pemain: "+e.message)}}
     {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(XR.e))if(!keep.has(k))delete XR.e[k]}deep.xiN=Object.keys(XR.e).length;
