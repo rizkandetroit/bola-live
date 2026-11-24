@@ -885,7 +885,7 @@ function bsdEvalHtml(e){
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(e.updated))+' WITA.</p></div>'
 }
 function loadEval(){var gj=function(f){return fetch(f,NC).then(function(r){return r.ok?r.json():null}).catch(function(){return null})};
-  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=rekapHtml(a[1]&&a[1].rk)+favRaporHtml(a[1]&&a[1].rk)+missHtml(a[1]&&a[1].miss)+btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+facHtml(a[2])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
+  Promise.all([gj("bsd-backtest.json"),gj("bsd-eval.json"),gj("model-bl.json")]).then(function(a){if(a[0]){BT=a[0];draw()}if(a[1])EV=a[1];if(a[2])MBL=a[2];$("#v-e").innerHTML=rekapHtml(a[1]&&a[1].rk)+favRaporHtml(a[1]&&a[1].rk)+missHtml(a[1]&&a[1].miss)+btHtml(a[0])+mblHtml(a[2],a[1]&&a[1].bl)+tblHtml(a[2])+facHtml(a[2])+xcHtml(a[0])+bsdEvalHtml(a[1])+mvHtml(a[1]&&a[1].move)+rkHtml(a[1]&&a[1].risk)})}
 /* V13.4: pergerakan harga Pinnacle (buka -> terkini/tutup) */
 function dvg(o){if(!o||o.length!==3||!o.every(function(x){return x>1}))return null;var q=o.map(function(x){return 1/x}),t=q[0]+q[1]+q[2];return q.map(function(x){return x/t*100})}
 function pinMove(x){var a=x&&x.pin&&dvg(x.pin.o),b=x&&x.pin&&dvg(x.pin.c);if(!a||!b)return null;var d=b.map(function(v,i){return v-a[i]}),k=0;
@@ -1054,6 +1054,13 @@ function facHtml(M){
     var lo=q.gapBsd<-2*q.se,hi=q.gapBsd>2*q.se,k=q.n<30?"data masih sedikit":lo?"BSD terlalu tinggi menilai":hi?"BSD terlalu rendah menilai":"sudah diperhitungkan BSD";
     h+='<tr><td style="text-align:left">'+z[1]+' <small>('+z[2]+')</small></td><td>'+q.n+'</td><td>'+pc(q.win)+'</td><td>'+pc(q.bsd)+'</td><td>'+pc(q.bl)+'</td><td class="'+(q.n>=30&&(lo||hi)?"warn":"")+'">'+(q.gapBsd>=0?"+":"")+q.gapBsd.toFixed(1).replace(".",",")+' ± '+(2*q.se).toFixed(1).replace(".",",")+'</td><td style="text-align:left">'+k+'</td></tr>'});
   h+='</table></div><p class="cap">"BSD terlalu tinggi/rendah menilai" = selisihnya melebihi batas kebetulan (± 2 kali galat baku) pada minimal 30 laga — itulah celah yang bisa dipakai. Data pelatih tersedia untuk '+(c.coach||0)+'% laga, jarak tempuh '+(c.travel||0)+'% (riwayat lama diisi bertahap).</p>';
+  return h+'</div>'}
+/* V40: uji "xG BSD bertentangan dengan peluang menang BSD" (uji mundur 90 hari, paruh 1 pilih setelan, paruh 2 nilai) */
+function xcHtml(B){var X=B&&B.xc;if(!X||!X.thr)return"";var f=function(x){return(x>=0?"+":"")+x.toFixed(1).replace(".",",")};
+  var h='<div class="evs"><h2>xG BSD vs peluang menang BSD <small>saat keduanya menunjuk tim berbeda</small></h2><div class="ov"><table class="ev"><tr><th style="text-align:left">Selisih xG minimal</th><th>Laga</th><th>Tebakan BSD menang</th><th>Peluang dari BSD</th><th>Tim unggul xG menang</th><th>Peluang dari BSD</th><th>Seri</th></tr>';
+  ["0","0.15","0.3","0.5"].forEach(function(k){var q=X.thr[k];if(!q)return;h+='<tr><td style="text-align:left">'+(k==="0"?"berapa pun":String(k).replace(".",","))+'</td><td>'+q.n+'</td><td>'+pc(q.pick.win)+'</td><td>'+pc(q.pick.bsd)+'</td><td>'+pc(q.xg.win)+'</td><td>'+pc(q.xg.bsd)+' <small>('+f(q.xg.gap)+' ± '+(2*q.xg.se).toFixed(1).replace(".",",")+')</small></td><td>'+pc(q.draw)+'</td></tr>'});
+  var b=X.blendConf,ok=X.verdict&&X.verdict!=="tidak";
+  h+='</table></div><p class="cap">Dari '+X.n.toLocaleString("id-ID")+' laga. '+(ok?'<b>Lolos uji</b>: menggabungkan xG BSD memperbaiki prediksi di paruh kedua data.':'<b>Tidak lolos uji</b>: tebakan BSD tetap lebih sering benar daripada tim yang unggul xG, dan mencampurkan xG ke peluang tidak memperbaiki apa pun di paruh kedua data (log loss '+(b&&b.hold?String(b.hold.base.ll).replace(".",",")+' → '+String(b.hold.rule.ll).replace(".",","):"–")+'). Prediksi tidak diubah; selisih kecil di baris selisih xG besar masih dalam batas kebetulan dan terus dipantau.')+'</p>';
   return h+'</div>'}
 /* V22: rekap harian: siapa yang benar (BSD, Model BL, Gabungan) per hari & per liga, dari prediksi yang dicatat sebelum kickoff */
 var DN=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"],MN=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];

@@ -361,4 +361,8 @@ console.log("test-ui V38e ok");
  assert(/pm/.test("pm")&&/Terbuka/.test(F.cfTag({...b,p:{h:70,d:20,a:10},pm:{p:[41,27,32]}})),"laga selesai memakai tebakan sebelum kickoff");
  const r=F.riskOf({status:"NS",src:"BSD",league:"J1 League",home:{name:"A"},away:{name:"B"},p:{h:45,d:27,a:28}});assert(r.some(t=>/BSD baru benar 2 dari 10 laga/.test(t)),r);
  assert(/Unggulan kuat \(≥60%\)/.test(html))}
+// V40: tabel uji xG vs peluang BSD di tab Evaluasi
+{const F=new Function(pre+";return {xcHtml}")();const X={n:5667,thr:{"0":{n:998,pick:{win:45.6,bsd:44.6},xg:{win:28.7,bsd:28.9,gap:-.2,se:1.4},draw:25.8},"0.5":{n:141,pick:{win:44,bsd:48.7},xg:{win:32.6,bsd:26.3,gap:6.4,se:3.9},draw:23.4}},blendConf:{hold:{base:{ll:.975},rule:{ll:.975}}},verdict:"tidak"};
+ const h=F.xcHtml({xc:X});assert(h.includes("Tidak lolos uji")&&h.includes("5.667 laga")&&h.includes("+6,4 ± 7,8")&&h.includes("berapa pun"),h);
+ assert(F.xcHtml({xc:{...X,verdict:"konflik"}}).includes("Lolos uji"));assert.equal(F.xcHtml({}),"");assert.equal(F.xcHtml({xc:{n:10,note:"x"}}),"")}
 console.log("test-ui V39 ok");
