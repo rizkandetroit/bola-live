@@ -523,6 +523,13 @@ table.kl td b{font-family:var(--mono)}
 #kl-body .ov,.mcbox .ov{overflow-x:auto;-webkit-overflow-scrolling:touch}
 @media(max-width:600px){table.kl{font-size:12px}table.kl th,table.kl td{padding:6px 4px}table.kl img{width:16px;height:16px;margin-right:4px}
  .h2t td.t{max-width:120px;overflow:hidden;text-overflow:ellipsis}}
+.rk-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:6px 0 10px}.rk-h h2{margin:0}
+.rk-act button{border:1px solid var(--ln,#ccc);background:var(--card,#fff);color:inherit;border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;margin-left:6px}
+.rk{border:1px solid var(--ln,#ddd);border-radius:10px;padding:9px 11px;margin:0 0 8px;break-inside:avoid;cursor:pointer}
+.rk .t1{display:flex;gap:8px;justify-content:space-between;font-size:12px;color:var(--mut)}.rk .t2{font-weight:600;margin:3px 0}.rk .t3{font-size:13px;line-height:1.45}
+.rk .n{display:inline-block;min-width:20px;font-weight:700;color:var(--mut)}.rk .rsk{color:#b45309}.rk-sec{margin:14px 0 6px;font-weight:700}
+@media print{body.prk .hdr,body.prk .tick,body.prk #mc,body.prk .ex,body.prk .sub,body.prk .rk-act,body.prk #v-j,body.prk #v-s,body.prk #v-k,body.prk #v-e,body.prk #v-p,body.prk .live-pill{display:none!important}
+ body.prk #v-r{display:block!important}body.prk{background:#fff!important;color:#000!important}body.prk .rk{border-color:#999;cursor:auto}body.prk .w{max-width:none;padding:0}}
 </style>
 </head>
 <body>
@@ -531,13 +538,14 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V41</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V42</span>
   </div>
   <div class="nvb">
     <div class="seg" id="nv" aria-label="Halaman">
       <button data-n="j">Jadwal</button>
       <button data-n="s">Live</button>
       <button data-n="k">Klasemen</button>
+      <button data-n="r">Rangkuman</button>
       <button data-n="e">Evaluasi</button>
     </div>
   </div>
@@ -584,6 +592,7 @@ table.kl td b{font-family:var(--mono)}
 
   <!-- EVALUASI TAB -->
   <div id="v-e" hidden></div>
+  <div id="v-r" hidden></div>
 
   <!-- SKUAD TAB -->
   <div id="v-p" hidden>
@@ -1062,6 +1071,35 @@ function xcHtml(B){var X=B&&B.xc;if(!X||!X.thr)return"";var f=function(x){return
   var b=X.blendConf,ok=X.verdict&&X.verdict!=="tidak";
   h+='</table></div><p class="cap">Dari '+X.n.toLocaleString("id-ID")+' laga. '+(ok?'<b>Lolos uji</b>: menggabungkan xG BSD memperbaiki prediksi di paruh kedua data.':'<b>Tidak lolos uji</b>: tebakan BSD tetap lebih sering benar daripada tim yang unggul xG, dan mencampurkan xG ke peluang tidak memperbaiki apa pun di paruh kedua data (log loss '+(b&&b.hold?String(b.hold.base.ll).replace(".",",")+' → '+String(b.hold.rule.ll).replace(".",","):"–")+'). Prediksi tidak diubah; selisih kecil di baris selisih xG besar masih dalam batas kebetulan dan terus dipantau.')+'</p>';
   return h+'</div>'}
+/* V42: Rangkuman harian — semua laga hari ini (WITA) dengan analisa singkat, urut dari yang paling jelas; bisa dicetak / disimpan PDF / diunduh teks */
+function rkDay(){var dk=new Intl.DateTimeFormat("en-CA",{timeZone:TZ}),td=dk.format(new Date());return{dk:dk,td:td}}
+function rkList(now){var z=rkDay(),M=(D&&D.matches||[]).filter(function(x){return z.dk.format(new Date(x.utc))===z.td&&!x.np&&preP(x)});
+  M=fresh(M,now);var cl=function(x){var q=preP(x);return Math.max(q.h,q.a)};
+  var A=M.filter(function(x){return x.status!=="FT"}).sort(function(a,b){return cl(b)-cl(a)||a.utc.localeCompare(b.utc)}),F=M.filter(function(x){return x.status==="FT"}).sort(function(a,b){return cl(b)-cl(a)});
+  return{td:z.td,A:A,F:F}}
+function rkLine(x){var q=preP(x),dr=drawTop(x),f=q.h>=q.a?x.home:x.away,m=Math.max(q.h,q.a),t;
+  if(dr)t='Berimbang, <b>seri</b> paling mungkin ('+Math.round(q.d)+'%).';
+  else if(isOpen(x))t='Laga terbuka: '+openTxt(x)+'.';
+  else t='<b>'+esc(shortNm(f.name))+'</b> diunggulkan '+Math.round(m)+'% (seri '+Math.round(q.d)+'%).';
+  var w=x.why&&x.why.length&&x.status==="NS"?' '+esc(x.why[0])+'.':'';
+  var sc=sc3(x,null),r=riskOf(x).slice(0,2);
+  return t+w+(sc&&sc!=="-"?' Skor: '+sc+'.':'')+(r.length?' <span class="rsk">Waspada: '+r.join("; ")+'.</span>':'')}
+function rkCard(x,i){var stx=x.status==="LIVE"?'<span class="st lv">'+(x.min!=null?x.min+"\'":"Live")+' · '+x.score[0]+'-'+x.score[1]+'</span>':x.status==="FT"?'<b>'+x.score[0]+'-'+x.score[1]+'</b>'+resTag(x):tf.format(new Date(x.utc))+' WITA';
+  return'<div class="rk" data-mc="'+esc(x.id)+'"><div class="t1"><span><span class="n">'+(i+1)+'.</span>'+esc(lgLabel(x.league||"",x.lc))+'</span><span>'+stx+'</span></div><div class="t2">'+esc(x.home.name)+' vs '+esc(x.away.name)+' '+cfTag(x)+'</div><div class="t3">'+rkLine(x)+'</div></div>'}
+function renderRk(){var el=$("#v-r");if(!el)return;if(!D){el.innerHTML='<div class="em">Memuat data...</div>';return}
+  var R=rkList(),dt=new Date(R.td+"T12:00:00Z"),lbl=DN[dt.getUTCDay()]+", "+dt.getUTCDate()+" "+MN[dt.getUTCMonth()]+" "+dt.getUTCFullYear();
+  var h='<div class="rk-h"><h2>Rangkuman harian <small>'+esc(lbl)+'</small></h2><div class="rk-act"><button data-rk="print">Cetak / simpan PDF</button><button data-rk="txt">Unduh teks</button></div></div>';
+  h+='<p class="cap">'+(R.A.length+R.F.length)+' laga hari ini (WITA) yang punya prediksi, diurutkan dari yang paling jelas. Label dan "% menang" dari uji mundur; skor dari laju gol. Perkiraan statistik, bukan jaminan. Ketuk laga untuk detail.</p>';
+  if(!R.A.length&&!R.F.length)h+='<div class="em">Belum ada laga hari ini.</div>';
+  if(R.A.length)h+='<div class="rk-sec">Belum main &amp; sedang live ('+R.A.length+')</div>'+R.A.map(rkCard).join("");
+  if(R.F.length)h+='<div class="rk-sec">Sudah selesai ('+R.F.length+')</div>'+R.F.map(rkCard).join("");
+  el.innerHTML=h}
+function rkText(now){var R=rkList(now),tx=function(h){return String(h).replace(/<[^>]*>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/\s+/g," ").trim()},o=["Rangkuman harian Bola Live - "+R.td,""];
+  var st=function(x){return x.status==="LIVE"?"LIVE "+(x.min!=null?x.min+"' ":"")+x.score[0]+"-"+x.score[1]:x.status==="FT"?"Selesai "+x.score[0]+"-"+x.score[1]+(resTag(x)?" ("+tx(resTag(x))+")":""):tf.format(new Date(x.utc))+" WITA"};
+  var add=function(L,t){if(!L.length)return;o.push(t);L.forEach(function(x,i){o.push((i+1)+". "+st(x)+" | "+lgLabel(x.league||"",x.lc)+" | "+x.home.name+" vs "+x.away.name+" ["+tx(cfTag(x))+"]");o.push("   "+tx(rkLine(x)))});o.push("")};
+  add(R.A,"BELUM MAIN & LIVE");add(R.F,"SUDAH SELESAI");o.push("Perkiraan statistik, bukan jaminan. rizkandetroit.github.io/bola-live");return o.join("\n")}
+document.addEventListener("click",function(e){var b=e.target.closest("[data-rk]");if(b){if(b.dataset.rk==="print"){document.body.classList.add("prk");setTimeout(function(){window.print()},30)}else{var bl=new Blob([rkText()],{type:"text/plain;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download="rangkuman-bola-live-"+rkList().td+".txt";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}return}});
+if(window.addEventListener)window.addEventListener("afterprint",function(){document.body.classList.remove("prk")});
 /* V22: rekap harian: siapa yang benar (BSD, Model BL, Gabungan) per hari & per liga, dari prediksi yang dicatat sebelum kickoff */
 var DN=["Minggu","Senin","Selasa","Rabu","Kamis","Jumat","Sabtu"],MN=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 function dLabel(d){var t=new Date(d+"T12:00:00Z");return DN[t.getUTCDay()]+", "+t.getUTCDate()+" "+MN[t.getUTCMonth()]}
@@ -1110,7 +1148,7 @@ function btHtml(b){
   if(L.length)h+='<h2>Per liga <small>minimal 20 laga · '+L.length+' liga</small></h2><div class="ov"><table class="ev"><tr><th style="text-align:left">Liga</th><th>Laga</th><th>1X2 tepat</th><th>Tuan rumah</th><th>O/U 2,5</th><th>BTTS</th><th>Brier</th></tr>'+L.map(function(o){var q=o.q,c=btCls(q);return'<tr><td style="text-align:left">'+esc(lgLabel(o.k,C[o.k]))+(C[o.k]&&lgLabel(o.k,C[o.k])===o.k?' <small>'+esc(C[o.k])+'</small>':"")+'</td><td>'+q.n+'</td><td class="'+c+'">'+pc(q.acc)+'</td><td>'+pc(q.homeAcc)+'</td><td>'+(q.ou?pc(q.ou.acc):"-")+'</td><td>'+(q.bt?pc(q.bt.acc):"-")+'</td><td>'+f3(q.brier)+'</td></tr>'}).join("")+'</table></div><p class="cap">Hijau: tepat 55% ke atas. Merah: di bawah 45%. Liga dengan laga sedikit lebih untung-untungan.</p>';
   return h+'<p class="cap">Diperbarui '+tf.format(new Date(b.updated))+' WITA, dihitung ulang sekali sehari.</p></div>'
 }
-function nav(v){VIEW=v;$("#v-j").hidden=v!=="j";$("#v-s").hidden=v!=="s";$("#v-k").hidden=v!=="k";$("#v-e").hidden=v!=="e";$("#v-p").hidden=v!=="p";if(v==="k")loadKl();[].forEach.call(document.querySelectorAll("#nv button"),function(b){b.className=b.dataset.n===v?"on":""});if(v==="e")loadEval();if(v==="p")loadPitch();if(v==="s")renderLive()}
+function nav(v){VIEW=v;$("#v-j").hidden=v!=="j";$("#v-s").hidden=v!=="s";$("#v-k").hidden=v!=="k";$("#v-e").hidden=v!=="e";$("#v-p").hidden=v!=="p";$("#v-r").hidden=v!=="r";if(v==="k")loadKl();[].forEach.call(document.querySelectorAll("#nv button"),function(b){b.className=b.dataset.n===v?"on":""});if(v==="e")loadEval();if(v==="p")loadPitch();if(v==="s")renderLive();if(v==="r")renderRk()}
 
 function fmtMetric(v){return v==null||v===""?"—":typeof v==="number"?v.toFixed(2):String(v)}
 function lineupSide(side,intel,label){if(!side)return'<div><b>'+esc(label)+'</b><div class="players">Data line-up belum tersedia.</div></div>';var starters=side.starters||[],subs=side.subs||[],score=intel&&intel.score!=null?intel.score:null,abs=intel&&intel.absences||[];return'<div><b>'+esc(label)+'</b><div class="formation">'+esc(side.formation||"Formasi —")+' <span class="tag">'+(side.confirmed?'Terkonfirmasi':'Prediksi')+'</span></div>'+(score!=null?'<div class="pitchscore">Kekuatan efektif XI: <b>'+score.toFixed(1)+'/100</b></div><div class="strengthbar"><i style="width:'+Math.max(0,Math.min(100,score))+'%"></i></div>':'')+'<div class="players">'+starters.map(function(p){return'<div><b>'+(p.shirt_number?esc(p.shirt_number)+'. ':'')+esc(p.name||'Pemain')+'</b>'+(p.is_captain?' ©':'')+'</div>'}).join('')+'</div><h3>Cadangan ('+subs.length+')</h3><div class="players">'+subs.map(function(p){return esc(p.shirt_number?p.shirt_number+'. ':'')+esc(p.name||'Pemain')}).join(' · ')+'</div>'+(abs.length?'<h3>Pemain reguler tidak masuk XI</h3><div class="players">'+abs.map(function(p){return esc(p.name)+' — '+esc(p.status)}).join('<br>')+'</div>':'')+'</div>'}
@@ -1135,6 +1173,7 @@ function catHtml(q){
 }
 
 function draw(){
+  if(VIEW==="r")setTimeout(renderRk,0);   /* V42 */
   [].forEach.call(document.querySelectorAll("#vw button"),function(b){b.className=b.dataset.v===S.v?"on":""});
   var M=D.matches,
     open=M.filter(function(x){return x.status!=="FT"&&!x.np&&(!x.tier||x.tier<3)}),

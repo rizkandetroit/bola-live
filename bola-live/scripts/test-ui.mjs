@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V41</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V42</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -370,4 +370,15 @@ console.log("test-ui V38e ok");
  const a=F.sc3({bl:{xg:[1.6,0.9],ms:[1,0]}},{score:{most_likely:"1-1"}});assert((a.match(/ · /g)||[]).length===2&&a.startsWith("1-0 <small>")&&a.includes("(Model BL)")&&!a.includes("BSD"),a);
  const b=F.sc3({p:{}},{expected_goals:{home:2.2,away:0.6},score:{most_likely:"1-1"}});assert(b.includes("dari xG BSD")&&/^(2-0|1-0)/.test(b),b);
  assert.equal(F.sc3({},{score:{most_likely:"1-1"}}),"1-1 <small>(BSD)</small>");assert.equal(F.sc3({},null),"-")}
+// V42: Rangkuman harian
+{const F=new Function(pre+";return {rkList,rkLine,rkCard,rkText,renderRk,setD:function(d){D=d}}")();
+ const N=Date.now(),iso=t=>new Date(t).toISOString(),dk=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Makassar"}),td=dk.format(new Date(N));
+ const mid=Date.parse(td+"T04:00:00Z");   // 12.00 WITA hari ini
+ const mk=(id,h,d,a,st,o={})=>({id,eid:id,src:"BSD",status:st,utc:iso(mid+id*6e4),league:"Premier League",home:{name:"Home"+id},away:{name:"Away"+id},score:st==="NS"?[null,null]:[2,0],p:{h,d,a},level:"Sedang",edge:Math.abs(h-a),pick:h>=a?"h":"a",...o});
+ F.setD({matches:[mk(1,40,30,30,"NS"),mk(2,70,18,12,"NS",{bl:{h:68,d:19,a:13,xg:[2.1,0.7],ms:[2,0]}}),mk(3,55,25,20,"FT",{pm:{p:[55,25,20]},utc:iso(mid-72e5)}),mk(4,30,26,44,"NS",{utc:iso(mid+2*864e5)}),mk(5,50,25,25,"NS",{np:1})]});
+ const R=F.rkList(mid);assert.deepEqual(R.A.map(x=>x.id),[2,1],"urut paling jelas, hanya hari ini, tanpa np");assert.deepEqual(R.F.map(x=>x.id),[3]);
+ const c=F.rkCard(R.A[0],0);assert(c.includes("Home2</b> diunggulkan 70%")&&c.includes("Skor: 2-0 <small>")&&c.includes("data-mc=\"2\""),c);
+ assert(F.rkLine(R.A[1]).includes("tidak kalah"),"laga terbuka ditulis tidak kalah: "+F.rkLine(R.A[1]));
+ assert(F.rkCard(R.F[0],0).includes("Tepat"),"laga selesai diberi tanda hasil");
+ const tx=F.rkText(mid);assert(tx.startsWith("Rangkuman harian Bola Live - "+td)&&tx.includes("1. ")&&tx.includes("SUDAH SELESAI")&&!/<[a-z]/.test(tx),tx)}
 console.log("test-ui V39 ok");
