@@ -713,6 +713,20 @@ sc("V22: rekap harian per tanggal WITA, per liga, siapa yang benar",async()=>{
  assert.deepEqual(R.days[1].bl,[1,1],"seri ditebak Model BL");assert.equal(recapOf(H,now,{days:1}).days.length,1);
  return d0.d+": BSD "+d0.bsd[1]+"/"+d0.bsd[0];
 });
+// V40: uji xG vs peluang BSD bertentangan (data buatan: dengan efek -> lolos, tanpa efek -> tidak, sampel kecil -> catatan)
+T.push(["V40 xG konflik",async()=>{const {xgConflict}=await import("./xgc.mjs");const {probs:PR}=await import("./model.mjs");
+ let sd=7;const rn=()=>(sd=(sd*16807)%2147483647)/2147483647;const po=l=>{let L=Math.exp(-l),k=0,p=1;do{k++;p*=rn()}while(p>L);return k-1};
+ const gen=(n,eff)=>{const E=[];for(let i=0;i<n;i++){const th=.6+rn()*1.6,ta=.5+rn()*1.4,q=PR(th,ta).p;let p=q.slice();
+   if(eff){const z=(rn()-.5)*30;p=[q[0]+z,q[1],q[2]-z].map(x=>Math.max(3,x))}const s=p[0]+p[1]+p[2];p=p.map(x=>x/s*100);
+   const xg=eff?[+(th+(rn()-.5)*.2).toFixed(2),+(ta+(rn()-.5)*.2).toFixed(2)]:[+(.6+rn()*1.6).toFixed(2),+(.5+rn()*1.4).toFixed(2)];
+   E.push({u:new Date(Date.UTC(2026,7,1)+i*36e5).toISOString(),lg:"L"+(i%5),p,xg,r:[po(th),po(ta)]})}return E};
+ const A=xgConflict(gen(4000,true)),B=xgConflict(gen(4000,false)),C=xgConflict(gen(100,true));
+ assert(A.verdict!=="tidak"&&A.blendAll.pair.gain>2*A.blendAll.pair.se,"xG konflik: efek nyata harus lolos "+JSON.stringify(A.blendAll));
+ assert(A.thr[0.3]&&A.thr[0.3].xg.win>A.thr[0.3].pick.win,"xG konflik: sisi xG menang lebih sering di data berefek");
+ assert.equal(B.verdict,"tidak","xG konflik: tanpa efek harus ditolak");assert(C.note&&!C.verdict,"xG konflik: sampel kecil");
+ const be=backtestEntries([{event:{id:1},markets:{match_result:{prob_home:50,prob_draw:25,prob_away:25},expected_goals:{home:1.6,away:1.1}}}],[{id:1,status:"finished",home_score:1,away_score:0,event_date:"2026-11-01T10:00:00Z",league_id:4}],[]);
+ assert.deepEqual(be[0].xg,[1.6,1.1],"uji mundur menyimpan xG BSD");
+ return "lolos/tolak benar"}]);
 let bad=0;
 for(const [n,f] of T){try{const m=await f();console.log("OK    "+n+(m?"  ["+m+"]":""))}catch(e){bad++;console.log("GAGAL "+n+"\n      "+String(e.message).split("\n").slice(0,4).join("\n      "))}}
 srv.close();console.log(bad?`\n${bad} GAGAL`:"\ntest-bsd ok");process.exit(bad?1:0);

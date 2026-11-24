@@ -1,3 +1,4 @@
+import { xgConflict } from "./xgc.mjs";
 import {mkdirSync,writeFileSync,readFileSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir,prevDir} from "./net.mjs";
@@ -176,7 +177,7 @@ export function updateHistory(hist,matches,now){
       const v=bestVal(m);
       H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:[m.p.h,m.p.d,m.p.a],ou:m.p.ou??null,bt:m.p.bt??null,
         o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:(e&&e.o)||null,v:v,r:e&&e.r||null,
-        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null,sk:m.sk?[m.sk.h,m.sk.d,m.sk.a]:(e&&e.sk)||null,lu:m.bl&&m.bl.lu?m.bl.lu:(e&&e.lu)||null,xq:m.p.xg!=null?1:0});   // V25c: xq = BSD punya xG (syarat data lengkap tab Favorit)
+        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null,sk:m.sk?[m.sk.h,m.sk.d,m.sk.a]:(e&&e.sk)||null,lu:m.bl&&m.bl.lu?m.bl.lu:(e&&e.lu)||null,xq:m.p.xg!=null?1:0,xg:m.p.xg||(e&&e.xg)||null});   // V25c: xq = BSD punya xG (syarat data lengkap tab Favorit)
     }
     // V22c: skor akhir BSD = skor 90 menit (gol perpanjangan waktu terpisah di m.et). Saat laga baru selesai BSD kadang sempat
     // memberi skor termasuk perpanjangan, lalu mengoreksinya -> hasil diperbarui selama 48 jam setelah kickoff, bukan dicatat sekali.
@@ -329,13 +330,14 @@ export function backtestEntries(preds,events,leagues){
     const mr=(p.markets&&p.markets.match_result)||{},P=[num(mr.prob_home),num(mr.prob_draw),num(mr.prob_away)];if(P.some(x=>x==null)||P[0]+P[1]+P[2]<=0)continue;
     const s=P[0]+P[1]+P[2],lg=L.get(e.league_id)||{};seen.add(id);
     out.push({id,u:e.event_date,lg:e.league_name||lg.name||("Liga "+e.league_id),c:lg.country&&(lg.country.name||lg.country)||null,
-      p:P.map(x=>Math.round(x/s*1000)/10),r:[h,a],ou:num((p.markets.over_under||{}).prob_over_25),bt:num((p.markets.btts||{}).prob_yes),o:null,v:null})}
+      p:P.map(x=>Math.round(x/s*1000)/10),r:[h,a],xg:(()=>{const x=p.markets.expected_goals||{},xh=num(x.home),xa=num(x.away);return xh!=null&&xa!=null?[xh,xa]:null})(),ou:num((p.markets.over_under||{}).prob_over_25),bt:num((p.markets.btts||{}).prob_yes),o:null,v:null})}
   return out;
 }
 export function backtestSummary(entries,now,days){
   const ev=evalHistory(entries),c={};for(const e of entries)if(e.c&&!c[e.lg])c[e.lg]=e.c;
   const u=entries.map(e=>e.u).sort();
-  return{updated:new Date(now).toISOString(),days,from:u[0]||null,to:u[u.length-1]||null,...ev,pending:0,countries:c,
+  let xc=null;try{xc=xgConflict(entries)}catch(e){xc={err:String(e.message||e)}}   // V40
+  return{updated:new Date(now).toISOString(),days,from:u[0]||null,to:u[u.length-1]||null,...ev,pending:0,countries:c,xc,
     note:"Riwayat prediksi BSD vs hasil asli. Dicek: angka BSD tidak berubah setelah kickoff."};
 }
 
@@ -483,7 +485,7 @@ async function main(){
   const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial);
   let btEnt=null,btE=[];
   {const BTD=Number(process.env.BSD_BACKTEST_DAYS??90);let prev=await pullS("bsd-backtest.json");
-    const fresh=prev&&prev.n&&prev.dc&&now-Date.parse(prev.updated)<20*36e5;   // V25: ringkasan lama tanpa dc -> hitung ulang sekali
+    const fresh=prev&&prev.n&&prev.dc&&prev.xc&&now-Date.parse(prev.updated)<20*36e5;   // V25: ringkasan lama tanpa dc -> hitung ulang sekali
     if(process.env.BSD_BACKTEST!=="0"&&DEEP&&!LIGHT&&!fatal&&(!fresh||needModel)&&!overDeadline()){
       const P2=[],E2=[];
       for(let k=BTD;k>0&&!fatal&&!overDeadline();k-=7){
