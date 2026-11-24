@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V45</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V46</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -318,6 +318,14 @@ console.log("test-ui V35 ok");
  assert(/Lewis-Potter \(250 menit\) — tidak di line-up perkiraan/.test(t2)&&!/I\. Thiago \([^)]*\) — /.test(t2),"yang main tidak ditandai");assert(/J\. Branthwaite \(360 menit\)/.test(t2));
  F.AN.pf={};assert(!/dalam performa/.test(F.anHtml(x,null)),"tanpa data: tidak tampil")}
 console.log("test-ui V45 ok");
+{// V46: istirahat dari riwayat hasil (bl.lp), bukan "istirahat panjang" palsu
+ const F=new Function(pre+`;return {anHtml,AN,KL,setAll:function(d,m,b,e){D=d;MBL=m;BT=b;EV=e}}`)();
+ const x={eid:1,src:"BSD",league:"Premier League",lc:"England",lid:1,hid:16,aid:20,utc:"2026-11-25T20:00:00Z",status:"NS",home:{name:"Arsenal"},away:{name:"Dortmund"},p:{h:51,d:25,a:24},bl:{h:50,d:25,a:25,xg:[1.6,1],ms:[1,0],k:[0,0],lp:[Math.round(Date.parse("2026-11-21T15:00:00Z")/1000),null]}};
+ F.setAll({matches:[x],week:["2026-11-22","2026-12-01"],updated:"2026-11-24T13:05:00Z"},null,null,null);F.KL.tm={};F.AN.lg[1]=null;F.AN.pf={};
+ const t=F.anHtml(x,null).replace(/<[^>]+>/g," ").replace(/\s+/g," ");
+ assert(/Arsenal : istirahat 4 hari \(laga terakhir 21 Nov 2026\)/.test(t),"istirahat dari lp: "+(t.match(/Arsenal : .{0,80}/)||[""])[0]);
+ assert(/Dortmund : laga terakhirnya belum tercatat di data kita/.test(t));assert(!/istirahat panjang/.test(t))}
+console.log("test-ui V46 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");

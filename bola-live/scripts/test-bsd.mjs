@@ -9,7 +9,7 @@ import assert from "node:assert";
 import {stOf,pickOf,h2hOf,toRecord,buildAll,isDup,backtestEntries,backtestSummary,pinOf,devig,evalMove,updateHistory,absOf,mixP,riskFlags,evalRisk} from "./bsd.mjs";
 import {missFacts,missWhy,evalMiss,fillMissFacts,evalHistory,dcCalib,favOf,recapOf} from "./bsd.mjs";
 import {kickModels,toRec as hlRec,hotOf,witaDate,HL_LEAGUES,pickLeague} from "./highlightly.mjs";
-import {lineupFeatures,lineupExp,drawExp,drawShift,luckOf} from "./model.mjs";
+import {lineupFeatures,lineupExp,drawExp,drawShift,luckOf,lastPlayed} from "./model.mjs";
 import {applyStack} from "./stack.mjs";
 import {ACT,ftSlim,carryFT} from "./bsd.mjs";
 import {factorTests as facT} from "./factors.mjs";
@@ -259,6 +259,8 @@ console.log("OK    V31: kiper cadangan & beban menit");
  assert(f0&&JSON.stringify(f0.hot)===JSON.stringify(lineupFeatures(E3).get(k).hot),"gol di laga itu sendiri tidak dipakai");
  assert([...F.values()].some(f=>f.hot&&(f.hot[0]>=3||f.hot[1]>=3)),"starter panas terdeteksi");const X=lineupExp(R,E2);assert(X.fac.starterPanas&&X.fac.starterPanas.n>20&&X.fac.starterSepi.n>20,"uji faktor tercatat: "+JSON.stringify(X.fac))}
 console.log("OK    V45: performa pemain + uji faktor starter panas");
+{const M={times:new Map([[1,[100e6,200e6,300e6]]])};assert.equal(lastPlayed(M,1,300e6),200e6,"laga sebelum kickoff");assert.equal(lastPlayed(M,1,100e6),null);assert.equal(lastPlayed(M,2,5e8),null);assert.equal(lastPlayed(M,1,1e9),300e6)}
+console.log("OK    V46: laga terakhir tim (istirahat)");
 {// V29: koreksi terarah menemukan bias pelatih baru & habis Eropa yang ditanam
  let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
  for(let i=0;i<3000;i++){const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28];

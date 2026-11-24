@@ -88,6 +88,8 @@ function str(M,id,l){const t=M.team.get(id);if(t){const L=M.lg.get(t.lg)||{A:0,D
 // apakah tim baru bermain <= P.rest hari sebelum waktu t (laga terakhir sebelum t, dari jadwal mana pun)
 function shortRest(M,id,t){const T=t!=null&&M.times.get(id);if(!T)return 0;let lo=0,hi=T.length-1,b=-1;while(lo<=hi){const m=(lo+hi)>>1;if(T[m]<t-36e5){b=m;lo=m+1}else hi=m-1}
   return b>=0&&(t-T[b])/DAY<=M.P.rest?1:0}
+// V46: waktu laga terakhir tim sebelum t (ms, dari riwayat hasil) atau null — untuk kalimat "istirahat n hari" di Analisa
+export function lastPlayed(M,id,t){const T=t!=null&&M.times&&M.times.get(id);if(!T)return null;let r=null;for(const x of T){if(x<t-36e5)r=x;else break}return r}
 // jadwal tambahan (laga mendatang yang sudah diketahui) supaya istirahat bisa dihitung untuk laga yang akan datang
 export function addTimes(M,list){for(const m of list||[])for(const id of [m.h,m.a]){if(id==null||m.t==null)continue;const T=M.times.get(id)||M.times.set(id,[]).get(id);if(!T.includes(m.t)){T.push(m.t);T.sort((a,b)=>a-b)}}}
 const pois=l=>{const p=[Math.exp(-l)];for(let i=1;i<=MAXG;i++)p.push(p[i-1]*l/i);return p};
@@ -106,7 +108,7 @@ export function predictModel(M,x){
     if(i===0&&j===0)p*=1-lh*la*rho;else if(i===0&&j===1)p*=1+lh*rho;else if(i===1&&j===0)p*=1+la*rho;else if(i===1&&j===1)p*=1-rho;
     if(i>j)h+=p;else if(i===j)d+=p;else a+=p;if(i+j>2)ov+=p;if(i>0&&j>0)bt+=p;if(p>best[2])best=[i,j,p]}
   const s=h+d+a;
-  return{p:[h/s*100,d/s*100,a/s*100],ou:ov/s*100,bt:bt/s*100,xg:[lh,la],ms:[best[0],best[1]],rest:[rh,ra],n:[H.n,A.n]};
+  return{p:[h/s*100,d/s*100,a/s*100],ou:ov/s*100,bt:bt/s*100,xg:[lh,la],ms:[best[0],best[1]],rest:[rh,ra],n:[H.n,A.n],lp:[lastPlayed(M,x.h,x.t),lastPlayed(M,x.a,x.t)].map(v=>v==null?null:Math.round(v/1000))};
 }
 
 // Uji mundur bergulir: model dilatih ulang tiap `stepD` hari hanya dari laga SEBELUM periode itu, lalu memprediksi laga periode itu.
