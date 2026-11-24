@@ -356,7 +356,7 @@ console.log("test-ui V38e ok");
  const b={status:"FT",pick:"h",home:{name:"Brentford"},away:{name:"Everton"},p:{h:41,d:27,a:32},score:[1,1]};
  assert(/Terbuka · 46% menang/.test(F.cfTag(b)),F.cfTag(b));assert(/Unggul jelas · 69% menang/.test(F.cfTag({...b,p:{h:64,d:22,a:14}})));assert(/Cukup · 55% menang/.test(F.cfTag({...b,p:{h:52,d:26,a:22}})));
  assert(F.isOpen(b)&&!F.isOpen({...b,p:{h:52,d:26,a:22}}));assert(/<b>Brentford<\/b> tidak kalah 68%/.test(F.openTxt(b)));
- assert(/✓ Tepat/.test(F.resTag(b)),"terbuka + imbang = tidak kalah tepat");assert(/✕ Meleset/.test(F.resTag({...b,score:[0,1]})));assert(/✓ Tepat/.test(F.resTag({...b,score:[2,0]})));
+ assert(/✓ Tepat/.test(F.resTag(b)),"terbuka + imbang = tidak kalah tepat");assert(/Tepat · seri/.test(F.resTag(b)),"V44b: seri ditandai jelas");assert(/Tepat · menang/.test(F.resTag({...b,score:[2,0]}))||/Tepat · menang/.test(F.resTag({...b,score:[0,2]})),"V44b: menang ditandai");assert(/✕ Meleset/.test(F.resTag({...b,score:[0,1]})));assert(/✓ Tepat/.test(F.resTag({...b,score:[2,0]})));
  assert(/~ Imbang/.test(F.resTag({...b,p:{h:55,d:25,a:20},score:[1,1]})),"bukan terbuka: imbang tetap ~");
  assert(/pm/.test("pm")&&/Terbuka/.test(F.cfTag({...b,p:{h:70,d:20,a:10},pm:{p:[41,27,32]}})),"laga selesai memakai tebakan sebelum kickoff");
  const r=F.riskOf({status:"NS",src:"BSD",league:"J1 League",home:{name:"A"},away:{name:"B"},p:{h:45,d:27,a:28}});assert(r.some(t=>/BSD baru benar 2 dari 10 laga/.test(t)),r);
