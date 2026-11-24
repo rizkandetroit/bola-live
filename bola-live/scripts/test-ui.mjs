@@ -382,5 +382,36 @@ console.log("test-ui V38e ok");
  const c=F.rkCard(R.A[0],0);assert(c.includes("Home2</b> diunggulkan 70%")&&c.includes("Skor: 2-0 <small>")&&c.includes("data-mc=\"2\"")&&F.rkCard({...R.A[0],eid:null},0).indexOf("data-mc")<0,c);
  assert(F.rkLine(R.A[2]).includes("tidak kalah"),"laga terbuka ditulis tidak kalah: "+F.rkLine(R.A[2]));
  assert(F.rkCard(R.F[0],0).includes("Tepat"),"laga selesai diberi tanda hasil");
+ {const L1={...R.A[0],status:"LIVE",pend:1,pendLate:0,score:[null,null]},L2={...L1,pend:0,min:55,score:[1,0]},F2={...R.F[0],score:[1,1],et:[1,0],pen:null};
+  const c1=F.rkCard(L1,0),c2=F.rkCard(L2,0),c3=F.rkCard(F2,0);assert(c1.includes("Baru mulai")&&!/null/.test(c1),c1);assert(c2.includes("55'")&&c2.includes("1 - 0"),c2);assert(c3.includes("PW 2-1"),c3);
+  assert(c2.includes('role="button" tabindex="0"'))}
  const tx=F.rkText(mid);assert(tx.startsWith("Rangkuman harian Bola Live - "+td)&&tx.includes("1. ")&&tx.includes("SUDAH SELESAI")&&!/<[a-z]/.test(tx),tx)}
+// V42e: uji acak kasus aneh di semua fungsi tampilan utama (tidak boleh error / undefined / NaN / null / Infinity)
+{const F=new Function(pre+";return {card,row,card_0,row_0,rkCard_0,cardDet,rkCard,rkLine,rkText,cfTag,resTag,sc3,riskOf,anHtml,setD:function(d){D=d}}")();
+ let sd=11;const rn=()=>(sd=(sd*16807)%2147483647)/2147483647,pick=a=>a[Math.floor(rn()*a.length)];
+ const BAD=/\bundefined\b|\bNaN\b|\bnull\b|Infinity|\[object/;const now=Date.now();let n=0;
+ const mk=i=>{const st=pick(["NS","NS","LIVE","FT","FT"]),h=rn()*70+5,d=rn()*(95-h)*.6,a=100-h-d,hasP=rn()>.1;
+  const x={id:"b"+i,eid:rn()>.1?1000+i:null,src:pick(["BSD","BSD","HL"]),status:st,league:pick(["Premier League","Liga 1","Copa del Rey","Liga F","Eerste Divisie"]),lc:pick([null,"ID","ES"]),
+   utc:new Date(now+(st==="NS"?(rn()*48-6)*36e5:-(rn()*20)*36e5)).toISOString(),home:{name:pick(["Jong Ajax","Real Madrid","San Luis","Persib Bandung","A"])},away:{name:pick(["RC Lens","Kansas City","B","Borussia Mönchengladbach"])},
+   score:st==="NS"?[null,null]:rn()>.2?[Math.floor(rn()*4),Math.floor(rn()*4)]:[null,null],min:st==="LIVE"&&rn()>.3?Math.floor(rn()*95):null,ht:st==="LIVE"&&rn()>.8?1:0,pend:st==="LIVE"&&rn()>.7?1:0,pendLate:rn()>.5?1:0,
+   level:pick(["Tipis","Sedang","Kuat"]),edge:Math.abs(h-a),pick:h>=a?"h":"a",np:hasP?0:1};   // data asli: tanpa p <=> np
+  if(hasP)x.p={h,d,a,xg:rn()>.3?[rn()*2.5,rn()*2]:null,ou:rn()>.3?rn()*100:null,bt:rn()>.3?rn()*100:null};
+  if(st==="FT"&&rn()>.2&&hasP)x.pm={p:[h,d,a]};if(st==="FT"&&rn()>.85&&x.score[0]!=null){x.et=[Math.floor(rn()*2),Math.floor(rn()*2)];if(rn()>.5)x.pen=[4,3]}
+  if(rn()>.4)x.bl={h:h+1,d,a:a-1,xg:[rn()*2.5,rn()*2],ms:pick([[1,0],[1,1],[2,1]]),ou:50,bt:50,src:pick(["xi","abs"]),lsrc:pick(["pred","xi",null]),lu:rn()>.5?[.8,.95,.9,.7]:null,k:pick([[2,0],[0,0],[0,3]])};   // data asli: bl selalu punya xg, ms, k
+  if(rn()>.5)x.cf={k:pick(["jelas","cukup","terbuka"]),hit:rn()>.3?50+rn()*20:null,n:300};
+  if(rn()>.5)x.why=["Klasemen menipu: A #3"];if(rn()>.6){const nh=Math.floor(rn()*6),na=Math.floor(rn()*6),L=n=>Array.from({length:n},(_,j)=>["Pemain "+j,pick(["i","s","d"])]);x.ab={h:L(nh),a:L(na),nh,na}}if(x.bl&&rn()>.5)x.bl.mi=[["P. Satu"],[]];return x};
+ const M=[];for(let i=0;i<400;i++)M.push(mk(i));F.setD({matches:M,week:["2026-11-20","2026-11-30"]});
+ for(const x of M){for(const [nm,f] of [["card",()=>F.card_0(x,1)],["row",()=>F.row_0(x)],["cardDet",()=>F.cardDet(x)],["cfTag",()=>F.cfTag(x)],["resTag",()=>F.resTag(x)],["sc3",()=>F.sc3(x,null)],["risk",()=>F.riskOf(x).join(" ")],
+   ["rkCard",()=>x.p&&!x.np?F.rkCard_0(x,0):""],["rkLine",()=>x.p&&!x.np?F.rkLine(x):""],["anHtml",()=>F.anHtml(x,null)]]){
+  let o;try{o=String(f()??"")}catch(e){assert.fail("fuzz "+nm+" error: "+e.message+" "+JSON.stringify(x))}
+  const tx=o.replace(/<[^>]*>/g," ");if(BAD.test(tx))assert.fail("fuzz "+nm+" teks rusak: "+tx.match(new RegExp(".{0,60}"+BAD.source+".{0,30}"))[0]+" | "+JSON.stringify({st:x.status,sc:x.score,pend:x.pend,p:!!x.p,bl:!!x.bl,et:x.et}));n++}}
+ {const y={...M.find(x=>x.bl&&x.p&&x.status==="NS"&&x.eid)},z={...y,bl:{...y.bl,ms:null,xg:null,k:null}};const o=F.card(z,1)+F.row(z);assert(!/undefined|NaN/.test(o)&&o.includes("data-mc"),"pengaman kartu: "+o.slice(0,200))}
+ const t=F.rkText();assert(!BAD.test(t),"fuzz rkText: "+t.match(new RegExp(".{0,60}"+BAD.source+".{0,30}")));
+ console.log("fuzz UI ok: "+n+" tampilan")}
+// V42e: peluang live tidak 0%/100%; klasemen laga persahabatan disingkirkan
+{const F=new Function(pre+";return {pcC,realTbl,anSit}")();
+ assert.equal(F.pcC(0),"&lt;1%");assert.equal(F.pcC(100),"&gt;99%");assert.equal(F.pcC(42.4),"42%");assert.equal(F.pcC(99.4),"99%");
+ assert(!F.realTbl("Club Friendlies",3164)&&!F.realTbl("Liga X",500)&&F.realTbl("Premier League",20)&&F.realTbl("Campeonato de Portugal",56)&&F.realTbl("Liga 2 Indonesia",0));
+ const st=Array.from({length:30},(_,i)=>({position:i+1,team_id:i+1,pts:60-i,played:10}));
+ assert.equal(F.anSit({hid:1,aid:2},{name:"Club Friendlies",standings:st}),null,"laga persahabatan: tanpa situasi klasemen")}
 console.log("test-ui V39 ok");
