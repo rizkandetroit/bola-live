@@ -22,7 +22,7 @@ export function morningReport(hist,now){
   const kej=J.filter(q=>!q.j.ok&&q.j.k!=="seri").sort((a,b)=>b.j.pv-a.j.pv).slice(0,5).map(q=>({lg:q.x.lg,h:q.x.h,a:q.x.a,r:q.x.r,tim:q.j.f===0?q.x.h:q.x.a,pv:Math.round(q.j.pv),k:q.j.k,seri:q.j.o===1,ab:q.x.ab||null}));
   const by=new Map();for(const q of J){const g=by.get(q.x.lg)||{lg:q.x.lg,n:0,ok:0};g.n++;if(q.j.ok)g.ok++;by.set(q.x.lg,g)}
   const lg=[...by.values()].filter(g=>g.n>=3),best=lg.filter(g=>g.ok/g.n>=.7).sort((a,b)=>b.ok/b.n-a.ok/a.n||b.n-a.n).slice(0,3),worst=lg.filter(g=>g.ok/g.n<=.4).sort((a,b)=>a.ok/a.n-b.ok/b.n||b.n-a.n).slice(0,3);
-  return{v:1,from:new Date(s).toISOString(),to:new Date(e).toISOString(),n:done.length,wait,ok,imb,mel:done.length-ok-imb,
+  return{v:1,updated:new Date(now).toISOString(),from:new Date(s).toISOString(),to:new Date(e).toISOString(),n:done.length,wait,ok,imb,mel:done.length-ok-imb,
     open:{n:openN.length,ok:openN.filter(q=>q.j.ok).length,seri:openSeri},strong:{n:strong.length,ok:strong.filter(q=>q.j.ok).length},fav:{n:fav.length,ok:favOk.length},
     bsd:acc("p"),bl:acc("bl"),sk:acc("sk"),ou:{n:ouQ.length,ok:ouOk},bt:{n:btQ.length,ok:btOk},kej,best,worst}}
 const tgl=ms=>new Date(ms+WITA).toLocaleDateString("id-ID",{timeZone:"UTC",weekday:"long",day:"numeric",month:"long"});
