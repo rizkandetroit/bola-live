@@ -525,7 +525,7 @@ table.kl td b{font-family:var(--mono)}
  .h2t td.t{max-width:120px;overflow:hidden;text-overflow:ellipsis}}
 .rk-h{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:6px 0 10px}.rk-h h2{margin:0}.rk-h h2 small{margin-left:6px;font-weight:400;color:var(--mut)}
 .rk-act button{border:1px solid var(--ln2);background:var(--pn2);color:var(--ink);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;margin-left:6px}
-.rkc{border:1px solid var(--ln,#ddd);border-radius:10px;padding:9px 11px;margin:0 0 8px;break-inside:avoid;cursor:pointer}
+.rkc[data-mc]:hover{border-color:var(--ln3)}.rkc{border:1px solid var(--ln,#ddd);border-radius:10px;padding:9px 11px;margin:0 0 8px;break-inside:avoid;cursor:pointer}
 .rkc .k1{display:flex;gap:8px;justify-content:space-between;font-size:12px;color:var(--mut)}.rkc .k2{font-weight:600;margin:3px 0;white-space:normal;overflow-wrap:anywhere}.rkc .k3{font-size:13px;line-height:1.45;white-space:normal;overflow-wrap:anywhere}
 .rkc .kn{display:inline-block;min-width:20px;font-weight:700;color:var(--mut)}.rkc .rsk{color:#b45309}.rk-sec{margin:14px 0 6px;font-weight:700}
 @media print{body.prk .hdr,body.prk .tick,body.prk #mc,body.prk .ex,body.prk .sub,body.prk .rk-act,body.prk #v-j,body.prk #v-s,body.prk #v-k,body.prk #v-e,body.prk #v-p,body.prk .live-pill{display:none!important}
@@ -1086,7 +1086,7 @@ function rkLine(x){var q=preP(x),dr=drawTop(x),f=q.h>=q.a?x.home:x.away,m=Math.m
   var sc=sc3(x,null),r=riskOf(x).slice(0,2);
   return t+w+(sc&&sc!=="-"?' Skor: '+sc+'.':'')+(r.length?' <span class="rsk">Waspada: '+r.join("; ")+'.</span>':'')}
 function rkCard(x,i){var stx=x.status==="LIVE"?'<span class="st lv">'+(x.min!=null?x.min+"\'":"Live")+' · '+x.score[0]+'-'+x.score[1]+'</span>':x.status==="FT"?'<b>'+x.score[0]+'-'+x.score[1]+'</b>'+resTag(x):tf.format(new Date(x.utc))+' WITA';
-  return'<div class="rkc" data-mc="'+esc(x.id)+'"><div class="k1"><span><span class="kn">'+(i+1)+'.</span>'+esc(lgLabel(x.league||"",x.lc))+'</span><span>'+stx+'</span></div><div class="k2">'+esc(x.home.name)+' vs '+esc(x.away.name)+' '+cfTag(x)+'</div><div class="k3">'+rkLine(x)+'</div></div>'}
+  return'<div class="rkc"'+(x.eid?' data-mc="'+x.eid+'"':'')+'><div class="k1"><span><span class="kn">'+(i+1)+'.</span>'+esc(lgLabel(x.league||"",x.lc))+'</span><span>'+stx+'</span></div><div class="k2">'+esc(x.home.name)+' vs '+esc(x.away.name)+' '+cfTag(x)+'</div><div class="k3">'+rkLine(x)+'</div></div>'}
 function renderRk(){var el=$("#v-r");if(!el)return;if(!D){el.innerHTML='<div class="em">Memuat data...</div>';return}
   var R=rkList(),dt=new Date(R.td+"T12:00:00Z"),d2=new Date(dt.getTime()+864e5),lbl=DN[dt.getUTCDay()]+", "+dt.getUTCDate()+" "+MN[dt.getUTCMonth()]+" "+dt.getUTCFullYear();
   var h='<div class="rk-h"><h2>Rangkuman harian <small>'+esc(lbl)+'</small></h2><div class="rk-act"><button data-rk="print">Cetak / simpan PDF</button><button data-rk="txt">Unduh teks</button></div></div>';
