@@ -24,7 +24,8 @@ Dasbor jadwal, skor live, dan analisis prediksi sepak bola. Berjalan otomatis di
 | `net.mjs` | Utilitas jaringan & penyimpanan state |
 | `carry.mjs` | Menentukan mode ringan/berat |
 | `preflight.mjs` | Cek awal: langganan BSD, GitHub Pages, cabang |
-| `guard.mjs` | Penjaga sebelum tayang |
+| `guard.mjs` | Penjaga sebelum tayang; juga menulis `health.json` (Data Health Center) |
+| `health.mjs` | Pemeriksaan kesehatan data: API, umur data, kelengkapan per laga, anomali, versi (hanya membaca) |
 | `check-bsd-history.mjs`, `check-highlightly.mjs` | Alat cek manual (workflow "sekali jalan") |
 | `test*.mjs`, `fixtures/` | Tes otomatis |
 

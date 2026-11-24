@@ -44,4 +44,36 @@ const run=(d,mode,env={})=>spawnSync(process.execPath,[join(here,"guard.mjs"),mo
 {const d=mk();put(d,"state/results.json",rows(1200));put(d,"prev/all.json",{matches:[]});run(d,"before");put(d,"site/all.json",{matches:[],bsd:{tm:{liga:3}}});
  const o=run(d,"after",{GITHUB_STEP_SUMMARY:join(d,"sum.md")});assert.equal(o.status,0);const md=readFileSync(join(d,"sum.md"),"utf8");assert(md.includes("Kesehatan data")&&md.includes("results.json | 1200"))}
 {const d=mk();put(d,"state/rekam-index.json",{total:900,months:[]});assert.equal(counts(join(d,"state")+"/")["rekam-index.json"],900);assert.equal(check({"rekam-index.json":900},{"rekam-index.json":850}).length,1,"V50: arsip rekam jejak menyusut -> ditolak");assert.deepEqual(check({"rekam-index.json":900},{"rekam-index.json":950}),[])}
+{// V51: Data Health Center
+ const {dataHealth,matchHealth}=await import("./health.mjs");const now=Date.parse("2026-11-25T12:00:00Z"),H=36e5,iso=t=>new Date(t).toISOString();
+ const d=mk(),S=join(d,"site")+"/";mkdirSync(S+"m");mkdirSync(S+"lg");
+ const M=[{eid:1,lid:1,league:"Premier League",hid:10,aid:11,utc:iso(now+H),status:"NS",home:{name:"A"},away:{name:"B"},score:[null,null],p:{h:50,d:25,a:25,xg:[1,1],mv:"dc-blend-v1"},bl:{h:50,d:25,a:25}},
+  {eid:2,lid:1,league:"Premier League",hid:12,aid:13,utc:iso(now+30*6e4),status:"NS",home:{name:"C"},away:{name:"D"},score:[null,null],p:{h:60,d:30,a:30}},             // jumlah 120% -> anomali
+  {eid:3,lid:2,league:"Serie A",hid:14,aid:15,utc:iso(now-5*H),status:"LIVE",home:{name:"E"},away:{name:"F"},score:[1,0],p:{h:40,d:30,a:30}},                            // macet
+  {eid:4,lid:2,league:"Serie A",hid:16,aid:17,utc:iso(now-3*H),status:"NS",home:{name:"G"},away:{name:"H"},score:[null,null],np:true},                                   // belum mulai padahal lewat
+  {eid:5,lid:79,league:"Club Friendlies",hid:18,aid:19,utc:iso(now+2*H),status:"NS",home:{name:"I"},away:{name:"J"},score:[null,null],np:true},
+  {eid:6,lid:1,league:"Premier League",hid:10,aid:11,utc:iso(now+H),status:"NS",home:{name:"A"},away:{name:"B"},score:[null,null],p:{h:50,d:25,a:25}},                    // ganda dengan eid 1
+  {eid:7,lid:1,league:"Premier League",hid:20,aid:21,utc:iso(now-20*H),status:"FT",home:{name:"K"},away:{name:"L"},score:[null,null],p:{h:50,d:25,a:25}},                 // selesai tanpa skor
+  {eid:8,lid:1,league:"Premier League",hid:22,aid:23,utc:iso(now+200*H),status:"NS",home:{name:"M"},away:{name:"N"},score:[null,null],p:{h:50,d:25,a:25}}];               // di luar jendela
+ put(d,"site/all.json",{updated:iso(now-2*6e4),errors:["contoh: kuota habis"],bsd:{calls:10,mode:"light",fatal:false},hl:{today:17,cap:90,matches:45,leagues:6,errors:[]},matches:M});
+ put(d,"site/m/1.json",{lineups:{lineup_status:"confirmed"},h2h:[{}],form:{home:{},away:{}}});put(d,"site/m/2.json",{lineups:{lineup_status:"predicted"},h2h:[]});
+ put(d,"site/lg/1.json",{name:"Premier League",standings:[{team_id:10}]});put(d,"site/model-bl.json",{updated:iso(now-30*H),nMatches:900});put(d,"site/rekam-index.json",{updated:iso(now),total:500,st:{conflicts:0,dup:0}});
+ const X=dataHealth(S,{now,guard:{fixed:[]},warn:[]}),ck=k=>X.checks.find(c=>c.k===k);
+ assert.equal(X.matches.n,7,"jendela: 30 jam lalu - 72 jam ke depan + laga live/belum mulai yang lewat");assert.equal(X.matches.pred,5);assert.equal(X.matches.lu.need,3);assert.equal(X.matches.lu.confirmed,1);assert.equal(X.matches.lu.predicted,1);
+ assert.equal(X.matches.tblNeed,6,"laga persahabatan tidak dihitung");assert.equal(X.matches.tbl,4);
+ const kinds=X.anomalies.map(a=>a.k).sort();assert.deepEqual(kinds,["belum","ganda","macet","peluang","skor"],JSON.stringify(X.anomalies));
+ assert.equal(ck("err").st,"warn");assert.equal(ck("bsd").st,"warn","kuota -> peringatan");assert.equal(ck("guard").st,"ok");assert.equal(ck("rekam").st,"ok");assert.equal(X.status,"warn");
+ assert.equal(X.files["model-bl.json"],iso(now-30*H));assert.equal(X.files["pf.json"],null);assert.deepEqual(X.ver.bsd,{"dc-blend-v1":1});
+ assert(X.leagues[0].lg==="Premier League"||X.leagues[0].lg==="Serie A");assert(/Z$/.test(X.updated));
+ // data sehat -> ok; BSD fatal -> masalah; guard memulihkan -> peringatan
+ put(d,"site/all.json",{updated:iso(now),errors:[],bsd:{calls:10},matches:[M[0]]});assert.equal(dataHealth(S,{now}).status,"ok");
+ put(d,"site/all.json",{updated:iso(now),errors:[],bsd:{fatal:true},matches:[]});assert.equal(dataHealth(S,{now}).status,"bad");
+ put(d,"site/all.json",{updated:iso(now),errors:[],bsd:{},matches:[]});assert.equal(dataHealth(S,{now,guard:{fixed:["results.json: 2000 -> 10"]}}).checks.find(c=>c.k==="guard").st,"warn");
+ // data rusak tidak membuat pemeriksa gagal
+ put(d,"site/all.json",{matches:[{status:"NS",utc:"bukan tanggal"},{status:"FT",utc:iso(now-H)},null].filter(Boolean)});assert.doesNotThrow(()=>dataHealth(S,{now}));
+ assert.doesNotThrow(()=>dataHealth(join(d,"kosong")+"/",{now}));
+ // guard "after" menulis health.json ke situs
+ {const g=mk();put(g,"state/results.json",{rows:[]});put(g,"prev/all.json",{matches:[]});run(g,"before");put(g,"site/all.json",{updated:new Date().toISOString(),matches:[],bsd:{}});const o=run(g,"after");assert.equal(o.status,0,o.stderr);
+  const hj=JSON.parse(readFileSync(join(g,"site/health.json"),"utf8"));assert(hj.v===1&&Array.isArray(hj.checks)&&hj.checks.length>=5,"health.json tayang")}}
+
 console.log("guard ok");

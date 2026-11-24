@@ -11,6 +11,7 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 const mkTmp=()=>mkdtempSync(join(tmpdir(),"guard-"))+"/";
 import {stateDir,outDir,siteBase,tfetch} from "./net.mjs";
+import {dataHealth} from "./health.mjs";
 
 const E=process.env,mode=process.argv[2]||"after",SD=stateDir()||"",dir=outDir(import.meta.url),tmp=E.GUARD_TMP||(SD?SD+"../.guard-before.json":"/tmp/guard-before.json");
 const snapDir=tmp.replace(/\.json$/,"")+"-files/";
@@ -68,6 +69,8 @@ async function main(){
   if(E.GITHUB_OUTPUT&&fixed.length)appendFileSync(E.GITHUB_OUTPUT,"restored="+fixed.length+"\n");
   writeFileSync(dir+"state-manifest.json",JSON.stringify({updated:new Date().toISOString(),c:after}));
   {const H=health(dir,SD,after);for(const x of H.w)console.log((E.GITHUB_ACTIONS?"::warning title=Kesehatan::":"PERINGATAN: ")+x);
+   // V51: Data Health Center (tayang). Hanya membaca keluaran run; bila gagal dibuat, deploy tetap jalan.
+   try{writeFileSync(dir+"health.json",JSON.stringify(dataHealth(dir,{guard:{fixed},warn:H.w})))}catch(e){console.log((E.GITHUB_ACTIONS?"::warning::":"")+"health.json tidak dibuat: "+e.message)}
    if(E.GITHUB_STEP_SUMMARY)try{appendFileSync(E.GITHUB_STEP_SUMMARY,"### Kesehatan data\n\n"+(H.w.length?H.w.map(x=>"- ⚠️ "+x).join("\n"):"- ✅ Tidak ada masalah")+"\n"+H.info.map(x=>"- "+x).join("\n")+
      "\n\n| File | Isi |\n|---|---|\n"+Object.entries(after).map(([k,v])=>`| ${k} | ${v} |`).join("\n")+(fixed.length?"\n\n**Dipulihkan dari snapshot:** "+fixed.join("; "):"")+"\n")}catch(e){}}
   // cadangan harian

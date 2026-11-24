@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V50</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V51</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -388,6 +388,29 @@ console.log("test-ui V49 ok");
  F.setD({matches:[x],week:["2026-11-20","2026-11-30"]});const c=F.card_0(x,1);assert(c.includes("Model BL: 50 / 25 / 25")&&!/undefined|NaN|null/.test(c.replace(/<[^>]+>/g," ")),"kartu 1004 tanpa galat");
  assert.equal(F.blLine({...x,bl:{h:null,d:null,a:null}}),"");const w=console.warn;let warned=0;console.warn=()=>{warned++};const g=F.safeC(()=>{throw new Error("uji")},x,"card");console.warn=w;assert(g.includes('data-mc="1004"')&&warned===1,"galat tak terduga tetap dicatat")}
 console.log("test-ui V50 ok");
+{// V51: Data Health Center (UI) + kelengkapan data per laga
+ const F=new Function(pre+`;return {healthHtml,hdStatus,hdAge,dqOf,dqHtml,anHtml,AN,KL,setD:function(d){D=d}}`)();
+ const now=Date.parse("2026-11-25T12:00:00Z"),iso=t=>new Date(t).toISOString();
+ const H={v:1,updated:iso(now-2*6e4),status:"ok",checks:[{k:"bsd",label:"API BSD",st:"ok",val:"10 panggilan",note:"mode ringan"},{k:"an",label:"Anomali data",st:"ok",val:"tidak ada",note:null}],
+  files:{"all.json":iso(now-3*6e4),"model-bl.json":iso(now-30*36e5),"pf.json":null},age:{"all.json":[.5,2],"model-bl.json":[26,50],"pf.json":[3,26]},ver:{site:"V51",bsd:{"dc-blend-v1":500},modelBL:{updated:iso(now-30*36e5),n:900}},
+  leagues:[{lg:"Premier League",n:10,miss:2,items:{"line-up":2}}],anomalies:[{k:"macet",id:3,t:"Masih LIVE 5 jam setelah kickoff",m:"E vs F"}],anomalyN:1};
+ F.setD({matches:[],week:["2026-11-20","2026-11-30"]});
+ assert.equal(F.hdStatus(H,now),"ok");assert.equal(F.hdStatus(H,now+3*36e5),"bad","data tidak diperbarui 3 jam -> masalah (dihitung ulang di halaman)");assert.equal(F.hdStatus(H,now+40*6e4),"warn");
+ assert.deepEqual(F.hdAge(H,now).map(a=>a.st),["ok","warn","warn"]);
+ const t=F.healthHtml(H,now).replace(/<[^>]+>/g," ").replace(/\s+/g," ");
+ assert(/🟢 Kesehatan data Data lengkap dan terbaru · diperiksa 2 menit lalu/.test(t)&&/API BSD 10 panggilan mode ringan/.test(t)&&/Model BL \(dilatih\) 30 jam lalu 26 jam/.test(t)&&/Performa pemain tidak ada/.test(t),t.slice(0,700));
+ assert(/situs V51 · model BSD dc-blend-v1 \(500 laga\) · Model BL dilatih/.test(t)&&/Liga Inggris 10 2 line-up 2/.test(t)&&/E vs F Masih LIVE 5 jam/.test(t)&&!/undefined|NaN|null/.test(t));
+ assert(/belum tersedia/.test(F.healthHtml(null)));
+ // kelengkapan data per laga
+ const x={eid:1,src:"BSD",lid:1,league:"Premier League",hid:1,aid:2,utc:iso(Date.now()+36e5),status:"NS",home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25,xg:[1,1]},bl:{h:50,d:25,a:25,xg:[1,1],ms:[1,0],k:[0,0]}};
+ F.AN.lg[1]={name:"Premier League",standings:[{team_id:1}]};
+ const q=F.dqOf(x,{lineups:{lineup_status:"predicted"},h2h:[{}],form:{home:{}}});assert.equal(q.lim,false);
+ assert.deepEqual(q.it.map(i=>i[0]+":"+i[1]),["Prediksi BSD:1","xG BSD:1","Model BL:1","Detail laga:1","Form:1","H2H:1","Line-up:0.5","Klasemen:1"]);
+ const q2=F.dqOf({...x,p:{h:50,d:25,a:25},bl:null},null);assert.equal(q2.lim,true,"tanpa xG, tanpa Model BL, tanpa detail -> data terbatas");
+ assert.equal(F.dqOf({...x,np:true,p:null},null).lim,true);assert(!F.dqOf({...x,league:"Club Friendlies"},null).it.some(i=>i[0]==="Klasemen"),"persahabatan: klasemen tidak dinilai");
+ const h=F.dqHtml({...x,p:{h:50,d:25,a:25},bl:null},null).replace(/<[^>]+>/g," ");assert(/Kelengkapan data/.test(h)&&/Data terbatas/.test(h)&&!/undefined|NaN|null/.test(h));
+ const a=F.anHtml(x,null);assert(a.indexOf("Kelengkapan data")>=0&&a.indexOf("Kelengkapan data")<200,"baris kelengkapan di atas Analisa");assert.equal(F.anHtml(null,null),'<div class="em">Analisa belum tersedia.</div>')}
+console.log("test-ui V51 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");
