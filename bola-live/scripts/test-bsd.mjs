@@ -261,6 +261,20 @@ console.log("OK    V31: kiper cadangan & beban menit");
 console.log("OK    V45: performa pemain + uji faktor starter panas");
 {const M={times:new Map([[1,[100e6,200e6,300e6]]])};assert.equal(lastPlayed(M,1,300e6),200e6,"laga sebelum kickoff");assert.equal(lastPlayed(M,1,100e6),null);assert.equal(lastPlayed(M,2,5e8),null);assert.equal(lastPlayed(M,1,1e9),300e6)}
 console.log("OK    V46: laga terakhir tim (istirahat)");
+{// V48: laporan pagi
+ const {dayWindow,judge,morningReport,reportText}=await import("./laporan.mjs");
+ const now=Date.parse("2026-11-25T00:00:00Z"),[s,e]=dayWindow(now);   // 08.00 WITA 25 Nov -> 24 Nov 06.00 .. 25 Nov 06.00 WITA
+ assert.equal(new Date(s).toISOString(),"2026-11-23T22:00:00.000Z");assert.equal(new Date(e).toISOString(),"2026-11-24T22:00:00.000Z");
+ const[s2]=dayWindow(Date.parse("2026-11-24T21:30:00Z"));assert.equal(new Date(s2).toISOString(),"2026-11-22T22:00:00.000Z","05.30 WITA: masih kemarin lusa");
+ assert.deepEqual([judge([60,25,15],[1,0]).ok,judge([60,25,15],[1,1]).imb,judge([40,30,30],[1,1]).ok,judge([40,30,30],[0,1]).ok,judge([30,40,30],[0,0]).ok,judge([30,40,30],[1,0]).ok],[true,true,true,false,true,false]);
+ const u=t=>new Date(Date.parse("2026-11-24T00:00:00Z")+t*36e5).toISOString();
+ const H=[{lg:"A",u:u(1),h:"X",a:"Y",p:[70,20,10],r:[2,0],ou:60,bt:40,bl:[60,25,15],sk:[65,22,13]},{lg:"A",u:u(2),h:"P",a:"Q",p:[65,20,15],r:[0,1],ab:[3,0]},{lg:"A",u:u(3),h:"M",a:"N",p:[40,32,28],r:[2,2]},
+   {lg:"B",u:u(4),h:"K",a:"L",p:[50,25,25],r:[1,1]},{lg:"A",u:u(5),h:"T",a:"U",p:[30,25,45],r:null},{lg:"C",u:u(30),h:"Z",a:"W",p:[50,25,25],r:[1,0]}];
+ const R=morningReport(H,now);assert.equal(R.n,4);assert.equal(R.wait,1);assert.deepEqual([R.ok,R.imb,R.mel],[2,1,1]);assert.deepEqual(R.strong,{n:2,ok:1});assert.deepEqual(R.open,{n:1,ok:1,seri:1});
+ assert.equal(R.kej[0].tim,"P");assert.equal(R.kej[0].pv,65);assert.deepEqual(R.ou,{n:1,ok:0});assert.deepEqual(R.bt,{n:1,ok:1});assert.deepEqual(R.worst,[]);assert.deepEqual(R.best,[]);
+ const T=reportText(R);assert(/Hari bola Selasa, 24 November/.test(T)&&/4 laga selesai \(1 belum ada hasil\): ✓ Tepat 2 dari 4 \(50%\), ~ Imbang 1, ✕ Meleset 1/.test(T)&&/1\. P 0-1 Q \(A\): P menang 65%, absen 3-0/.test(T),T);
+ assert(/belum ada laga/.test(reportText(morningReport([],now))));assert(!/undefined|NaN/.test(T))}
+console.log("OK    V48: laporan pagi");
 {// V29: koreksi terarah menemukan bias pelatih baru & habis Eropa yang ditanam
  let x=11;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];
  for(let i=0;i<3000;i++){const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28];

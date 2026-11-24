@@ -6,6 +6,7 @@ import {fitModel,predictModel,rollingBacktest,score,rps,disagree,experiments,lin
 import {factorTests,EU_RE} from "./factors.mjs";
 import {trainStack,trainLean,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow,formOf,formNeedNames} from "./players.mjs";
+import {morningReport,reportText} from "./laporan.mjs";
 export const FRIENDLY_RE=/friendl|persahabatan|amical|amistos|testspiel/i;   // V46: sama dengan FRIENDLY di index.html
 import {level,r1} from "./lib.mjs";
 // V32: sakelar pemasangan hasil uji coba. Dinyalakan HANYA setelah lolos uji mundur dan disetujui pemilik (lihat Evaluasi > Uji coba).
@@ -400,8 +401,9 @@ async function main(){
   const T0=Date.now(),lap=n=>{(deep.tm=deep.tm||{})[n]=Math.round((Date.now()-T0)/1000)};   // V19 (audit): detik sejak mulai, per tahap (tampil di all.json bsd.tm)
 
   // V43b: tim di klasemen musim ini per liga (untuk peringkat kekuatan asli); laga persahabatan & tabel raksasa dilewati
-  const CUR=new Map(),curAdd=(id,o)=>{if(!o||/friendl/i.test(o.name||""))return;const G=[];   // V43e: liga bergrup -> satu Set per grup
+  const LGN=new Map(),CUR=new Map(),curAdd=(id,o)=>{if(!o||/friendl/i.test(o.name||""))return;const G=[];   // V43e: liga bergrup -> satu Set per grup
     if(!o.grouped&&o.standings)G.push(o.standings);else if(o.groups)for(const g of Object.values(o.groups)){const r=Array.isArray(g)?g:g&&g.standings;if(r)G.push(r)}
+    for(const r of G)for(const x of r)if(x&&x.team_id!=null&&x.team_name)LGN.set(x.team_id,x.team_name);   // V48: nama tim dari klasemen (untuk riwayat hasil profil tim)
     let sets=G.filter(r=>r.length>=6&&r.length<=60).map(r=>new Set(r.map(x=>x.team_id).filter(x=>x!=null)));
     if(!sets.length&&G.length>1){const U=new Set(G.flat().map(x=>x.team_id).filter(x=>x!=null));if(U.size>=6&&U.size<=80)sets=[U]}   // V46: grup kecil (mis. 4 tim, CAF/UCL lama) -> satu himpunan semua peserta; strengthRanks menolak bila mayoritas tim liganya lain
     if(sets.length)CUR.set(id,sets)},
@@ -610,6 +612,11 @@ async function main(){
         const MAXN=Number(process.env.BL_PF_NAMES??150);await pool([...need].slice(0,MAXN),async pid=>{const o=await get(`${BASE}/players/${pid}/`,{soft:true});deep.pfn=(deep.pfn||0)+1;VA.p[pid]=valueOf(o,now)||[null,null,Math.round(now/1000)]});
         if(need.size)writeState("values.json",{v:1,updated:new Date(now).toISOString(),p:VA.p},{dir})}
       const PF={};for(const id of tm){const f=formOf(X2.e,id,VA.p);if(f&&f.p.length)PF[id]=f}
+      // V48: 10 hasil terakhir tiap tim (dari riwayat hasil Model BL) untuk profil tim: [waktu, liga, lawan, 0 kandang/1 tandang, gol tim, gol lawan]
+      try{const TS=await pullS("tn.json"),TN=TS&&TS.t||{};for(const[id,n]of LGN)TN[id]=n;for(const m of every){if(m.hid!=null&&m.home&&m.home.name)TN[m.hid]=m.home.name;if(m.aid!=null&&m.away&&m.away.name)TN[m.aid]=m.away.name}
+        writeState("tn.json",{v:1,updated:new Date(now).toISOString(),t:TN},{dir});
+        const RS=await pullS("results.json"),HR=new Map();for(const r of RS&&RS.rows||[]){if(!r||r[5]==null||r[6]==null)continue;for(const s of[0,1]){const id=r[3+s];if(!tm.has(id))continue;(HR.get(id)||HR.set(id,[]).get(id)).push([r[1],r[2],TN[r[4-s]]||null,s,s?r[6]:r[5],s?r[5]:r[6]])}}
+        for(const[id,L]of HR){L.sort((a,b)=>b[0]-a[0]);(PF[id]||(PF[id]={n:0,p:[]})).hr=L.slice(0,10)}deep.hr=HR.size}catch(e){errors.push("riwayat hasil tim: "+e.message)}
       writeState("pf.json",{v:1,updated:new Date(now).toISOString(),t:PF},{pub:true,dir});deep.pf=Object.keys(PF).length;pfDone=true}catch(e){errors.push("performa pemain: "+e.message)}}
     {const keep=new Set(rows.map(r=>String(r[0])));for(const k of Object.keys(XR.e))if(!keep.has(k))delete XR.e[k]}deep.xiN=Object.keys(XR.e).length;
     writeState("xi.json",{v:1,updated:new Date(now).toISOString(),e:XR.e},{dir});
@@ -724,6 +731,7 @@ async function main(){
     // V37 (Analisa Tahap 3): tebakan yang dicatat sebelum kickoff ikut ditempel ke laga selesai, untuk bedah sesudah laga
     {const HM=new Map(hist.map(e=>[e.id,e]));for(const m of matches){if(m.status!=="FT"||!m.eid)continue;const e=HM.get(m.eid);if(e&&e.p)m.pm={p:e.p,bl:e.bl||null}}}deep.missF=fillMissFacts(hist,now,id=>{try{return JSON.parse(readFileSync(dir+"m/"+id+".json","utf8"))}catch(e){return null}});
     writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now),miss:evalMiss(hist,now)}))}
+    try{const LP=morningReport(hist,now);writeFileSync(dir+"laporan.json",JSON.stringify(LP));writeFileSync(dir+"laporan.txt",reportText(LP))}catch(e){errors.push("laporan pagi: "+e.message)}   // V48
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,
     heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,ghost,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};

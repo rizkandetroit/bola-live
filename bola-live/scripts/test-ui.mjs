@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V47</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V48</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -347,6 +347,19 @@ console.log("test-ui V46 ok");
  const g=F.tpHtml(16,2).replace(/<[^>]+>/g," ").replace(/\s+/g," ");assert(/Posisi #9 dari 20/.test(g)&&/UCL \(grup\) #2 dari 1 · 6 poin/.test(g)&&/klasemen Liga Inggris; kekuatan asli dan poin vs harapan xG juga dihitung di liga ini/.test(g),"liga utama + kompetisi lain: "+g.slice(0,400));
  F.KL.tm={};F.AN.lg[3]={name:"Cup",grouped:true,groups:{A:[{position:2,team_id:77,pts:6,played:3,won:2,drawn:0,lost:1}]}};const g3=F.tpHtml(77,3).replace(/<[^>]+>/g," ");assert(/Posisi #2 dari 1/.test(F.tpHtml(77,3).replace(/<[^>]+>/g," ").replace(/\s+/g," ")),"grup: "+g3.slice(0,300))}
 console.log("test-ui V47 ok");
+{// V48: riwayat 10 laga di profil + nama tim bisa diketuk di kartu + kotak laporan
+ const F=new Function(pre+`;return {tpHtml,rkCard,lpBox,AN,KL,setLP:function(v){LP=v;LPb=1},setAll:function(d){D=d}}`)();
+ const m1={eid:11,src:"BSD",league:"Premier League",lc:"England",lid:1,hid:16,aid:20,utc:"2026-11-28T15:00:00Z",status:"NS",home:{name:"Brentford"},away:{name:"Everton"},p:{h:45,d:27,a:28}};
+ F.setAll({matches:[m1],week:["2026-11-21","2026-11-30"],updated:"2026-11-24T13:05:00Z"});F.KL.tm={};F.AN.lg[1]=null;
+ F.AN.pf={16:{n:0,p:[],hr:[[1763820000,1,"Fulham",1,2,0],[1763215200,1,null,0,1,1],[1762610400,9,"Ajax",0,0,3]]}};
+ const t=F.tpHtml(16,1).replace(/<[^>]+>/g," ").replace(/\s+/g," ");
+ assert(/3 laga terakhir · 1 menang, 1 seri, 1 kalah · gol 3-4/.test(t),"ringkasan riwayat: "+t.slice(0,400));assert(/tandang · Liga Inggris vs Fulham M 2-0/.test(t)&&/vs lawan S 1-1/.test(t)&&/vs Ajax K 0-3/.test(t),"baris riwayat");
+ assert(!/Dalam performa/.test(t)&&!/undefined|NaN|null/.test(t));
+ const c=F.rkCard(m1,0);assert(c.includes('data-tp="16"')&&c.includes('data-tp="20"')&&c.includes('data-mc="11"'),"nama tim di kartu Rangkuman bisa diketuk");
+ F.setLP({n:4,wait:1,ok:2,imb:1,mel:1,from:"2026-11-23T22:00:00.000Z",strong:{n:2,ok:1},fav:{n:0,ok:0},open:{n:1,ok:1,seri:1},bsd:{n:4,hit:2},bl:{n:1,hit:1},sk:{n:0,hit:0},ou:{n:1,ok:0},bt:{n:0,ok:0},kej:[{lg:"Premier League",h:"P",a:"Q",r:[0,1],tim:"P",pv:65,k:"arah",seri:false}],best:[],worst:[{lg:"Serie A",n:4,ok:1}]});
+ const L=F.lpBox().replace(/<[^>]+>/g," ").replace(/\s+/g," ");assert(/Laporan hari bola kemarin Selasa, 24 Nov · ✓ Tepat 2 dari 4 \(50%\)/.test(L),"kotak laporan: "+L.slice(0,200));
+ assert(/P 0-1 Q \(Liga Inggris\) ?: P menang 65%/.test(L)&&/Paling sulit: Liga Italia 1\/4/.test(L)&&!/undefined|NaN/.test(L),L);F.setLP({n:0});assert.equal(F.lpBox(),"")}
+console.log("test-ui V48 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");
