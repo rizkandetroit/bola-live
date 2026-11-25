@@ -29,6 +29,7 @@ export function matchHealth(matches,now,{lg=()=>null,md=()=>null}={}){
     if(m.status==="LIVE"&&now-t>3.5*H)an.push({k:"macet",id:m.eid,t:"Masih LIVE "+Math.round((now-t)/H)+" jam setelah kickoff",m:nm});
     if(m.status==="NS"&&now-t>2*H)an.push({k:"belum",id:m.eid,t:"Belum mulai padahal kickoff lewat "+Math.round((now-t)/H)+" jam",m:nm});
     if(m.status==="FT"&&(!m.score||m.score[0]==null||m.score[1]==null))an.push({k:"skor",id:m.eid,t:"Selesai tanpa skor",m:nm});
+    if((m.status==="FT"||m.status==="LIVE")&&t>now+H)an.push({k:"jadwal",id:m.eid,t:(m.status==="FT"?"Sudah selesai":"Sedang LIVE")+" padahal jadwal kickoff "+Math.round((t-now)/H)+" jam lagi (jadwal di sumber belum diperbarui)",m:nm});   // V55b
     const key=(m.hid??(m.home&&m.home.name))+"|"+(m.aid??(m.away&&m.away.name))+"|"+String(m.utc).slice(0,10);if(seen.has(key)&&seen.get(key)!==(m.eid??m.id))an.push({k:"ganda",id:m.eid,t:"Laga ganda (tim & tanggal sama)",m:nm});else seen.set(key,m.eid??m.id)}
   const lgs=[...L.values()].filter(g=>g.miss).sort((a,b)=>b.miss-a.miss||b.n-a.n).slice(0,12);
   return{c,lgs,an:an.slice(0,40),anN:an.length}}
@@ -59,6 +60,6 @@ export function dataHealth(dir,{now=Date.now(),guard={},warn=[]}={}){
   add("tbl","Klasemen",c.tblNeed&&pc(c.tbl,c.tblNeed)<70?"warn":"ok",c.tbl+" / "+c.tblNeed,"Laga persahabatan dan piala tanpa klasemen tidak dihitung.");
   add("lu","Line-up (laga ≤90 menit lagi)","info",c.lu.need?c.lu.confirmed+" resmi · "+c.lu.predicted+" perkiraan · "+c.lu.none+" belum ada":"tidak ada laga dalam 90 menit","Line-up resmi biasanya keluar ±1 jam sebelum kickoff.");
   add("xg","xG BSD",c.pred&&pc(c.xg,c.pred)<50?"warn":"ok",c.xg+" / "+c.pred,"Tidak semua liga punya xG.");
-  add("an","Anomali data",mh.anN?"warn":"ok",mh.anN?mh.anN+" temuan":"tidak ada","Hanya dari data yang terlihat: peluang tidak valid, laga macet, belum mulai padahal lewat, tanpa skor, ganda.");
+  add("an","Anomali data",mh.anN?"warn":"ok",mh.anN?mh.anN+" temuan":"tidak ada","Hanya dari data yang terlihat: peluang tidak valid, laga macet, belum mulai padahal lewat, tanpa skor, jadwal tidak cocok dengan status, ganda.");
   const st=ck.some(x=>x.st==="bad")?"bad":ck.some(x=>x.st==="warn")?"warn":"ok";
   return{v:1,updated:new Date(now).toISOString(),dataUpdated:all.updated||null,status:st,checks:ck,files,age:AGE,ver,matches:c,leagues:mh.lgs,anomalies:mh.an,anomalyN:mh.anN}}

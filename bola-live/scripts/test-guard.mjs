@@ -69,6 +69,7 @@ const run=(d,mode,env={})=>spawnSync(process.execPath,[join(here,"guard.mjs"),mo
  put(d,"site/all.json",{updated:iso(now),errors:[],bsd:{calls:10},matches:[M[0]]});assert.equal(dataHealth(S,{now}).status,"ok");
  put(d,"site/all.json",{updated:iso(now),errors:[],bsd:{fatal:true},matches:[]});assert.equal(dataHealth(S,{now}).status,"bad");
  put(d,"site/all.json",{updated:iso(now),errors:[],bsd:{},matches:[]});assert.equal(dataHealth(S,{now,guard:{fixed:["results.json: 2000 -> 10"]}}).checks.find(c=>c.k==="guard").st,"warn");
+ assert.equal(matchHealth([{eid:9,lid:1,league:"X",status:"FT",score:[2,1],utc:iso(now+80*H),home:{name:"a"},away:{name:"b"}}],now).an.map(a=>a.k).join(),"jadwal","V55b: selesai padahal kickoff di masa depan");
  {const q=m=>matchHealth([{eid:1,lid:5,status:"NS",utc:iso(now+H),p:{h:50,d:25,a:25},home:{name:"a"},away:{name:"b"},...m}],now,{lg:()=>null}).c;assert.equal(q({league:"Puchar Polski"}).tblNeed,0,"V52: piala tanpa klasemen tidak dihitung");assert.equal(q({league:"Ekstraklasa"}).tblNeed,1)}
  // data rusak tidak membuat pemeriksa gagal
  put(d,"site/all.json",{matches:[{status:"NS",utc:"bukan tanggal"},{status:"FT",utc:iso(now-H)},null].filter(Boolean)});assert.doesNotThrow(()=>dataHealth(S,{now}));
