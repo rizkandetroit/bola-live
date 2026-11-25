@@ -565,7 +565,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V54</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V55</span>
     <button id="hd-dot" class="hdot" data-hd="1" title="Kesehatan data" aria-label="Kesehatan data" hidden></button>
   </div>
   <div class="nvb">
@@ -1217,7 +1217,22 @@ function rekHtml(){var I=RK.idx;if(!I||!I.months||!I.months.length)return'<div c
   var np=Math.ceil(L.length/100);if(np>1)h+='<p class="cap">Halaman '+(pg+1)+' dari '+np+' · <button data-rkx="prev"'+(pg?'':' disabled')+'>‹ Sebelumnya</button> <button data-rkx="next"'+(pg+1<np?'':' disabled')+'>Berikutnya ›</button> (terbaru dulu)</p>';
   h+='<p class="cap">"Dicatat" = waktu angka terakhir diambil sebelum kickoff (arahkan kursor untuk waktu pertama, waktu berubah, dan waktu prediksi menurut BSD). "Awal" = angka pertama kali tercatat bila berbeda. Catatan sebelum 25 Nov 2026 tidak punya waktu pencatatan dan angka awal (tidak dikarang). Brier = jumlah kuadrat selisih 3 hasil (0 sempurna, makin kecil makin baik); log loss = −ln(peluang hasil yang terjadi).'+(I.st&&I.st.conflicts?' Peringatan: '+I.st.conflicts+' laga mendapat angka berbeda setelah kickoff dari sumber; arsip tetap memakai angka lama.':'')+'</p>';
   return h+'</div>'}
-function rekDraw(){var b=$("#rek-box");if(b)b.innerHTML=rekHtml()}
+/* V55: DAMPAK LINE-UP RESMI (dari arsip rekam jejak: sp = sebelum, sx = sesudah line-up resmi). Mengukur, bukan menebak:
+   seberapa jauh line-up perkiraan BSD meleset, dan apakah angka Model BL SESUDAH line-up lebih tepat daripada SEBELUM (Brier, laga selesai). */
+function luImpact(rows){var L=(rows||[]).filter(function(r){return r.sp&&r.sx}),ch=[],dist=[0,0,0,0],big=0,cmp={n:0,b0:0,b1:0,w:0,l:0},bs={n:0,b0:0,b1:0};
+  var br=function(p,r){var o=r[0]>r[1]?0:r[0]===r[1]?1:2;return p.reduce(function(a,x,i){return a+Math.pow(x/100-(i===o?1:0),2)},0)};
+  L.forEach(function(r){if(r.sx.in)[0,1].forEach(function(s){var n=(r.sx.in[s]||[]).length;ch.push(n);dist[n===0?0:n<=2?1:n<=4?2:3]++});
+    var a=r.sp.bl,b=r.sx.bl;if(a&&b&&[0,1,2].some(function(i){return Math.abs(b[i]-a[i])>=5}))big++;
+    if(r.r&&a&&b){var x0=br(a,r.r),x1=br(b,r.r);cmp.n++;cmp.b0+=x0;cmp.b1+=x1;if(x1<x0-1e-9)cmp.w++;else if(x1>x0+1e-9)cmp.l++}
+    if(r.r&&r.sp.p&&r.sx.p){bs.n++;bs.b0+=br(r.sp.p,r.r);bs.b1+=br(r.sx.p,r.r)}});
+  return{n:L.length,teams:ch.length,avg:ch.length?ch.reduce(function(a,b){return a+b},0)/ch.length:null,dist:dist,big:big,cmp:cmp,bs:bs}}
+function luImpactHtml(rows){var X=luImpact(rows);if(!X.n)return"";var f3=function(v){return v.toFixed(3).replace(".",",")},c=X.cmp;
+  var h='<div class="evs"><h2>Dampak line-up resmi <small>dari rekam jejak bulan ini</small></h2><p class="cap">'+X.n+' laga punya potret sebelum &amp; sesudah line-up resmi.';
+  if(X.teams)h+=' Line-up perkiraan BSD berbeda rata-rata <b>'+String(Math.round(X.avg*10)/10).replace(".",",")+' pemain</b> per tim dari line-up resmi (sama persis: '+X.dist[0]+' tim · 1–2 pemain: '+X.dist[1]+' · 3–4: '+X.dist[2]+' · 5+: '+X.dist[3]+').';
+  h+=' Model BL berubah ≥5 poin setelah line-up resmi di '+X.big+' laga.</p>';
+  if(c.n)h+='<p class="cap">Laga selesai dengan kedua potret: '+c.n+'. Brier Model BL <b>sebelum '+f3(c.b0/c.n)+'</b> vs <b>sesudah line-up '+f3(c.b1/c.n)+'</b> (lebih kecil = lebih tepat); sesudah lebih tepat di '+c.w+' laga, lebih buruk di '+c.l+'.'+(X.bs.n?' BSD: '+f3(X.bs.b0/X.bs.n)+' → '+f3(X.bs.b1/X.bs.n)+'.':'')+(c.n<200?' <b>Sampel masih kecil</b> — belum bisa disimpulkan; dipantau terus.':(c.b1<c.b0?' Angka sesudah line-up lebih tepat.':' Angka sesudah line-up tidak lebih tepat.'))+'</p>';
+  return h+'</div>'}
+function rekDraw(){var b=$("#rek-box");if(b)b.innerHTML=rekHtml()+(RK.rows?luImpactHtml(RK.rows):"")}
 function rekMonth(){RK.rows=null;rekDraw();if(!RK.m)return;var m=RK.m;fj("rekam-"+m+".json").then(function(j){if(RK.m===m){RK.rows=j&&j.rows||[];RK.pg=0;rekDraw()}},function(){if(RK.m===m){RK.rows=[];rekDraw()}})}
 function rekLoad(){if(RK.idx){if(RK.rows)rekDraw();else rekMonth();return}rekDraw();fj("rekam-index.json").then(function(j){RK.idx=j&&j.months?j:{months:[]};if(!RK.m&&RK.idx.months.length)RK.m=RK.idx.months[RK.idx.months.length-1].m;rekMonth()},function(){RK.idx={months:[]};rekDraw()})}
 document.addEventListener("change",function(e){var k=e.target&&e.target.dataset&&e.target.dataset.rkf;if(!k)return;if(k==="m"){RK.m=e.target.value;rekMonth();return}RK.f[k]=e.target.value;RK.pg=0;rekDraw()});

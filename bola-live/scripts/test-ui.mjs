@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V54</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V55</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -463,6 +463,14 @@ console.log("test-ui V53 ok");
  F.wToggle(6);assert(F.wHas(6));F.wPrune();assert(!F.wHas(6),"laga lama dibuang");F.wToggle(5);assert(!F.wHas(5));assert.equal(F.wHtml(),"");
  assert(!/undefined|NaN|null/.test(h))}
 console.log("test-ui V54 ok");
+{// V55: dampak line-up resmi
+ const F=new Function(pre+`;return {luImpact,luImpactHtml}`)();
+ const R=[{id:1,r:[1,0],sp:{p:[50,25,25],bl:[40,30,30]},sx:{p:[50,25,25],bl:[60,25,15],in:[["a","b"],[]],out:[["c","d"],[]]}},
+   {id:2,r:[0,1],sp:{p:[50,25,25],bl:[50,25,25]},sx:{p:[50,25,25],bl:[52,25,23],in:[["a","b","c","d","e"],["x"]],out:[[],[]]}},
+   {id:3,r:null,sp:{p:[50,25,25],bl:[50,25,25]},sx:{p:[50,25,25],bl:[50,25,25],in:null,out:null}},{id:4,r:[1,1],sp:null,sx:{bl:[1,1,98]}}];
+ const X=F.luImpact(R);assert.equal(X.n,3);assert.equal(X.teams,4);assert.equal(X.avg,2);assert.deepEqual(X.dist,[1,2,0,1]);assert.equal(X.big,1);assert.equal(X.cmp.n,2);assert.equal(X.cmp.w,1);assert.equal(X.cmp.l,1);
+ const h=F.luImpactHtml(R).replace(/<[^>]+>/g," ").replace(/\s+/g," ");assert(/Dampak line-up resmi/.test(h)&&/rata-rata 2 pemain per tim/.test(h)&&/Sampel masih kecil/.test(h)&&!/undefined|NaN|null/.test(h),h);assert.equal(F.luImpactHtml([]),"")}
+console.log("test-ui V55 ok");
 {const F=new Function(pre+`;return {drawRisk,setM:function(m){MBL=m}}`)();F.setM({drw:{rule:{pass:true,th:38,dm:28,test:{draw:34.1,base:24.6,bsdD:30.4}}}});
  const t=F.drawRisk({status:"NS",p:{h:35,d:30,a:35},bl:{d:29}});assert(/34,1%.*24,6%.*BSD sendiri sudah memperkirakan ±30,4%/.test(t),t)}
 console.log("test-ui V35c ok");
