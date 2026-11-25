@@ -565,7 +565,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V55</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V55c</span>
     <button id="hd-dot" class="hdot" data-hd="1" title="Kesehatan data" aria-label="Kesehatan data" hidden></button>
   </div>
   <div class="nvb">
@@ -1234,7 +1234,7 @@ function luImpactHtml(rows){var X=luImpact(rows);if(!X.n)return"";var f3=functio
   return h+'</div>'}
 function rekDraw(){var b=$("#rek-box");if(b)b.innerHTML=rekHtml()+(RK.rows?luImpactHtml(RK.rows):"")}
 function rekMonth(){RK.rows=null;rekDraw();if(!RK.m)return;var m=RK.m;fj("rekam-"+m+".json").then(function(j){if(RK.m===m){RK.rows=j&&j.rows||[];RK.pg=0;rekDraw()}},function(){if(RK.m===m){RK.rows=[];rekDraw()}})}
-function rekLoad(){if(RK.idx){if(RK.rows)rekDraw();else rekMonth();return}rekDraw();fj("rekam-index.json").then(function(j){RK.idx=j&&j.months?j:{months:[]};if(!RK.m&&RK.idx.months.length)RK.m=RK.idx.months[RK.idx.months.length-1].m;rekMonth()},function(){RK.idx={months:[]};rekDraw()})}
+function rekLoad(){if(RK.idx){if(RK.rows)rekDraw();else rekMonth();return}rekDraw();fj("rekam-index.json").then(function(j){RK.idx=j&&j.months?j:{months:[]};if(!RK.m&&RK.idx.months.length){var cm=new Date(Date.now()+8*36e5).toISOString().slice(0,7),ms=RK.idx.months.map(function(q){return q.m}).filter(function(m){return m<=cm});RK.m=ms.length?ms[ms.length-1]:RK.idx.months[0].m}rekMonth()   /* V55c: bawaan = bulan berjalan (WITA), bukan bulan terjauh di jadwal */},function(){RK.idx={months:[]};rekDraw()})}
 document.addEventListener("change",function(e){var k=e.target&&e.target.dataset&&e.target.dataset.rkf;if(!k)return;if(k==="m"){RK.m=e.target.value;rekMonth();return}RK.f[k]=e.target.value;RK.pg=0;rekDraw()});
 document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("[data-rkx]");if(!b)return;var k=b.dataset.rkx;if(k==="prev"){RK.pg=Math.max(0,RK.pg-1);rekDraw()}else if(k==="next"){RK.pg++;rekDraw()}
   else if(k==="csv"&&RK.rows){var bl=new Blob([rekCsv(rekFilter(RK.rows,RK.f))],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download="rekam-jejak-bola-live-"+(RK.m||"")+".csv";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}});
