@@ -7,7 +7,7 @@ import {readFileSync,writeFileSync,mkdirSync,existsSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 import {tfetch,cleanKey,outDir,siteBase,ghWarn,sleep,readPrev,readState,writeState,stateDir} from "./net.mjs";
 import {fit,predictM,level,r1} from "./lib.mjs";
-import {updateHistory,evalHistory,evalMove,evalRisk,evalBL,recapOf,evalMiss} from "./bsd.mjs";
+import {updateHistory,evalHistory,evalMove,evalRisk,evalBL,recapOf,evalMiss,voidOf} from "./bsd.mjs";
 
 // V14.1 (20 Nov 2026): + 2 liga yang tidak ada di BSD (dicek di paket gratis: laga, prediksi, klasemen tersedia).
 // Liga tambahan (extra) memakai sisa kuota: disegarkan lebih jarang dan berhenti bila pemakaian hari ini sudah >= HL_EXTRA_CAP,
@@ -68,6 +68,21 @@ export function toRec(x,lg,pred,model){
   const edge=r1(Math.abs(p.h-p.a));
   return{...r,p:{...p,engine:eng},pick:p.h>=p.a?"h":"a",edge,level:level(edge),est:true,tier:2,note};
 }
+// V56 (audit 26 Nov): laga yang sama dari dua sumber (BSD dan Highlightly) tidak boleh tampil / dinilai dua kali.
+// Dianggap SAMA hanya bila semua cocok: kickoff berselisih <= 3 jam, negara liga sama (bila kedua sumber menyebutnya),
+// "jenis tim" sama (U-xx, putri/women, II/B/cadangan; jadi Persija vs Persija U20 BUKAN laga yang sama), dan nama tuan rumah
+// DAN tamu cocok setelah dinormalkan (huruf kecil, tanpa aksen/tanda baca/FC). Bila sama, laga BSD dipertahankan (datanya lebih lengkap).
+const nrm=s=>String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+const GEN=new Set(["fc","cf","afc","sc","ac","club","the","persatuan","sepakbola","sepak","bola","football","de","cd"]);
+const VAR=/\b(u-?\d{2}|sub-?\d{2}|women|wanita|putri|femin\w*|ladies|ii|b|reserves?|youth|academy|akademi|jong|castilla|primavera|nxt)\b/g;
+const tags=s=>[...new Set((nrm(s).match(VAR)||[]).map(t=>t.replace("-","").replace(/^(wanita|putri|femin\w*|ladies)$/,"women").replace(/^(reserves?|b|jong|castilla|nxt)$/,"ii").replace(/^sub(\d)/,"u$1")))].sort().join(",");
+const words=s=>nrm(s).replace(VAR," ").replace(/[^a-z0-9]+/g," ").trim().split(" ").filter(w=>w&&!GEN.has(w));
+// nama sama bila jenis tim sama dan kata-kata nama yang satu termuat UTUH di nama yang lain ("Persib" = "Persib Bandung", tapi "Persib" != "Persibat")
+export const sameTeam=(a,b)=>{if(tags(a)!==tags(b))return false;const x=words(a),y=words(b);if(!x.length||!y.length)return false;
+  const [s1,s2]=x.length<=y.length?[x,y]:[y,x],B=new Set(s2);return s1.every(w=>B.has(w))&&s1.some(w=>w.length>=3)};
+export function crossDup(r,country,others){const t=Date.parse(r.utc);if(!Number.isFinite(t))return null;const c=nrm(country).trim();
+  return(others||[]).find(x=>x&&x.src!=="HL"&&x.home&&x.away&&Math.abs(Date.parse(x.utc)-t)<=3*36e5&&(!c||!x.lc||nrm(x.lc).trim()===c)&&
+    tags(x.league)===tags(r.league)&&sameTeam(x.home.name,r.home.name)&&sameTeam(x.away.name,r.away.name))||null}
 function mapStandings(j,lg){
   // cari semua baris klasemen (objek ber-"team") di mana pun letaknya; nama grup dari induk terdekat yang punya "name"
   const g=[];(function walk(o,name){if(!o||typeof o!=="object")return;if(Array.isArray(o)){const rows=o.filter(x=>x&&typeof x==="object"&&x.team&&(x.points!=null||x.position!=null||x.home||x.total));if(rows.length)g.push({name,standings:rows});else o.forEach(x=>walk(x,name));return}
@@ -184,20 +199,22 @@ async function main(){
   const allPath=dir+"all.json";let all={matches:[],errors:[]};try{all=JSON.parse(readFileSync(allPath,"utf8"))}catch(e){}
   all.matches=(all.matches||[]).filter(m=>m.src!=="HL");
   const W=all.week||[new Date(now-2*DAY+WITA).toISOString().slice(0,10),new Date(now+7*DAY+WITA).toISOString().slice(0,10)];
-  const out=[];
+  const out=[],dups=[];
   for(const lg of LGS){
     const M=S.matches[String(lg.id)]||[];
     const fin=M.map(x=>({t:Date.parse(x.date),h:x.homeTeam&&x.homeTeam.id,a:x.awayTeam&&x.awayTeam.id,s:scoreOf(x.state),st:stOf(x.state&&x.state.description)})).filter(m=>m.st==="FT"&&m.s[0]!=null).map(m=>({t:m.t,h:m.h,a:m.a,gh:m.s[0],ga:m.s[1]})).sort((a,b)=>a.t-b.t);
     const {model,at:modelAt}=kickModels(fin,now);
     for(const x of M){const d=new Date(Date.parse(x.date)+WITA).toISOString().slice(0,10);if(d<W[0]||d>W[1])continue;
       const started=stOf(x.state&&x.state.description)!=="NS";
-      const det=S.det[x.id],r=toRec(x,lg,det&&det.pred,started?modelAt(Date.parse(x.date)):model);if(!r)continue;if(det&&det.raw){r.dx=1;const raw={...det.raw,status:r.status};writeFileSync(dir+"m/"+r.eid+".json",JSON.stringify(raw))}out.push(r)}
+      const det=S.det[x.id],r=toRec(x,lg,det&&det.pred,started?modelAt(Date.parse(x.date)):model);if(!r)continue;
+      {const d=crossDup(r,lg.country,all.matches);if(d){dups.push([r.eid,d.eid??d.id]);continue}}   // V56: sudah ada dari BSD -> tidak digandakan
+      if(det&&det.raw){r.dx=1;const raw={...det.raw,status:r.status};writeFileSync(dir+"m/"+r.eid+".json",JSON.stringify(raw))}out.push(r)}
     // klasemen dari Highlightly; bila tidak tersedia (mis. Liga 2) dihitung sendiri dari hasil laga
     const api=S.tables[String(lg.id)],calc=(S.calc&&S.calc[String(lg.id)])||!(api&&api.length);const rows=calc?tableFromResults(M):api;
     if(rows&&rows.length){writeFileSync(dir+"lg/hl"+lg.id+".json",JSON.stringify({id:"hl"+lg.id,name:lg.name,country:lg.country,season:{name:String((S.season[String(lg.id)]&&S.season[String(lg.id)].yr)||yr)},grouped:new Set(rows.map(r=>r.grp)).size>1,standings:new Set(rows.map(r=>r.grp)).size>1?[]:rows,groups:new Set(rows.map(r=>r.grp)).size>1?rows.reduce((o,r)=>{(o[r.grp]=o[r.grp]||[]).push(r);return o},{}):null,zones:null,top:{},updated:new Date(calc?now:(S.stand[String(lg.id)]||now)).toISOString(),src:calc?"dihitung Bola Live dari hasil laga Highlightly":"Highlightly"}))}
   }
   all.matches=all.matches.concat(out).sort((a,b)=>a.utc.localeCompare(b.utc));
-  all.hl={calls,left,today:S.calls.n,cap:Number(process.env.HL_DAY_CAP??90),day:S.calls.day,leagues:LGS.length,matches:out.length,withPred:out.filter(m=>!m.np).length,errors};
+  all.hl={calls,left,today:S.calls.n,cap:Number(process.env.HL_DAY_CAP??90),day:S.calls.day,leagues:LGS.length,matches:out.length,withPred:out.filter(m=>!m.np).length,dup:dups.length,dupIds:dups.slice(0,20),errors};
   if(errors.length)all.errors=(all.errors||[]).concat(errors.slice(0,5).map(e=>"Highlightly: "+e));
   writeFileSync(allPath,JSON.stringify(all));
   // leagues.json: tambahkan liga Indonesia di urutan teratas
@@ -212,7 +229,8 @@ async function main(){
   try{let hist=null;const SD=stateDir();try{hist=JSON.parse(readFileSync((SD||dir)+"bsd-history.json","utf8"))}catch(e){}
     if(!Array.isArray(hist)){const h=await readState("bsd-history.json");hist=Array.isArray(h)?h:null}   // V19: jangan mulai dari kosong bila skrip BSD gagal lebih dulu
     if(!hist)throw new Error("riwayat prediksi tidak terbaca; dilewati supaya riwayat lama tidak tertimpa");
-    hist=updateHistory(hist,out,now);writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now),miss:evalMiss(hist,now)}))}catch(e){errors.push("evaluasi: "+e.message)}
+    const VD=new Map();for(const lg of LGS)for(const x of S.matches[String(lg.id)]||[]){const d=x.state&&x.state.description;if(stOf(d))continue;const v=voidOf(d);if(v)VD.set("hl"+x.id,v)}   // V56
+    hist=updateHistory(hist,out,now,{vd:VD});writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now),miss:evalMiss(hist,now)}))}catch(e){errors.push("evaluasi: "+e.message)}
   // simpan status (tanpa data mentah yang besar)
   // V19 (audit): status lama yang gagal dibaca tidak ditimpa status kosong (penyebab hl.json hilang 20 Nov: baca gagal + kuota habis)
   if(!S0&&!Object.keys(S.matches).length)errors.push("status hl.json tidak terbaca dan tidak ada data baru; status lama tidak ditimpa");

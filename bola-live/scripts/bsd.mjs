@@ -30,6 +30,9 @@ const IMG="https://sports.bzzoiro.com/img";
 // Dokumen BSD menulis upcoming/live/finished, tetapi data nyata memakai notstarted/inprogress/1st_half/halftime/2nd_half.
 const LIVE=new Set(["live","inprogress","1st_half","2nd_half","halftime","extra_time","extratime","penalties","break","awaiting_extra_time","awaiting_penalties"]);
 export const stOf=raw=>{const r=String(raw||"").toLowerCase();return LIVE.has(r)?"LIVE":(r==="notstarted"||r==="upcoming")?"NS":r==="finished"?"FT":null};
+// V56 (audit 26 Nov): status laga yang tidak berakhir normal. Laga seperti ini tidak tampil di jadwal (stOf -> null), tetapi catatan
+// prediksinya diberi keterangan (x) supaya rekam jejak menjelaskan kenapa tidak ada hasil, bukan "menunggu" tanpa ujung. Tidak dinilai.
+export const voidOf=raw=>{const r=String(raw||"").toLowerCase();return/postpon/.test(r)?"ditunda":/cancel/.test(r)?"dibatalkan":/abandon/.test(r)?"dihentikan":/suspend|interrupt/.test(r)?"dihentikan sementara":/award|walkover|w\.?o\b/.test(r)?"walkover":/delay/.test(r)?"tertunda":null};
 export const pickOf=v=>({h:"h",home:"h",a:"a",away:"a"})[String(v||"").toLowerCase()]||null;
 
 // H2H tertanam di tiap laga: dipetakan ke bentuk yang dibaca dasbor ({n,hW,d,aW,gf,ga,last}). Orientasi mengikuti laga yang diminta.
@@ -205,8 +208,10 @@ export function updateHistory(hist,matches,now,o={}){
     }
     // V22c: skor akhir BSD = skor 90 menit (gol perpanjangan waktu terpisah di m.et). Saat laga baru selesai BSD kadang sempat
     // memberi skor termasuk perpanjangan, lalu mengoreksinya -> hasil diperbarui selama 48 jam setelah kickoff, bukan dicatat sekali.
-    if(e&&m.status==="FT"&&t<=now&&m.score[0]!=null&&m.score[1]!=null&&(!e.r||now-t<48*36e5))e.r=[m.score[0],m.score[1]];
+    if(e&&m.status==="FT"&&t<=now&&m.score[0]!=null&&m.score[1]!=null&&(!e.r||now-t<48*36e5)){e.r=[m.score[0],m.score[1]];delete e.x}
   }
+  // V56: laga ditunda/batal/dihentikan (o.vd: id -> keterangan) -> catatan tanpa hasil diberi keterangan x; angka prediksi tidak diubah.
+  if(o.vd)for(const [id,s] of o.vd){const e=H.get(id);if(e&&!e.r&&(!e.x||e.x.s!==s))e.x={s,t:new Date(now).toISOString()}}
   for(const [k,e] of H){const t=Date.parse(e.u);if(e.sp&&e.sp.xi&&t<=now){e.sp={...e.sp};delete e.sp.xi}   // V52: daftar line-up perkiraan hanya bantuan sementara, dibuang saat kickoff
     if((!e.r&&t<now-3*864e5)||t<now-120*864e5)H.delete(k)}   // tanpa hasil >3 hari / >120 hari: buang
   return [...H.values()].sort((a,b)=>a.u.localeCompare(b.u)).slice(-6000);
@@ -518,7 +523,7 @@ async function main(){
   // V15: Model BL ikut memakai riwayat ini (prediksi BSD per laga) untuk menilai dan memilih bobot gabungan.
   const pullS=f=>readState(f);   // V19: data internal (STATE_DIR), cadangan: situs tayang (migrasi)
   const prevM=process.env.BL!=="0"?await pullS("model-bl.json"):null;
-  const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial||!(prevM.srCur>=5));   // V43b/d, V46: versi model naik -> latih ulang sekali (lp, uji V45, peringkat grup)
+  const needModel=process.env.BL!=="0"&&(!prevM||!prevM.updated||now-Date.parse(prevM.updated)>20*36e5||prevM.partial||!(prevM.srCur>=6));   // V43b/d, V46, audit 26 Nov (tanpa nilai skuad historis): versi model naik -> latih ulang sekali (lp, uji V45, peringkat grup)
   let btEnt=null,btE=[],BTS=null;
   {const BTD=Number(process.env.BSD_BACKTEST_DAYS??105);/* V49: riwayat prediksi BSD mulai pertengahan Agustus 2026 -> ambil semuanya */let prev=await pullS("bsd-backtest.json");
     const fresh=prev&&prev.n&&prev.dc&&prev.xc&&prev.tp&&prev.rl&&prev.rl.lg&&now-Date.parse(prev.updated)<20*36e5;   // V25: ringkasan lama tanpa dc -> hitung ulang sekali
@@ -658,9 +663,13 @@ async function main(){
     // dari statistik musim yang memuat laga sesudahnya -> "mengintip" hasil. Tidak dipakai melatih model sampai dibangun ulang dari
     // starter asli; koreksi pemain absen memakai hitungan pemain inti (adjustL). BL_XR_HIST=1 menyalakan cara lama (untuk uji).
     const XRH=process.env.BL_XR_HIST==="1";
+    // Audit 26 Nov: nilai skuad (ZV) = nilai pasar SEKARANG + pemain reguler dari statistik terkini. Dipasang ke laga lama berarti
+    // "mengintip" (nilai pasar ikut naik/turun karena hasil laga-laga itu, skuad juga berubah) -> sama seperti xi.json (V22c),
+    // tidak dipakai melatih. Tanpa latih, bobotnya 0 sehingga prediksi tidak terpengaruh. BL_ZV_HIST=1 = cara lama (untuk uji).
+    const ZVH=process.env.BL_ZV_HIST==="1";
     if(needModel&&DEEP&&!LIGHT&&btEnt&&btEnt.length&&rows.length>=500&&!overDeadline()){
       const ms=rows.map(r=>{const x=xg.e[r[0]];const xr=XRH?XR.e[r[0]]:null;return{id:r[0],t:r[1]*1000,l:r[2],h:r[3],a:r[4],gh:r[5],ga:r[6],n:r[7],xh:x?x[0]:null,xa:x?x[1]:null,xe:x?x[2]:0,se:r[9]??null,
-        xr:xr||null,zv:ZV.has(r[3])&&ZV.has(r[4])?[ZV.get(r[3]),ZV.get(r[4])]:null,dby:r[10]&1?1:0,tr:r[11]??null,hc:r[12]??null,ac:r[13]??null}});
+        xr:xr||null,zv:ZVH&&ZV.has(r[3])&&ZV.has(r[4])?[ZV.get(r[3]),ZV.get(r[4])]:null,dby:r[10]&1?1:0,tr:r[11]??null,hc:r[12]??null,ac:r[13]??null}});
       // V20: fitur klasemen (poin/laga sebelum kickoff) & pelatih baru, untuk laga selesai dan laga mendatang
       const UP=every.filter(m=>m.status==="NS"&&m.hid!=null&&m.aid!=null&&m.lid!=null).map(m=>{const ev=EV.get(m.eid)||{};return{id:"u"+m.eid,t:Date.parse(m.utc),l:m.lid,h:m.hid,a:m.aid,gh:null,ga:null,se:ev.season_id??null,hc:ev.home_coach_id??null,ac:ev.away_coach_id??null}});
       const EUS=new Set((leagues||[]).filter(l=>EU_RE.test(l.name||"")).map(l=>l.id));
@@ -668,22 +677,28 @@ async function main(){
       const xgCov=ms.filter(m=>m.t>now-180*DAY&&m.xh!=null).length/Math.max(1,ms.filter(m=>m.t>now-180*DAY).length);
       const span=(now-ms[0].t)/DAY,bfrom=now-Number(process.env.BL_BT_DAYS??90)*DAY;
       const cfgs=(span>=200&&process.env.BL_TUNE!=="0"?[{},{hl:120},{hl:300},{tauT:8},{rho:-.12}].concat(xgCov>=.2?[{xga:.5},{xga:.7},{xga:.7,hl:120}]:[]):[{}]).map(c=>({sweeps:25,...c}));
-      let best=null;for(const c of cfgs){if(overDeadline())break;const rb=rollingBacktest(ms,bfrom,now,{...c,ranks:true});const sc=score(rb);if(sc&&(!best||sc.ll<best.sc.ll))best={c,rb,sc}}
-      // V20: koreksi klasemen & pelatih baru hanya dipakai bila uji mundur membuktikan lebih baik
-      let v20=null;if(best&&!overDeadline()){const rbOff=rollingBacktest(ms,bfrom,now,{...best.c,tb:0,nc:0,ranks:true}),so=score(rbOff);
-        v20={llOn:best.sc.ll,llOff:so?so.ll:null,accOn:best.sc.acc,accOff:so?so.acc:null,on:!!(so&&best.sc.ll<so.ll-.0005)};
-        if(!v20.on&&so){best={c:{...best.c,tb:0,nc:0},rb:rbOff,sc:so}}}
-      const TT=best?bestTemp(best.rb):1;if(best)for(const r of best.rb)r.p=temper(r.p,TT);   // kalibrasi suhu dari uji mundur
+      // V56 (audit 26 Nov): pemisahan temporal yang jujur. Uji mundur bergulir sudah hanya memakai laga SEBELUM tiap laga, tetapi dulu
+      // setelan model, sakelar V20 dan suhu kalibrasi dipilih dari SELURUH 90 hari lalu dinilai di periode yang sama (termasuk "paruh kedua"
+      // yang disebut uji jujur) -> angka terlalu optimis. Sekarang semua pilihan HANYA dari paruh pertama (laga sebelum tcut); paruh kedua
+      // tidak dipakai memilih apa pun, jadi itulah penilaian yang dilaporkan sebagai uji jujur. Model produksi tetap dilatih dari semua data.
+      const tcut=bfrom+(now-bfrom)/2,inA=r=>r.t<tcut,scA=rb=>score(rb.filter(inA));
+      let best=null;for(const c of cfgs){if(overDeadline())break;const rb=rollingBacktest(ms,bfrom,now,{...c,ranks:true});const sc=score(rb),sa=scA(rb);if(sc&&sa&&(!best||sa.ll<best.sa.ll))best={c,rb,sc,sa}}
+      // V20: koreksi klasemen & pelatih baru hanya dipakai bila uji mundur (paruh pertama) membuktikan lebih baik
+      let v20=null;if(best&&!overDeadline()){const rbOff=rollingBacktest(ms,bfrom,now,{...best.c,tb:0,nc:0,ranks:true}),so=score(rbOff),soA=scA(rbOff);
+        v20={llOn:best.sa.ll,llOff:soA?soA.ll:null,accOn:best.sa.acc,accOff:soA?soA.acc:null,on:!!(soA&&best.sa.ll<soA.ll-.0005),by:"paruh pertama"};
+        if(!v20.on&&so&&soA){best={c:{...best.c,tb:0,nc:0},rb:rbOff,sc:so,sa:soA}}}
+      const TT=best?bestTemp(best.rb.filter(inA)):1;if(best)for(const r of best.rb)r.p=temper(r.p,TT);   // kalibrasi suhu dari paruh pertama saja
       const bsdP=new Map((btEnt||[]).map(e=>[e.id,e.p]));
       const J=best?best.rb.filter(r=>bsdP.has(r.id)).map(r=>({...r,b:bsdP.get(r.id)})):[];
       // V24b: nama tim (untuk uji tim muda/cadangan) dari laga uji mundur + laga tayang
       const NM=new Map();for(const e of btE||[]){if(e.home_team_id!=null)NM.set(e.home_team_id,e.home_team);if(e.away_team_id!=null)NM.set(e.away_team_id,e.away_team)}for(const m of every){if(m.hid!=null)NM.set(m.hid,m.home.name);if(m.aid!=null)NM.set(m.aid,m.away.name)}
-      const half=J.length?J.map(r=>r.t).sort((a,b)=>a-b)[J.length>>1]:0,J1=J.filter(r=>r.t<half),J2=J.filter(r=>r.t>=half);
+      const J1=J.filter(inA),J2=J.filter(r=>!inA(r));   // V56: batas paruh = tcut yang sama dengan pemilihan setelan & suhu
       const w1=bestBlend(J1,"b","p"),wa=bestBlend(J,"b","p");   // w = bobot BSD
       const mixS=(R,w)=>score(R.map(r=>({o:r.o,q:r.b.map((x,i)=>w*x+(1-w)*r.p[i])})),"q");
-      const hold=w1&&J2.length?{w:w1.w,bsd:score(J2,"b"),model:score(J2,"p"),blend:mixS(J2,w1.w)}:null;
+      const hold=w1&&J2.length?{w:w1.w,bsd:score(J2,"b"),model:score(J2,"p"),blend:mixS(J2,w1.w),n:J2.length,nTune:J1.length,cut:new Date(tcut).toISOString(),sel:1}:null;   // sel=1: setelan, suhu & bobot dari paruh pertama saja
       const useful=!!(hold&&wa&&hold.blend.ll<hold.bsd.ll-.002&&wa.w<.95&&J.length>=300);
-      const cal=best?[[0,40],[40,50],[50,60],[60,70],[70,101]].map(([lo,hi])=>{const b=best.rb.filter(r=>{const m=Math.max(...r.p);return m>=lo&&m<hi});let s=0,h=0;for(const r of b){const m=Math.max(...r.p);s+=m;if(r.p.indexOf(m)===r.o)h++}return{lo,hi,n:b.length,avg:b.length?s/b.length:null,hit:b.length?h/b.length*100:null}}):[];
+      // kalibrasi yang ditampilkan: hanya paruh kedua (suhu dipilih dari paruh pertama)
+      const cal=best?[[0,40],[40,50],[50,60],[60,70],[70,101]].map(([lo,hi])=>{const b=best.rb.filter(r=>{const m=Math.max(...r.p);return!inA(r)&&m>=lo&&m<hi});let s=0,h=0;for(const r of b){const m=Math.max(...r.p);s+=m;if(r.p.indexOf(m)===r.o)h++}return{lo,hi,n:b.length,avg:b.length?s/b.length:null,hit:b.length?h/b.length*100:null}}):[];
       // V22: akurasi per liga (uji mundur, laga yang punya prediksi BSD & Model BL): [laga, % BSD benar, % Model BL benar]
       const blLg={};{const top=a=>a.indexOf(Math.max(...a)),G=new Map();for(const r of J){const g=G.get(r.l)||[0,0,0];g[0]++;if(top(r.b)===r.o)g[1]++;if(top(r.p)===r.o)g[2]++;G.set(r.l,g)}
         for(const [l,g] of G)if(g[0]>=20)blLg[l]=[g[0],Math.round(g[1]/g[0]*1000)/10,Math.round(g[2]/g[0]*1000)/10]}
@@ -702,9 +717,9 @@ async function main(){
         const ev=EV.get(m.eid)||{},fe=FE.get("u"+m.eid)||{};const q=predictModel(M,{h:m.hid,a:m.aid,l:m.lid,n:ev.is_neutral_ground?1:0,t:Date.parse(m.utc),zv:ZV.has(m.hid)&&ZV.has(m.aid)?[ZV.get(m.hid),ZV.get(m.aid)]:null,dby:ev.is_local_derby?1:0,tb:fe.tb||null,nc:fe.nc||null});
         const SRk=strengthRanks(M,m.lid,curOf(m.lid,m.hid,m.aid)),sr=SRk.get(m.hid)!=null&&SRk.get(m.aid)!=null?[SRk.get(m.hid),SRk.get(m.aid),SRk.size]:null;
         pred[m.eid]={x:q.xg.map(v=>Math.round(v*1000)/1000),r:q.rest,lp:q.lp,n:q.n,f:{tb:fe.tb?fe.tb.map(r2):null,nc:fe.nc||null,eu:fe.eu||null,tr:fe.tr||null,sr}}}
-      MB={updated:new Date(now).toISOString(),srCur:5,temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
-        bt:best?{n:best.sc.n,model:best.sc,joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
-        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,xrHist:XRH?1:0,v20,stk:STK,blLg,dis:J.length?disagree(J):null,exp:J.length?experiments(J,id=>NM.get(id)||""):null,lu2:J.length&&typeof X2!=="undefined"&&X2&&X2.e?lineupExp(J,X2.e):null,drw:J.length?(()=>{try{const d=drawExp(J);if(d){const LGN=new Map((leagues||[]).map(l=>[l.id,l.name]));d.lg=d.lg.map(x=>[LGN.get(x[0])||String(x[0]),...x.slice(1)])}return d}catch(e){errors.push("analisis seri: "+e.message);return null}})():null,tbl,fac,pred};   // V22d: dis = BSD vs BL berbeda arah
+      MB={updated:new Date(now).toISOString(),srCur:6,temp:TT,xgCov:Math.round(xgCov*1000)/10,partial:span<RD-10,span:Math.round(span),nMatches:ms.length,nTeams:M.team.size,cfg:{...DEF,...(best?best.c:{})},hfa:M.hfa,rest:{own:M.bo,opp:M.bd},
+        bt:best?{n:best.sc.n,model:best.sc,ev:{cut:new Date(tcut).toISOString(),tune:score(best.rb.filter(inA)),test:score(best.rb.filter(r=>!inA(r))),by:"setelan, V20 & suhu dari paruh pertama; test = paruh kedua"},joined:J.length,bsd:J.length?score(J,"b"):null,modelJ:J.length?score(J,"p"):null,blendAll:wa,holdout:hold,calib:cal,days:Number(process.env.BL_BT_DAYS??90)}:null,
+        useful,w:wa?wa.w:1,core:CORE,cov:M.cov,xrHist:XRH?1:0,zvHist:ZVH?1:0,v20,stk:STK,blLg,dis:J.length?disagree(J):null,exp:J.length?experiments(J,id=>NM.get(id)||""):null,lu2:J.length&&typeof X2!=="undefined"&&X2&&X2.e?lineupExp(J,X2.e):null,drw:J.length?(()=>{try{const d=drawExp(J);if(d){const LGN=new Map((leagues||[]).map(l=>[l.id,l.name]));d.lg=d.lg.map(x=>[LGN.get(x[0])||String(x[0]),...x.slice(1)])}return d}catch(e){errors.push("analisis seri: "+e.message);return null}})():null,tbl,fac,pred};   // V22d: dis = BSD vs BL berbeda arah
       // ringkasan per tim untuk tampilan (Tahap 4): peringkat kekuatan, keberuntungan musim ini, data pemain
       try{const lk=luckOf(ms,now,200,new Map([...M.team].map(([id,t])=>[id,t.lg]))),TS={};/* V34d: keberuntungan hanya dari laga liga tim itu (cocok dengan tabel klasemen) */const lgs=new Set(every.map(m=>m.lid).filter(x=>x!=null));
         for(const [id,t] of M.team){if(!lgs.has(t.lg)||t.n<4)continue;const R=strengthRanks(M,t.lg,curOf(t.lg,id)),L=lk[id],S=teamSummary(PS.t[id],VA.p),Lg=M.lg.get(t.lg)||{A:0,D:0};
@@ -760,7 +775,8 @@ async function main(){
     const side=s=>lu.lineups&&lu.lineups[s],ids=s=>{const L=side(s);return L&&Array.isArray(L.players)&&L.players.length>=11?L.players.map(p=>p&&p.id).filter(x=>x!=null):null},nm={};
     for(const s of["home","away"]){const L=side(s);for(const p of[...(L&&L.players||[]),...(L&&L.substitutes||[])])if(p&&p.id!=null)nm[p.id]=p.short_name||p.name||null}
     LUX.set(m.eid,{st:lu.lineup_status,ids:[ids("home"),ids("away")],nm})}
-  if(!fatal&&events.length){hist=updateHistory(hist,every,now,{lu:id=>LUX.get(id)});
+  const VD=new Map();for(const e of events||[]){if(stOf(e.status))continue;const v=voidOf(e.status);if(v)VD.set(e.id,v)}   // V56
+  if(!fatal&&events.length){hist=updateHistory(hist,every,now,{lu:id=>LUX.get(id),vd:VD});deep.void=VD.size;
     // V37 (Analisa Tahap 3): tebakan yang dicatat sebelum kickoff ikut ditempel ke laga selesai, untuk bedah sesudah laga
     {const HM=new Map(hist.map(e=>[e.id,e]));for(const m of matches){if(m.status!=="FT"||!m.eid)continue;const e=HM.get(m.eid);if(e&&e.p)m.pm={p:e.p,bl:e.bl||null}}}
     // V52: potret sebelum/sesudah line-up resmi ikut tayang di laga (tanpa daftar line-up perkiraan)

@@ -12,7 +12,7 @@ export function judge(p,r){const o=r[0]>r[1]?0:r[0]===r[1]?1:2;
 const pct=(a,b)=>b?Math.round(a/b*100):null;
 export function morningReport(hist,now){
   const[s,e]=dayWindow(now),inW=x=>{const t=Date.parse(x.u);return t>=s&&t<e};
-  const L=(hist||[]).filter(x=>x&&x.u&&x.p&&x.p.length===3&&inW(x)),done=L.filter(x=>x.r&&x.r[0]!=null),wait=L.length-done.length;
+  const L=(hist||[]).filter(x=>x&&x.u&&x.p&&x.p.length===3&&inW(x)),done=L.filter(x=>x.r&&x.r[0]!=null),vd=L.filter(x=>!(x.r&&x.r[0]!=null)&&x.x).length,wait=L.length-done.length-vd;   // V56: ditunda/batal bukan "menunggu hasil"
   const J=done.map(x=>({x,j:judge(x.p,x.r)}));
   const ok=J.filter(q=>q.j.ok).length,imb=J.filter(q=>q.j.imb).length,openN=J.filter(q=>q.j.k==="terbuka"),openSeri=openN.filter(q=>q.j.ok&&q.j.seri).length;
   const strong=J.filter(q=>q.j.k==="arah"&&q.j.pv>=60),fav=done.filter(x=>Math.max(x.p[0]+x.p[1],x.p[2]+x.p[1])>=80),favOk=fav.filter(x=>{const hf=x.p[0]+x.p[1]>=x.p[2]+x.p[1];return hf?x.r[0]>=x.r[1]:x.r[1]>=x.r[0]});
@@ -22,7 +22,7 @@ export function morningReport(hist,now){
   const kej=J.filter(q=>!q.j.ok&&q.j.k!=="seri").sort((a,b)=>b.j.pv-a.j.pv).slice(0,5).map(q=>({lg:q.x.lg,h:q.x.h,a:q.x.a,r:q.x.r,tim:q.j.f===0?q.x.h:q.x.a,pv:Math.round(q.j.pv),k:q.j.k,seri:q.j.o===1,ab:q.x.ab||null}));
   const by=new Map();for(const q of J){const g=by.get(q.x.lg)||{lg:q.x.lg,n:0,ok:0};g.n++;if(q.j.ok)g.ok++;by.set(q.x.lg,g)}
   const lg=[...by.values()].filter(g=>g.n>=3),best=lg.filter(g=>g.ok/g.n>=.7).sort((a,b)=>b.ok/b.n-a.ok/a.n||b.n-a.n).slice(0,3),worst=lg.filter(g=>g.ok/g.n<=.4).sort((a,b)=>a.ok/a.n-b.ok/b.n||b.n-a.n).slice(0,3);
-  return{v:1,updated:new Date(now).toISOString(),from:new Date(s).toISOString(),to:new Date(e).toISOString(),n:done.length,wait,ok,imb,mel:done.length-ok-imb,
+  return{v:1,updated:new Date(now).toISOString(),from:new Date(s).toISOString(),to:new Date(e).toISOString(),n:done.length,wait,vd,ok,imb,mel:done.length-ok-imb,
     open:{n:openN.length,ok:openN.filter(q=>q.j.ok).length,seri:openSeri},strong:{n:strong.length,ok:strong.filter(q=>q.j.ok).length},fav:{n:fav.length,ok:favOk.length},
     bsd:acc("p"),bl:acc("bl"),sk:acc("sk"),ou:{n:ouQ.length,ok:ouOk},bt:{n:btQ.length,ok:btOk},kej,best,worst}}
 const tgl=ms=>new Date(ms+WITA).toLocaleDateString("id-ID",{timeZone:"UTC",weekday:"long",day:"numeric",month:"long"});
@@ -30,7 +30,7 @@ export function reportText(R){
   if(!R||!R.n)return`LAPORAN PAGI BOLA LIVE\nHari bola ${R?tgl(Date.parse(R.from)):"kemarin"}: belum ada laga dengan prediksi yang selesai.${R&&R.wait?` (${R.wait} laga belum ada hasil.)`:""}\n`;
   const P=(a,b)=>b?`${a} dari ${b} (${pct(a,b)}%)`:"–",o=[];
   o.push(`LAPORAN PAGI BOLA LIVE`);o.push(`Hari bola ${tgl(Date.parse(R.from))} (06.00 s.d. 06.00 WITA)`);o.push("");
-  o.push(`• ${R.n} laga selesai${R.wait?` (${R.wait} belum ada hasil)`:""}: ✓ Tepat ${P(R.ok,R.n)}, ~ Imbang ${R.imb}, ✕ Meleset ${R.mel}.`);
+  o.push(`• ${R.n} laga selesai${R.wait?` (${R.wait} belum ada hasil)`:""}${R.vd?` (${R.vd} ditunda/dibatalkan/dihentikan, tidak dinilai)`:""}: ✓ Tepat ${P(R.ok,R.n)}, ~ Imbang ${R.imb}, ✕ Meleset ${R.mel}.`);
   if(R.strong.n)o.push(`• Unggulan kuat (≥60% menang): ${P(R.strong.ok,R.strong.n)}.`);
   if(R.fav.n)o.push(`• Favorit (≥80% tidak kalah): ${P(R.fav.ok,R.fav.n)}.`);
   if(R.open.n)o.push(`• Laga terbuka (tebakan "tidak kalah"): ${P(R.open.ok,R.open.n)}, ${R.open.seri} di antaranya karena seri.`);

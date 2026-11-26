@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V55c</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V56</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -329,7 +329,7 @@ console.log("test-ui V46 ok");
 {// V47: profil tim
  const F=new Function(pre+`;return {tpHtml,tpRow,AN,KL,setAll:function(d,m,b,e){D=d;MBL=m;BT=b;EV=e}}`)();
  const m1={eid:11,src:"BSD",league:"Premier League",lc:"England",lid:1,hid:16,aid:20,utc:"2026-11-28T15:00:00Z",status:"NS",home:{name:"Brentford"},away:{name:"Everton"},p:{h:45,d:27,a:28}};
- const m2={eid:12,id:"b12",src:"BSD",league:"Premier League",lc:"England",lid:1,hid:30,aid:16,utc:"2026-11-22T15:00:00Z",status:"FT",score:[0,2],home:{name:"Fulham"},away:{name:"Brentford"},p:{h:50,d:25,a:25}};
+ const m2={eid:12,id:"b12",src:"BSD",league:"Premier League",lc:"England",lid:1,hid:30,aid:16,utc:"2026-11-22T15:00:00Z",status:"FT",score:[0,2],home:{name:"Fulham"},away:{name:"Brentford"},p:{h:25,d:25,a:50},pick:"a"};   // V56: data contoh dibuat konsisten (tebakan Brentford menang); dulu tanpa pick dan peluang tuan rumah tertinggi, kebetulan lolos karena pick kosong dibaca "tamu"
  const m3={eid:13,src:"BSD",league:"Premier League",lc:"England",lid:1,hid:40,aid:41,utc:"2026-11-22T15:00:00Z",status:"FT",score:[1,1],home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25}};
  F.setAll({matches:[m1,m2,m3],week:["2026-11-21","2026-11-30"],updated:"2026-11-24T13:05:00Z"},null,null,null);
  F.AN.lg[1]={name:"Premier League",grouped:false,standings:[{position:1,team_id:18,pts:28,played:12},{position:9,team_id:16,team_name:"Brentford",pts:17,played:12,won:5,drawn:2,lost:5,gf:18,ga:17,form:"WLWDW"},...Array.from({length:18},(_,k)=>({position:k+2,team_id:100+k,pts:10,played:12}))]};
@@ -600,3 +600,45 @@ console.log("test-ui V38e ok");
  {const k=F.prMk(M[2],null,LG).replace(/<[^>]*>/g,"");assert(!/ - ·|Away3 -/.test(k),"tanpa form: tidak ada tanda '-': "+k);assert(!/Klasemen: [^|]*klasemen/.test(k),"tanpa kata dobel: "+k)}
  const h2=F.prHtml(R,{},{},mid);assert(!/\bundefined\b|\bNaN\b|\bnull\b/.test(h2.replace(/<[^>]*>/g," ")),"cetak tanpa detail tetap bersih")}
 console.log("test-ui V39 ok");
+// Audit 26 Nov: penanda waktu data. Ada laga live dan data > 15 menit -> diberi tahu skor live bisa tertinggal;
+// tanpa laga live tidak ada peringatan sampai 45 menit; galat run disebut "catatan galat" (bukan "liga gagal": galat tidak per liga).
+{const el={},q=s=>el[s]||(el[s]={className:"",textContent:"",addEventListener:()=>{},innerHTML:"",value:""});
+ const old=globalThis.document.querySelector;globalThis.document.querySelector=q;
+ try{const F=new Function(pre+";return {stamp,setD:function(d){D=d}}")(),ago=m=>new Date(Date.now()-m*6e4).toISOString(),L={status:"LIVE",min:30,home:{name:"A"},away:{name:"B"}};
+  F.setD({updated:ago(20),matches:[L],errors:[]});F.stamp();assert(/skor live bisa tertinggal 20 menit/.test(q("#up").textContent),q("#up").textContent);assert(/old/.test(q("#dot").className));
+  F.setD({updated:ago(20),matches:[{...L,status:"NS"}],errors:[]});F.stamp();assert(!/tertinggal|lama/.test(q("#up").textContent),q("#up").textContent);assert(!/old/.test(q("#dot").className));
+  F.setD({updated:ago(20),matches:[{...L,pend:1}],errors:[]});F.stamp();assert(!/tertinggal/.test(q("#up").textContent),"laga 'baru mulai' (tebakan halaman) tidak dihitung live");
+  F.setD({updated:ago(8),matches:[L],errors:[]});F.stamp();assert(!/tertinggal/.test(q("#up").textContent));
+  F.setD({updated:ago(60),matches:[L],errors:["BSD: odds pinnacle: x","BSD: y"]});F.stamp();const t=q("#up").textContent;assert(/data mulai lama/.test(t)&&!/tertinggal/.test(t)&&/2 catatan galat/.test(t)&&!/liga gagal/.test(t),t)}
+ finally{globalThis.document.querySelector=old}
+ console.log("test-ui audit 26 Nov ok")}
+// V56: teks Model BL mengikuti cara penilaian. Model baru (holdout.sel=1): "uji jujur" + kalibrasi paruh kedua; model lama: tidak mengklaim bebas pemilihan.
+{const F=new Function(pre+";return {mblHtml}")(),sc={acc:50,brier:.6,ll:1.0};
+ const base={updated:"2026-11-26T00:00:00Z",temp:1,xgCov:40,cfg:{},hfa:.2,rest:{own:0,opp:0},cov:{nXr:0,gA:0,gD:0},xrHist:0,core:{own:.035,opp:.025},w:1,useful:false,nMatches:100,span:365,nTeams:20};
+ const neu={...base,bt:{days:90,joined:400,bsd:sc,modelJ:sc,calib:[{lo:50,hi:60,n:10,avg:55,hit:50}],holdout:{w:1,bsd:sc,model:sc,blend:sc,n:200,nTune:200,sel:1}}};
+ const old={...base,bt:{days:90,joined:400,bsd:sc,modelJ:sc,calib:[],holdout:{w:1,bsd:sc,model:sc,blend:sc}}};
+ const a=F.mblHtml(neu).replace(/<[^>]*>/g," "),b=F.mblHtml(old).replace(/<[^>]*>/g," ");
+ assert(/Uji jujur di paruh kedua \(200 laga\)/.test(a)&&/dipilih dari paruh pertama saja/.test(a)&&/paruh kedua\)/.test(a)&&/1,000|1\.000/.test(a),a.slice(0,600));
+ assert(!/Uji jujur/.test(b)&&/masih dipilih dari seluruh periode/.test(b),b.slice(0,600));
+ assert(!/\bundefined\b|\bNaN\b/.test(a+b),"tanpa undefined/NaN");
+ console.log("test-ui V56 evaluasi Model BL ok")}
+// V56: satu definisi "tanda" untuk kartu (resTag), rekam jejak (rkJudge), dan laporan pagi (judge di laporan.mjs).
+// Termasuk kasus yang dulu berbeda: "pick" BSD berlawanan dengan peluang, dan peluang terbaru berbeda dari peluang yang dicatat sebelum kickoff.
+{const {judge}=await import("./laporan.mjs"),F=new Function(pre+";return {resTag,rkJudge,rkTag}")();
+ const cls=t=>/✓ Tepat · seri/.test(t)?"✓ Tepat · seri":/✓ Tepat · menang/.test(t)?"✓ Tepat · menang":/✓ Tepat/.test(t)?"✓ Tepat":/~ Imbang/.test(t)?"~ Imbang":/✕ Meleset/.test(t)?"✕ Meleset":"?";
+ let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;let n=0;
+ for(let i=0;i<3000;i++){const a=rnd(),b=rnd()*.6,c=rnd(),t=a+b+c,P=[a/t*100,b/t*100,c/t*100].map(v=>Math.round(v*10)/10),r=[Math.floor(rnd()*4),Math.floor(rnd()*4)];
+   const x={status:"FT",score:r,home:{name:"H"},away:{name:"A"},p:{h:100-P[0],d:P[1],a:P[0]},pick:rnd()<.5?"h":"a",pm:{p:P}};   // p terbaru & pick sengaja acak/berlawanan
+   const web=cls(F.resTag(x)),rk=F.rkTag(F.rkJudge(P,r)),L=judge(P,r),lap=L.ok?(L.k==="terbuka"?(L.seri?"✓ Tepat · seri":"✓ Tepat · menang"):"✓ Tepat"):L.imb?"~ Imbang":"✕ Meleset";
+   assert.equal(web,rk,"kartu vs rekam jejak: "+JSON.stringify({P,r}));assert.equal(rk,lap,"rekam jejak vs laporan pagi: "+JSON.stringify({P,r}));n++}
+ // laga lama tanpa catatan sebelum kickoff (pm): kartu memakai peluang BSD apa adanya, tetap aturan yang sama
+ const y={status:"FT",score:[1,1],home:{name:"H"},away:{name:"A"},p:{h:40,d:30,a:30},pick:"a"};assert.equal(cls(F.resTag(y)),F.rkTag(F.rkJudge([40,30,30],[1,1])));
+ console.log("test-ui V56 definisi tanda sama di kartu, rekam jejak, laporan pagi ("+n+" kasus acak) ok")}
+// V56: rekam jejak — laga ditunda/batal tampil dengan keterangannya, punya filter sendiri, tidak masuk "belum ada hasil", tidak dinilai
+{const F=new Function(pre+";return {rekFilter,rekSum,rekCsv,rekHtml,RK}")(),u="2026-11-25T12:00:00Z";
+ const R=[{id:1,u,lg:"L",h:"A",a:"B",p:[60,20,20],r:[1,0]},{id:2,u,lg:"L",h:"C",a:"D",p:[60,20,20],r:null,x:{s:"ditunda",t:u}},{id:3,u,lg:"L",h:"E",a:"F",p:[60,20,20],r:null}];
+ assert.deepEqual(F.rekFilter(R,{st:"wait"}).map(r=>r.id),[3]);assert.deepEqual(F.rekFilter(R,{st:"vd"}).map(r=>r.id),[2]);assert.deepEqual(F.rekFilter(R,{st:"no"}).map(r=>r.id),[]);
+ assert.equal(F.rekSum(R).n,1,"hanya laga berhasil akhir yang dinilai");assert(/ditunda \(tidak dinilai\)/.test(F.rekCsv(R)));
+ F.RK.idx={months:[{m:"2026-11",n:3,done:1,vd:1}]};F.RK.m="2026-11";F.RK.rows=R;F.RK.f={};F.RK.pg=0;const h=F.rekHtml();
+ assert(/>ditunda</.test(h)&&/Ditunda \/ dibatalkan/.test(h),"label & filter tampil");assert(!/\bundefined\b|\bNaN\b/.test(h.replace(/<[^>]*>/g," ")))
+ console.log("test-ui V56 rekam jejak laga ditunda/batal ok")}

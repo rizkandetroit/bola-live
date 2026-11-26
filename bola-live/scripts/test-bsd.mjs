@@ -532,6 +532,67 @@ sc("6. mode lengkap (Unlimited): odds terbaik, klasemen + top skor, Match Center
   const hj=JSON.parse(readFileSync(r.out+"/bsd-history.json","utf8")).find(x=>x.id===ns.id);assert(hj&&hj.po&&hj.pc,"riwayat menyimpan harga Pinnacle");
   assert(JSON.parse(readFileSync(r.out+"/bsd-eval.json","utf8")).move.pending>=1);
   return r.all.bsd.details+" Match Center, "+r.all.bsd.leagues+" liga, "+cfg.hits.length+" permintaan"});
+// V56: laga ditunda / dibatalkan / dihentikan: diberi keterangan, tidak dinilai, tidak hilang dari rekam jejak; jadwal ulang kembali normal
+sc("V56: laga ditunda/dibatalkan/dihentikan di riwayat, arsip, evaluasi, laporan",async()=>{
+  const {voidOf}=await import("./bsd.mjs"),{mergeRekam,byMonth,rekIndex}=await import("./rekam.mjs"),{morningReport,reportText}=await import("./laporan.mjs");
+  for(const [r,e] of [["postponed","ditunda"],["Postponed","ditunda"],["cancelled","dibatalkan"],["canceled","dibatalkan"],["abandoned","dihentikan"],["Suspended","dihentikan sementara"],["interrupted","dihentikan sementara"],["awarded","walkover"],["delayed","tertunda"],["finished",null],["notstarted",null],["",null]])assert.equal(voidOf(r),e,r);
+  const K=Date.parse("2026-11-25T12:00:00Z"),H=36e5,m=(eid,st,u,sc)=>({eid,league:"L",utc:new Date(u).toISOString(),status:st,score:sc||[null,null],home:{name:"A"+eid},away:{name:"B"+eid},p:{h:50,d:25,a:25}});
+  // catat 3 laga sebelum kickoff
+  let h=updateHistory([],[m(1,"NS",K),m(2,"NS",K),m(3,"NS",K)],K-5*H);assert.equal(h.length,3);
+  // sesudah kickoff: laga 1 selesai, laga 2 ditunda (hilang dari jadwal), laga 3 dibatalkan
+  h=updateHistory(h,[m(1,"FT",K,[2,0])],K+3*H,{vd:new Map([[2,"ditunda"],[3,"dibatalkan"]])});
+  const g=id=>h.find(e=>e.id===id);assert.deepEqual(g(1).r,[2,0]);assert.equal(g(1).x,undefined);assert.equal(g(2).x.s,"ditunda");assert.equal(g(3).x.s,"dibatalkan");
+  assert.deepEqual(g(2).p,[50,25,25],"angka prediksi tidak berubah");const t2=g(2).x.t;
+  h=updateHistory(h,[],K+4*H,{vd:new Map([[2,"ditunda"]])});assert.equal(g(2).x.t,t2,"keterangan sama tidak menulis ulang waktu");
+  // evaluasi: hanya laga yang punya hasil yang dinilai (ditunda/batal bukan meleset)
+  const ev=evalHistory(h);assert.equal(ev.n,1);assert.equal(ev.acc,100);assert.equal(ev.pending,2);
+  // arsip: keterangan ikut tersimpan
+  let A=mergeRekam([],h,K+4*H);const ga=id=>A.rows.find(r=>r.id===id);assert.equal(ga(2).x.s,"ditunda");assert.equal(ga(1).x,null);
+  const I=rekIndex(byMonth(A.rows),K+4*H,A.st);assert.equal(I.months[0].vd,2);assert.equal(I.months[0].done,1);
+  // laga 2 dijadwal ulang ke masa depan (status belum mulai lagi): riwayat & arsip mengikuti jadwal baru, keterangan hilang
+  const K2=K+7*24*H;h=updateHistory(h,[m(2,"NS",K2)],K+5*H);assert.equal(g(2).x,undefined);assert.equal(g(2).u,new Date(K2).toISOString());
+  A=mergeRekam(A.rows,h,K+5*H);assert.equal(ga(2).x,null,"dijadwal ulang: keterangan hilang");assert.equal(ga(2).u,new Date(K2).toISOString());
+  // laga 3: riwayat membuang catatan tanpa hasil > 3 hari, arsip TETAP menyimpan dengan keterangannya
+  h=updateHistory(h,[],K+4*24*H);assert(!g(3),"riwayat dibuang");A=mergeRekam(A.rows,h,K+4*24*H);assert.equal(ga(3).x.s,"dibatalkan","arsip tetap menjelaskan");
+  // keterangan tidak pernah mengubah laga yang sudah punya hasil
+  A=mergeRekam(A.rows,[{...ga(1),p:[50,25,25],x:{s:"ditunda"}}],K+5*24*H);assert.equal(ga(1).x,null);assert.deepEqual(ga(1).r,[2,0]);
+  // laporan pagi: ditunda/batal tidak dihitung "belum ada hasil"
+  const now=Date.parse("2026-11-26T00:00:00Z"),u=new Date(now-10*H).toISOString(),L=[{id:7,u,lg:"L",h:"A",a:"B",p:[60,20,20],r:[1,0]},{id:8,u,lg:"L",h:"C",a:"D",p:[60,20,20],r:null,x:{s:"ditunda"}},{id:9,u,lg:"L",h:"E",a:"F",p:[60,20,20],r:null}];
+  const R=morningReport(L,now);assert.equal(R.n,1);assert.equal(R.wait,1);assert.equal(R.vd,1);assert(/1 ditunda\/dibatalkan\/dihentikan, tidak dinilai/.test(reportText(R)),reportText(R));
+  return "6 status, riwayat, arsip, jadwal ulang, evaluasi, laporan"});
+// V56: laga yang sama dari BSD dan Highlightly tidak digandakan; laga berbeda dengan nama mirip tetap tampil
+sc("V56: dedup BSD vs Highlightly (laga sama digabung, laga mirip tetap terpisah)",async()=>{
+  const {crossDup,sameTeam}=await import("./highlightly.mjs"),U="2026-11-28T08:30:00Z",at=h=>new Date(Date.parse(U)+h*36e5).toISOString();
+  const hl={eid:"hl1",src:"HL",league:"Liga 1 Indonesia",utc:U,home:{name:"Persib"},away:{name:"Persija Jakarta"}};
+  const B=(o)=>({eid:9,src:"BSD",league:"Liga 1",lc:"Indonesia",utc:at(.5),status:"NS",home:{name:"Persib Bandung"},away:{name:"Persija"},...o});
+  assert.equal(crossDup(hl,"Indonesia",[B()]).eid,9,"nama panjang/pendek & selisih 30 menit = laga sama");
+  assert.equal(crossDup(hl,"Indonesia",[B({utc:at(26)})]),null,"tim sama, hari lain (laga putaran berikutnya) = beda");
+  assert.equal(crossDup(hl,"Indonesia",[B({home:{name:"Persib U20"},away:{name:"Persija U20"}})]),null,"tim U20 = beda");
+  assert.equal(crossDup(hl,"Indonesia",[B({league:"Liga 1 Putri",home:{name:"Persib Putri"},away:{name:"Persija Putri"}})]),null,"tim putri = beda");
+  assert.equal(crossDup(hl,"Indonesia",[B({home:{name:"Persibat Batang"}})]),null,"Persibat bukan Persib");
+  assert.equal(crossDup(hl,"Indonesia",[B({lc:"Malaysia"})]),null,"negara beda");
+  assert.equal(crossDup(hl,"Indonesia",[B({home:{name:"Persija"},away:{name:"Persib"}})]),null,"tuan rumah & tamu tertukar = laga lain (leg kedua)");
+  assert.equal(crossDup(hl,"Indonesia",[{...B(),src:"HL"}]),null,"sesama Highlightly tidak dibandingkan");
+  assert.equal(crossDup(hl,"Indonesia",[B({lc:undefined})]).eid,9,"negara tidak disebut sumber: tetap dicocokkan dari waktu & dua nama");
+  for(const [a,b,e] of [["Arema FC","Arema",true],["Bali United","Bali United Putri",false],["Real Madrid","Real Madrid Castilla",false],["Ajax","Jong Ajax",false],["PSIS Semarang","PSS Sleman",false],["Borneo FC Samarinda","Borneo FC",true]])assert.equal(sameTeam(a,b),e,a+" | "+b);
+  // integrasi: all.json berisi laga BSD yang sama dengan salah satu laga Highlightly -> laga HL itu tidak ditambahkan, yang lain tetap
+  const now=Date.now(),iso=h=>new Date(now+h*36e5).toISOString();
+  const L=[0,1,2,3].map(i=>({id:900+i,date:iso(3+i*24),round:"R1",state:{description:"Not started",score:{current:null}},homeTeam:{id:10+i,name:"Tim A"+i,logo:null},awayTeam:{id:20+i,name:"Tim B"+i,logo:null},league:{logo:null}}));
+  const H=http.createServer((q,s)=>{const u=new URL(q.url,"http://x"),send=o=>{s.writeHead(200,{"content-type":"application/json","x-ratelimit-requests-remaining":"60"});s.end(JSON.stringify(o))};
+    if(u.pathname==="/football/matches")return send(+u.searchParams.get("leagueId")===233958?{data:L,pagination:{totalCount:4}}:{data:[],pagination:{totalCount:0}});
+    if(u.pathname==="/football/leagues")return send({data:[]});if(u.pathname==="/football/standings")return send({});
+    if(u.pathname.startsWith("/football/matches/"))return send([{id:+u.pathname.split("/").pop(),state:{description:"Not started"}}]);s.writeHead(404);s.end("{}")});
+  await new Promise(r=>H.listen(0,"127.0.0.1",r));
+  try{const out=mkdtempSync(join(tmpdir(),"hld-")),sf=join(out,"state.json");writeFileSync(sf,"{}");
+    const bsd=[{id:"b501",eid:501,src:"BSD",league:"Liga 1",lc:"Indonesia",utc:new Date(Date.parse(L[1].date)+20*6e4).toISOString(),status:"NS",score:[null,null],home:{name:"Tim A1 FC"},away:{name:"Tim B1"}},
+      {id:"b502",eid:502,src:"BSD",league:"Liga 1",lc:"Indonesia",utc:L[2].date,status:"NS",score:[null,null],home:{name:"Tim A2 U20"},away:{name:"Tim B2 U20"}}];
+    writeFileSync(out+"/all.json",JSON.stringify({matches:bsd,errors:[]}));writeFileSync(out+"/leagues.json",JSON.stringify({leagues:[]}));
+    const r=await new Promise(res=>{const p=spawn(process.execPath,[join(here,"highlightly.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,HL_API:"http://127.0.0.1:"+H.address().port,HIGHLIGHTLY_KEY:"k",HL_STATE_FILE:sf,HL_ONLY:"233958"}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e}))});
+    assert.equal(r.c,0,r.e);const A=JSON.parse(readFileSync(out+"/all.json","utf8")),ids=A.matches.map(m=>m.eid);
+    assert(ids.includes(501)&&ids.includes(502),"laga BSD dipertahankan: "+ids);assert(!ids.includes("hl901"),"laga HL yang sama dengan BSD tidak digandakan: "+ids);
+    assert(ids.includes("hl900")&&ids.includes("hl902")&&ids.includes("hl903"),"laga HL lain (termasuk yang mirip tim U20) tetap tampil: "+ids);
+    assert.equal(A.hl.dup,1);assert.deepEqual(A.hl.dupIds,[["hl901",501]]);
+    return "9 kasus nama/waktu/jenis tim + integrasi: 1 digabung, 3 tetap"}finally{H.close()}});
 // V14.1: Highlightly — liga Indonesia + 2 liga tambahan (Denmark, Algeria), prioritas kuota, musim lintas tahun
 sc("Highlightly: liga tambahan ikut tampil, Indonesia diprioritaskan, musim tahun lalu dipakai bila tahun ini kosong",async()=>{
   const hits=[],now=Date.now(),iso=h=>new Date(now+h*36e5).toISOString(),yr=new Date(now).getUTCFullYear();
@@ -651,6 +712,11 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     assert(M.bt&&M.bt.joined>=150,"uji mundur tergabung dengan BSD: "+(M.bt&&M.bt.joined));
     assert(M.bt.modelJ.ll<1.1&&M.bt.bsd.ll<1.1,"log loss wajar");assert(M.hfa>.1&&M.hfa<.45,"keunggulan kandang "+M.hfa);
     assert(M.bt.holdout&&M.bt.holdout.blend.ll<=M.bt.holdout.bsd.ll+.01,"gabungan tidak lebih buruk dari BSD");
+    // V56: pemisahan temporal — semua laga uji jujur (paruh kedua) sesudah batas pemilihan, semua laga pemilihan sebelumnya, tidak tumpang tindih
+    {const H=M.bt.holdout,EV=M.bt.ev,cut=Date.parse(EV.cut);assert.equal(H.sel,1);assert.equal(H.cut,EV.cut);assert(Number.isFinite(cut)&&cut>NOW-90*DAYm&&cut<NOW,"batas paruh di dalam periode uji: "+EV.cut);
+     assert.equal(H.n+H.nTune,M.bt.joined,"paruh pertama + kedua = semua laga tergabung");assert(H.n>=50&&H.nTune>=50,"kedua paruh berisi: "+H.nTune+" / "+H.n);
+     assert(EV.tune&&EV.test&&EV.tune.n+EV.test.n===M.bt.n,"uji mundur model terbagi dua tanpa sisa");assert.equal(M.v20.by,"paruh pertama");
+     assert.equal(M.bt.calib.reduce((s,c)=>s+c.n,0),EV.test.n,"tabel kalibrasi hanya dari paruh kedua")}
     const all=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")),mU=all.matches.find(x=>x.eid===U.id);
     assert(mU&&mU.bl&&Math.abs(mU.bl.h+mU.bl.d+mU.bl.a-100)<.5,"prediksi Model BL di laga");
     // V20: koreksi klasemen & pelatih baru diuji mundur (on/off) dan tercatat; tebakan skor di catatan kartu dari Model BL
@@ -695,6 +761,8 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     {const {unlinkSync}=await import("node:fs");try{unlinkSync(join(st,"model-bl.json"))}catch(e){}
      const r4=await go();assert.equal(r4.c,0,r4.e);const M4=JSON.parse(readFileSync(join(r4.out,"model-bl.json"),"utf8")),u4=JSON.parse(readFileSync(join(r4.out,"all.json"),"utf8")).matches.find(x=>x.eid===U.id);
      assert.equal(M4.xrHist,0);assert.equal(M.xrHist,1);assert.equal(M4.cov.nXr,0,"tanpa line-up historis: "+JSON.stringify(M4.cov));assert.equal(M4.cov.gA,0);assert.equal(M4.cov.gD,0);
+     // audit 26 Nov: nilai skuad SEKARANG tidak boleh dipasang ke laga lama (mengintip) -> tidak ikut dilatih, bobotnya 0, versi model 6
+     assert.equal(M4.zvHist,0);assert.equal(M4.cov.nZv,0,"tanpa nilai skuad historis: "+JSON.stringify(M4.cov));assert.equal(M4.cov.bv,0);assert.equal(M4.srCur,6);
      assert(u4&&u4.bl&&u4.bl.ux===0,"koreksi line-up berbobot tidak dipakai: "+JSON.stringify(u4&&u4.bl));assert.equal(u4.bl.k[0],3,"3 pemain inti absen tetap terhitung");
      assert(u4.bl.xg[0]<M4.pred[U.id].x[0],"serangan tuan rumah tetap dikoreksi turun (cara pemain inti)");assert(M4.stk&&M4.bt&&M4.bt.joined>=150,"latihan & uji mundur tetap jalan");
      assert(M4.dis&&M4.dis.of===M4.bt.joined&&M4.dis.n>0&&M4.dis.bsd+M4.dis.bl+M4.dis.none===M4.dis.n,"statistik beda arah: "+JSON.stringify(M4.dis))}
@@ -704,6 +772,49 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
      const r5=await go({MAX_RUN_MS:"200000"});assert.equal(r5.c,0,r5.e);const a5=JSON.parse(readFileSync(join(r5.out,"all.json"),"utf8")).bsd;
      assert(a5.xgCut>=1&&!a5.xg,"xG dilewati karena waktu: "+JSON.stringify({cut:a5.xgCut,xg:a5.xg}));
      const M5=JSON.parse(readFileSync(join(r5.out,"model-bl.json"),"utf8"));assert(M5.bt&&M5.bt.joined>=150,"model tetap dilatih")}
+    // Audit 26 Nov (V56): bukti NYATA bahwa nilai skuad tidak memengaruhi jalur default. Data internal yang sama persis dipakai dua kali,
+    // hanya nilai pasar pemain yang dibuat ekstrem dan berlawanan (tim genap x1000 / ganjil x0,001, lalu dibalik). Jalur default harus
+    // menghasilkan latihan, uji mundur, kalibrasi, setelan, lapisan koreksi, dan peluang Model BL yang IDENTIK. Sebagai kontrol (agar tes
+    // ini memang peka), cara lama BL_ZV_HIST=1 dengan data yang sama harus memakai nilai skuad dan hasilnya BERBEDA.
+    // Data sintetis ini hanya untuk membuktikan alur kode, bukan ukuran performa model.
+    {const {rmSync,cpSync,unlinkSync}=await import("node:fs"),snap=mkdtempSync(join(tmpdir(),"blsnap-"));cpSync(st,snap,{recursive:true});
+     const V0=JSON.parse(readFileSync(join(snap,"values.json"),"utf8"));assert(Object.keys(V0.p).length>=50,"data nilai pasar tersedia: "+Object.keys(V0.p).length);
+     const vals=flip=>({...V0,p:Object.fromEntries(Object.entries(V0.p).map(([pid,v])=>{const big=(Math.floor(+pid/100)%2===0)!==flip;return[pid,v&&v[0]!=null?[v[0]*(big?1000:.001),...v.slice(1)]:v]}))});
+     const run=async(flip,x={})=>{rmSync(st,{recursive:true,force:true});cpSync(snap,st,{recursive:true});writeFileSync(join(st,"values.json"),JSON.stringify(vals(flip)));try{unlinkSync(join(st,"model-bl.json"))}catch(e){}
+       const r=await go(x);assert.equal(r.c,0,r.e);return{M:JSON.parse(readFileSync(join(r.out,"model-bl.json"),"utf8")),A:JSON.parse(readFileSync(join(r.out,"all.json"),"utf8"))}};
+     const core=({M,A})=>JSON.stringify({pred:M.pred,bt:M.bt,temp:M.temp,cfg:M.cfg,cov:M.cov,v20:M.v20,useful:M.useful,w:M.w,stk:M.stk&&{on:M.stk.on,test:M.stk.test,m:M.stk.m},
+       bl:A.matches.filter(m=>m.bl).map(m=>[m.eid,m.bl.h,m.bl.d,m.bl.a,m.bl.xg,m.bl.ou,m.bl.bt]),sk:A.matches.filter(m=>m.sk).map(m=>[m.eid,m.sk.h,m.sk.d,m.sk.a])});
+     const d1=await run(false),d2=await run(true);
+     assert(d1.A.bsd.zv>=4,"nilai skuad memang terhitung untuk tim (kalau 0, tes ini tidak menguji apa-apa): "+d1.A.bsd.zv);
+     assert.equal(d1.M.cov.nZv,0);assert.equal(d1.M.cov.bv,0);
+     assert(d1.M.bt&&d1.M.bt.joined>=150&&d1.A.matches.some(m=>m.bl),"latihan & peluang Model BL jalan");
+     assert.equal(core(d1),core(d2),"jalur default: nilai skuad ekstrem yang berlawanan TIDAK BOLEH mengubah latihan/evaluasi/peluang");
+     const z1=await run(false,{BL_ZV_HIST:"1"}),z2=await run(true,{BL_ZV_HIST:"1"});
+     assert(z1.M.cov.nZv>0&&z1.M.zvHist===1,"kontrol: cara lama memakai nilai skuad: "+JSON.stringify(z1.M.cov));
+     assert.notEqual(core(z1),core(z2),"kontrol: dengan BL_ZV_HIST=1 nilai skuad ekstrem HARUS mengubah hasil (tes peka)");
+     rmSync(st,{recursive:true,force:true});cpSync(snap,st,{recursive:true});rmSync(snap,{recursive:true,force:true})}
+    // V56: INDEPENDENSI HOLDOUT, diuji dengan perturbasi nyata. Pipeline dijalankan 3x dari data internal yang sama: (A) normal,
+    // (B) hasil SEMUA laga paruh kedua (holdout) diubah di server tiruan (menang<->kalah ditukar, seri jadi menang tuan rumah),
+    // (C) normal lagi. Yang dipilih dari paruh pertama (setelan, V20, suhu, bobot paruh pertama, skor paruh pertama) harus IDENTIK di A dan B;
+    // metrik holdout harus BERUBAH; C harus identik penuh dengan A (perturbasi tidak tersimpan ke data internal).
+    {const {rmSync,cpSync,unlinkSync}=await import("node:fs"),snap=mkdtempSync(join(tmpdir(),"blho-"));cpSync(st,snap,{recursive:true});
+     const run=async()=>{rmSync(st,{recursive:true,force:true});cpSync(snap,st,{recursive:true});try{unlinkSync(join(st,"model-bl.json"))}catch(e){}
+       const r=await go();assert.equal(r.c,0,r.e);return JSON.parse(readFileSync(join(r.out,"model-bl.json"),"utf8"))};
+     const sel=M=>JSON.stringify({cfg:M.cfg,v20:M.v20,temp:M.temp,tune:M.bt.ev.tune,cut:M.bt.ev.cut,w1:M.bt.holdout.w,nTune:M.bt.holdout.nTune});
+     const test=M=>JSON.stringify({test:M.bt.ev.test,hold:[M.bt.holdout.bsd,M.bt.holdout.model,M.bt.holdout.blend],calib:M.bt.calib});
+     const all=M=>JSON.stringify({...M,updated:null});
+     const A=await run(),cut=Date.parse(A.bt.ev.cut),orig=E.map(e=>[e.home_score,e.away_score]);let k=0,kTune=0;
+     try{for(const e of E){if(e.status!=="finished")continue;const t=Date.parse(e.event_date);if(t>=cut){const h=e.home_score,a=e.away_score;if(h===a){e.home_score=h+1}else{e.home_score=a;e.away_score=h}k++}else if(t>=cut-45*DAYm)kTune++}
+       assert(k>=100&&kTune>=100,"perturbasi mengenai holdout ("+k+" laga), paruh pertama utuh ("+kTune+" laga)");
+       const B=await run();if(process.env.SHOW_HO)console.log("HOLDOUT k="+k+" tune="+kTune+"\nA sel "+sel(A)+"\nB sel "+sel(B)+"\nA test "+test(A).slice(0,400)+"\nB test "+test(B).slice(0,400));
+       assert.equal(sel(B),sel(A),"pilihan dari paruh pertama TIDAK BOLEH berubah karena hasil holdout:\nA "+sel(A)+"\nB "+sel(B));
+       assert.notEqual(test(B),test(A),"metrik holdout harus berubah mengikuti data holdout");
+       assert(B.bt.ev.test.ll>A.bt.ev.test.ll+.05,"hasil holdout dibalik -> log loss holdout memburuk nyata: "+A.bt.ev.test.ll.toFixed(3)+" -> "+B.bt.ev.test.ll.toFixed(3));
+       assert.notEqual(all(B),all(A),"model produksi (dilatih dari semua data) memang ikut berubah");
+     }finally{E.forEach((e,i)=>{e.home_score=orig[i][0];e.away_score=orig[i][1]})}
+     const C=await run();assert.equal(all(C),all(A),"sesudah data dipulihkan, hasil identik penuh dengan run normal (perturbasi tidak tersimpan)");
+     {const R=JSON.parse(readFileSync(join(st,"results.json"),"utf8")).rows,ev=new Map(E.map(e=>[e.id,e]));let bad=0;for(const r of R){const e=ev.get(r[0]);if(e&&e.status==="finished"&&(r[5]!==e.home_score||r[6]!==e.away_score))bad++}assert.equal(bad,0,"riwayat hasil berisi skor asli")}
+     rmSync(st,{recursive:true,force:true});cpSync(snap,st,{recursive:true});rmSync(snap,{recursive:true,force:true})}
     return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
   }finally{H.close()}
 });
