@@ -44,7 +44,7 @@ export function fitStack(rows,o={}){
   const M={t0:0,w0:0,d0:0,th:[0,0,0],lg:{},n:N},byL={};
   R.forEach((r,i)=>{(byL[r.l]=byL[r.l]||[]).push(i)});for(const l in byL)M.lg[l]=[0,0,0];
   const lamG=kG/N,lamL=kL/N;let cur=nll(M,R,F,lamG,lamL);
-  const getG=()=>[M.t0,M.w0,M.d0,...M.th],setG=P=>{M.t0=Math.max(-.7,P[0]);M.w0=Math.max(-.5,Math.min(1.2,P[1]));M.d0=P[2];M.th=[P[3],P[4],P[5]]};
+  const getG=()=>[M.t0,M.w0,M.d0,...M.th],setG=P=>{M.t0=o.thOnly?0:Math.max(-.7,P[0]);M.w0=o.thOnly?0:Math.max(-.5,Math.min(1.2,P[1]));M.d0=o.thOnly?0:P[2];M.th=[P[3],P[4],P[5]]};   // V57: thOnly = hanya 3 faktor (suhu, Model BL, seri dikunci 0)
   for(let iter=0;iter<it;iter++){
     // blok global
     {const g=new Array(6).fill(0),H=[...Array(6)].map(()=>new Array(6).fill(0));
@@ -120,4 +120,22 @@ export function trainLean(rows){
   if(!T||!T.m)return T?{on:false,n:T.n,why:T.why||null}:null;
   const r4=x=>Math.round(x*1e4)/1e4,te=T.test||{};
   return{on:T.on,n:T.n,nTest:T.nTest,test:{lean:te.stack,bsd:te.bsd},m:{t0:T.m.t0,d0:T.m.d0,th:T.m.th.map(r4),w0:0,lg:{}}};   // w0/lg kosong: bisa langsung dipakai applyStack
+}
+
+// V57 (uji coba, TIDAK dipakai prediksi): koreksi BSD HANYA dari 3 faktor (klasemen, pelatih baru, habis laga Eropa) — tanpa suhu,
+// tanpa seri, tanpa Model BL, tanpa angka per liga. Hipotesis dari uji faktor (pelatih baru & habis Eropa menyimpang > 2,5 galat baku dari BSD).
+// Karena hipotesis itu terbentuk dari data yang sama, uji ini dibuat lebih ketat dari V29: walk-forward 3 blok berurutan (latih hanya dari
+// laga SEBELUM blok), lolos hanya bila rata-rata validasi lebih baik dari BSD (margin) DAN menang di >= 2 dari 3 blok; test akhir (25% terakhir)
+// dibuka sekali sesudah keputusan validasi. Tetap perlu uji maju (laga sesudah hari ini) sebelum dipakai.
+// gap: laga latih harus kickoff >= gap (bawaan 3 jam) sebelum laga pertama blok yang dinilai (hasilnya sudah diketahui saat itu).
+export function trainFx(rows,{folds=3,fracTest=.25,margin=.001,minN=600,gap=3*36e5}={}){
+  const R=(rows||[]).filter(r=>r&&r.b&&r.o!=null&&Number.isFinite(r.t)).map(r=>({...r,p:null})).sort((a,b)=>a.t-b.t);if(R.length<minN)return{on:false,n:R.length,why:"data kurang"};
+  const nT=Math.floor(R.length*fracTest),dev=R.slice(0,R.length-nT),test=R.slice(R.length-nT),blk=Math.floor(dev.length/(folds+1)),o={kL:1e9,thOnly:true},r4=x=>Math.round(x*1e4)/1e4;
+  const F=[];for(let f=0;f<folds;f++){const va=dev.slice(blk*(f+1),f===folds-1?dev.length:blk*(f+2)),tr=dev.slice(0,blk*(f+1)).filter(r=>r.t<=va[0].t-gap),M=fitStack(tr,o);
+    const sF=scoreP(va,r=>applyStack(M,r)),sB=scoreP(va,r=>r.b);F.push({nTr:tr.length,nVa:va.length,trTo:tr.length?tr[tr.length-1].t:null,vaFrom:va[0].t,bsd:sB.ll,fx:sF.ll,th:M.th})}
+  const w=F.reduce((a,f)=>a+f.nVa,0),avg=k=>F.reduce((a,f)=>a+f[k]*f.nVa,0)/w,wins=F.filter(f=>f.fx<f.bsd).length;
+  const val={bsd:avg("bsd"),fx:avg("fx"),wins},pass=val.fx<val.bsd-margin&&wins>=Math.ceil(folds/2+.01);
+  const trT=dev.filter(r=>r.t<=test[0].t-gap),M=fitStack(trT,o),d=test.map(r=>{const q=applyStack(M,r);return-Math.log(Math.max(q[r.o]/100,1e-6))+Math.log(Math.max(r.b[r.o]/100,1e-6))}),md=d.reduce((a,x)=>a+x,0)/d.length,se=Math.sqrt(d.reduce((a,x)=>a+(x-md)**2,0)/(d.length-1)/d.length);
+  const tst={n:test.length,nTrain:trT.length,trTo:trT.length?trT[trT.length-1].t:null,from:test[0].t,bsd:scoreP(test,r=>r.b),fx:scoreP(test,r=>applyStack(M,r)),diff:r4(md),se:r4(se),th:M.th};
+  return{on:false,pass,n:R.length,gap,folds:F.map(f=>({...f,bsd:r4(f.bsd),fx:r4(f.fx)})),val:{bsd:r4(val.bsd),fx:r4(val.fx),wins},test:tst,note:"uji coba; tidak dipakai prediksi (perlu uji maju & persetujuan)"};
 }

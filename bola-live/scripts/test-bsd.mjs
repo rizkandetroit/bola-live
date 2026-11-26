@@ -374,6 +374,26 @@ console.log("OK    V53: reliabilitas (uji tanpa bocor)");
  assert(L.test.lean.ll<L.test.bsd.ll);const N=trainLean(R.map(r=>({...r,nc:[0,0],eu:[0,0]})));assert(!N.on,"tanpa bias: tidak lolos");
  assert.equal(trainLean(R.slice(0,100)).on,false)}
 console.log("OK    V29: koreksi terarah BSD");
+{// V57: uji coba faktor saja (walk-forward + test akhir terkunci). Data sintetis hanya membuktikan alur kode.
+ const {trainFx}=await import("./stack.mjs");let x=21;const rnd=()=>(x=(x*16807)%2147483647)/2147483647;
+ const mk=(z0,n=4000)=>Array.from({length:n},(_,i)=>{const nc=[rnd()<.15?1:0,rnd()<.15?1:0],eu=[rnd()<.1?1:0,rnd()<.1?1:0],b=[45,27,28],z=z0*(-(nc[0]-nc[1])+(eu[0]-eu[1])),
+   e=[Math.exp(Math.log(.45)+z),.27,Math.exp(Math.log(.28)-z)],t=e[0]+e[1]+e[2],u=rnd()*t,o=u<e[0]?0:u<e[0]+e[1]?1:2;return{o,b,p:[60,20,20],l:1+(i%5),t:Date.parse("2026-08-01T00:00:00Z")+i*2*36e5,tb:null,nc,eu}});
+ const R=mk(.5),F=trainFx(R);assert(F.pass&&F.val.wins>=2,"bias nyata -> lolos validasi: "+JSON.stringify(F.val));assert.equal(F.on,false,"uji coba tidak pernah aktif sendiri");
+ assert(F.test.th[1]<-.2&&F.test.th[2]>.2&&F.test.diff<0,"arah & test akhir: "+JSON.stringify(F.test));assert.equal(F.folds.length,3);
+ // jeda 3 jam: laga latih terakhir kickoff >= 3 jam sebelum laga pertama blok yang dinilai; jendela latih bertambah; tiap blok berisi
+ F.folds.forEach((f,i)=>{assert(f.nVa>=500&&Number.isFinite(f.fx)&&Number.isFinite(f.bsd),"blok "+i);assert(f.trTo<=f.vaFrom-3*36e5,"jeda blok "+i);if(i)assert(f.nTr>F.folds[i-1].nTr)});
+ assert(F.test.trTo<=F.test.from-3*36e5&&F.test.nTrain>=2000,"jeda test akhir");
+ {const Rg=R.map(r=>({...r,t:Date.parse("2026-08-01T00:00:00Z")+Math.floor(R.indexOf(r)/2)*60e3})),Fg=trainFx(Rg);Fg.folds.forEach(f=>assert(f.trTo<=f.vaFrom-3*36e5,"jeda tetap dijaga walau laga berdempetan"))}
+ // tidak mengubah masukan & tidak memengaruhi lapisan koreksi produksi
+ {const {trainStack}=await import("./stack.mjs"),S0=JSON.stringify(R),T0=JSON.stringify(trainStack(R));trainFx(R);assert.equal(JSON.stringify(R),S0,"masukan tidak diubah");assert.equal(JSON.stringify(trainStack(R)),T0,"trainStack identik sesudah trainFx")}
+ const N=trainFx(mk(0));assert(!N.pass,"tanpa bias -> tidak lolos: "+JSON.stringify(N.val));
+ // test akhir terkunci: hasil laga 25% terakhir dibalik -> validasi & keputusan identik
+ const cut=R.length-Math.floor(R.length*.25),R2=R.map((r,i)=>i>=cut?{...r,o:2-r.o}:r),F2=trainFx(R2);
+ assert.equal(JSON.stringify(F2.folds),JSON.stringify(F.folds));assert.equal(F2.pass,F.pass);assert.notEqual(F2.test.bsd.ll,F.test.bsd.ll);
+ // blok validasi terakhir dibalik -> blok sebelumnya identik
+ const b=Math.floor((R.length-Math.floor(R.length*.25))/4),R3=R.map((r,i)=>i>=3*b&&i<cut?{...r,o:2-r.o}:r),F3=trainFx(R3);assert.equal(JSON.stringify(F3.folds.slice(0,2)),JSON.stringify(F.folds.slice(0,2)));
+ assert.equal(trainFx(R.slice(0,300)).on,false)}
+console.log("OK    V57: uji coba faktor saja (walk-forward, test akhir terkunci)");
 {// V29b: RPS & kelompok liga & pembanding pasar di evaluasi
  const H=[{lg:"Premier League",u:"2026-11-20T10:00:00Z",p:[60,25,15],r:[1,0],o:[1.6,4,6]},{lg:"Coupe de France",u:"2026-11-20T11:00:00Z",p:[60,25,15],r:[0,0]},{lg:"Liga X",u:"2026-11-20T12:00:00Z",p:[40,30,30],r:[0,2]}];
  const ev=evalHistory(H);assert(Math.abs(ev.rps-((.4**2+.15**2)/2+(.6**2+.15**2)/2+(.4**2+.7**2)/2)/3)<1e-9,"RPS benar: "+ev.rps);
@@ -532,6 +552,34 @@ sc("6. mode lengkap (Unlimited): odds terbaik, klasemen + top skor, Match Center
   const hj=JSON.parse(readFileSync(r.out+"/bsd-history.json","utf8")).find(x=>x.id===ns.id);assert(hj&&hj.po&&hj.pc,"riwayat menyimpan harga Pinnacle");
   assert(JSON.parse(readFileSync(r.out+"/bsd-eval.json","utf8")).move.pending>=1);
   return r.all.bsd.details+" Match Center, "+r.all.bsd.leagues+" liga, "+cfg.hits.length+" permintaan"});
+// V57: alat audit kualitas peluang (prob-audit.mjs) — integritas peluang, kepekaan, tanpa bocor, test akhir tidak menentukan pilihan.
+// Data sintetis HANYA untuk membuktikan alur kode, bukan ukuran performa.
+sc("V57: audit peluang — integritas, kalibrator, walk-forward, test akhir terkunci",async()=>{
+  const A=await import("./prob-audit.mjs");let s=99;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
+  // integritas: semua kalibrator selalu menghasilkan peluang valid, termasuk masukan ekstrem / tidak lengkap
+  for(const p of [[100,0,0],[0,0,100],[33.3,33.3,33.4],[99.9,0.05,0.05],[0,100,0],[50,null,50]])for(const [k,M] of Object.entries(A.METHODS)){const prm=k==="temp"?{T:.6}:k==="tempDraw"?{T:1.4,d:.4}:k==="vector"?{a:[1.5,.5,2],b:[0,.3,-.3]}:null;
+    assert(A.valid(M.apply(A.frac(p),prm)),k+" "+JSON.stringify(p))}
+  // data sintetis: peluang benar q, peluang "dinyatakan" p = q dipertajam (terlalu yakin, setara suhu 0,75)
+  const mk=(n,over)=>Array.from({length:n},(_,i)=>{const a=rnd(),b=rnd()*.5,c=rnd(),t=a+b+c,q=[a/t,b/t,c/t],p=over?A.temp(q,.75):q,u=rnd(),o=u<q[0]?0:u<q[0]+q[1]?1:2;
+    return{t:Date.parse("2026-08-01T00:00:00Z")+i*36e5,p:p.map(x=>x*100),r:o===0?[1,0]:o===1?[1,1]:[0,1],lg:"L"+(i%5)}});
+  const M0=A.metrics(mk(4000,false));assert(Math.abs(M0.ll-M0.ent)<.03&&M0.ece<3,"data terkalibrasi: log loss ~ entropi, ECE kecil "+JSON.stringify(M0));
+  const R=mk(4000,true),W=A.walkForward(R);assert(W.ok);
+  for(const f of W.folds)assert(f.trTo<=f.from-3*36e5&&f.nTrain>=97&&f.nVal>=900,"jeda 3 jam & blok berisi: "+JSON.stringify({trTo:f.trTo,from:f.from,n:f.nTrain}));assert(W.nTrainTest<W.nDev&&W.nTrainTest>=W.nDev-3);
+  // RPS sama dengan rumus model.mjs
+  {const {rps}=await import("./model.mjs");for(const x of R.slice(0,200)){const q=A.frac(x.p),o=A.outcome(x.r);assert(Math.abs(A.rps(q,o)-rps(q,o))<1e-12)}const M=A.metrics(R);assert(M.rps>0&&M.rps<.5)}assert.equal(W.pick,"temp","terlalu yakin -> suhu terpilih: "+JSON.stringify(W.valAvg));
+  assert(W.test.temp.prm.T>1.2&&W.test.temp.prm.T<1.45,"suhu ~1,33 ditemukan: "+W.test.temp.prm.T);assert(W.test.temp.ll<W.test.bsd.ll-.01&&W.boot.hi<0,"perbaikan nyata di test akhir");
+  for(const k in W.test)assert(W.test[k].valid,k);
+  const Wc=A.walkForward(mk(4000,false));assert.equal(Wc.pick,null,"data sudah terkalibrasi: tidak ada kandidat yang dipaksakan: "+JSON.stringify(Wc.valAvg));
+  // tanpa bocor + test akhir terkunci: hasil laga di test akhir dibalik -> semua blok validasi, parameter, dan pilihan kandidat IDENTIK
+  const flip=x=>({...x,r:[x.r[1],x.r[0]+(x.r[0]===x.r[1]?1:0)]}),cut=W.testFrom,R2=R.map(x=>x.t>=cut?flip(x):x),W2=A.walkForward(R2);
+  assert.equal(JSON.stringify(W2.folds),JSON.stringify(W.folds),"validasi tidak boleh terpengaruh hasil test akhir");assert.equal(W2.pick,W.pick);
+  assert.equal(JSON.stringify(W2.test.temp.prm),JSON.stringify(W.test.temp.prm),"parameter kalibrasi dari data sebelum test akhir saja");assert(W2.test.bsd.ll>W.test.bsd.ll+.1,"metrik test akhir memang berubah");
+  // independensi temporal per blok: hasil blok validasi terakhir dibalik -> blok-blok sebelumnya identik
+  const f3=W.folds[2],R3=R.map(x=>x.t>=f3.from&&x.t<=f3.to?flip(x):x),W3=A.walkForward(R3);
+  assert.equal(JSON.stringify(W3.folds.slice(0,2)),JSON.stringify(W.folds.slice(0,2)),"blok sebelumnya tidak melihat blok sesudahnya");assert.notEqual(JSON.stringify(W3.folds[2].m),JSON.stringify(f3.m));
+  // breakdown: kontribusi kelompok menjumlah 100%
+  const bd=A.breakdown(R,x=>x.lg);assert(Math.abs(bd.reduce((a,g)=>a+g.share,0)-100)<1e-6);
+  return "integritas 6x4, kalibrator peka, data terkalibrasi tidak dipaksa, test akhir & blok terdahulu tidak bocor"});
 // V56: laga ditunda / dibatalkan / dihentikan: diberi keterangan, tidak dinilai, tidak hilang dari rekam jejak; jadwal ulang kembali normal
 sc("V56: laga ditunda/dibatalkan/dihentikan di riwayat, arsip, evaluasi, laporan",async()=>{
   const {voidOf}=await import("./bsd.mjs"),{mergeRekam,byMonth,rekIndex}=await import("./rekam.mjs"),{morningReport,reportText}=await import("./laporan.mjs");
@@ -717,6 +765,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
      assert.equal(H.n+H.nTune,M.bt.joined,"paruh pertama + kedua = semua laga tergabung");assert(H.n>=50&&H.nTune>=50,"kedua paruh berisi: "+H.nTune+" / "+H.n);
      assert(EV.tune&&EV.test&&EV.tune.n+EV.test.n===M.bt.n,"uji mundur model terbagi dua tanpa sisa");assert.equal(M.v20.by,"paruh pertama");
      assert.equal(M.bt.calib.reduce((s,c)=>s+c.n,0),EV.test.n,"tabel kalibrasi hanya dari paruh kedua")}
+    assert(M.stk&&M.stk.fx&&M.stk.fx.on===false,"V57: uji coba faktor saja tercatat & tidak aktif: "+JSON.stringify(M.stk&&M.stk.fx));
     const all=JSON.parse(readFileSync(join(r2.out,"all.json"),"utf8")),mU=all.matches.find(x=>x.eid===U.id);
     assert(mU&&mU.bl&&Math.abs(mU.bl.h+mU.bl.d+mU.bl.a-100)<.5,"prediksi Model BL di laga");
     // V20: koreksi klasemen & pelatih baru diuji mundur (on/off) dan tercatat; tebakan skor di catatan kartu dari Model BL
@@ -814,6 +863,20 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
      }finally{E.forEach((e,i)=>{e.home_score=orig[i][0];e.away_score=orig[i][1]})}
      const C=await run();assert.equal(all(C),all(A),"sesudah data dipulihkan, hasil identik penuh dengan run normal (perturbasi tidak tersimpan)");
      {const R=JSON.parse(readFileSync(join(st,"results.json"),"utf8")).rows,ev=new Map(E.map(e=>[e.id,e]));let bad=0;for(const r of R){const e=ev.get(r[0]);if(e&&e.status==="finished"&&(r[5]!==e.home_score||r[6]!==e.away_score))bad++}assert.equal(bad,0,"riwayat hasil berisi skor asli")}
+     rmSync(st,{recursive:true,force:true});cpSync(snap,st,{recursive:true});rmSync(snap,{recursive:true,force:true})}
+    // V57: eksperimen faktor saja DIJALANKAN (BL_FX_MIN=100 supaya data contoh cukup) vs dimatikan (BL_FX=0), dari data internal yang sama:
+    // seluruh keluaran produksi (peluang di laga, model, riwayat, rekam jejak) harus identik; bedanya hanya catatan stk.fx.
+    {const {rmSync,cpSync,unlinkSync}=await import("node:fs"),snap=mkdtempSync(join(tmpdir(),"blfx-"));cpSync(st,snap,{recursive:true});
+     const run=async x=>{rmSync(st,{recursive:true,force:true});cpSync(snap,st,{recursive:true});try{unlinkSync(join(st,"model-bl.json"))}catch(e){}const r=await go(x);assert.equal(r.c,0,r.e);
+       const J=f=>JSON.parse(readFileSync(join(r.out,f),"utf8")),I=J("rekam-index.json");return{M:J("model-bl.json"),A:J("all.json"),H:JSON.parse(readFileSync(join(st,"bsd-history.json"),"utf8")),K:I.months.map(q=>J("rekam-"+q.m+".json"))}};
+     const on=await run({BL_FX_MIN:"100"}),off=await run({BL_FX:"0"});
+     assert(on.M.stk.fx&&Array.isArray(on.M.stk.fx.folds)&&on.M.stk.fx.folds.length===3&&on.M.stk.fx.test&&on.M.stk.fx.on===false,"eksperimen benar-benar dijalankan: "+JSON.stringify(on.M.stk.fx).slice(0,300));
+     assert.equal(off.M.stk.fx,undefined,"BL_FX=0 mematikan eksperimen");
+     const prodM=M=>{const c=JSON.parse(JSON.stringify(M));delete c.stk.fx;return JSON.stringify(c)},prodA=A=>JSON.stringify({...A,bsd:{...A.bsd,tm:null},errors:A.errors});
+     assert.equal(prodM(on.M),prodM(off.M),"model produksi identik (kecuali catatan stk.fx)");
+     assert.equal(prodA(on.A),prodA(off.A),"semua laga & peluang tayang identik");
+     assert.equal(JSON.stringify(on.H),JSON.stringify(off.H),"riwayat prediksi identik");assert.equal(JSON.stringify(on.K),JSON.stringify(off.K),"rekam jejak identik");
+     assert(!JSON.stringify(on.A.matches).includes('"fx"')&&!JSON.stringify(on.H).includes('"fx"'),"hasil eksperimen tidak masuk laga/riwayat");
      rmSync(st,{recursive:true,force:true});cpSync(snap,st,{recursive:true});rmSync(snap,{recursive:true,force:true})}
     return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
   }finally{H.close()}

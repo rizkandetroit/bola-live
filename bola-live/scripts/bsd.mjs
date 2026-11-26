@@ -4,7 +4,7 @@ import {pathToFileURL} from "node:url";
 import {sleep,tfetch,cleanKey,outDir,overDeadline,deadline,ghWarn,siteBase,readPrev,readState,writeState,stateDir,prevDir} from "./net.mjs";
 import {fitModel,predictModel,rollingBacktest,score,rps,disagree,experiments,lineupExp,drawExp,drawShift,bestBlend,addTimes,probs,regulars,missingCore,adjustL,CORE,DEF,temper,bestTemp,tablesAt,tableTest,luckOf,strengthRanks,matchFeatures} from "./model.mjs";
 import {factorTests,EU_RE} from "./factors.mjs";
-import {trainStack,trainLean,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
+import {trainStack,trainLean,trainFx,applyStack,trainMarket,marketP,poolMarket,labelOf} from "./stack.mjs";
 import {ingest as psIngest,compact as psCompact,teamSummary,valueOf,playerQuality,xiRatio,xiFromStats,startersOf,statRow,formOf,formNeedNames} from "./players.mjs";
 import {morningReport,reportText} from "./laporan.mjs";
 import {teamTrap} from "./trap.mjs";
@@ -703,7 +703,8 @@ async function main(){
       const blLg={};{const top=a=>a.indexOf(Math.max(...a)),G=new Map();for(const r of J){const g=G.get(r.l)||[0,0,0];g[0]++;if(top(r.b)===r.o)g[1]++;if(top(r.p)===r.o)g[2]++;G.set(r.l,g)}
         for(const [l,g] of G)if(g[0]>=20)blLg[l]=[g[0],Math.round(g[1]/g[0]*1000)/10,Math.round(g[2]/g[0]*1000)/10]}
       // V21: lapisan koreksi BSD (diuji pada 30% laga terakhir; aktif hanya bila lebih baik dari BSD & gabungan lama)
-      let STK=null;try{const SR=J.map(r=>{const f=FE.get(r.id)||{};return{o:r.o,b:r.b,p:r.p,l:r.l,t:r.t,tb:f.tb||null,nc:f.nc||null,eu:f.eu||null}});STK=trainStack(SR);try{STK.lean=trainLean(SR)}catch(e){errors.push("koreksi terarah: "+e.message)}   // V29 uji coba
+      let STK=null;try{const SR=J.map(r=>{const f=FE.get(r.id)||{};return{o:r.o,b:r.b,p:r.p,l:r.l,t:r.t,tb:f.tb||null,nc:f.nc||null,eu:f.eu||null}});STK=trainStack(SR);if(process.env.BL_FX!=="0")try{STK.fx=trainFx(SR,{minN:Number(process.env.BL_FX_MIN??600)})}catch(e){errors.push("uji faktor saja: "+e.message)}   // V57 uji coba (tidak dipakai prediksi); BL_FX=0 mematikan
+        try{STK.lean=trainLean(SR)}catch(e){errors.push("koreksi terarah: "+e.message)}   // V29 uji coba
         // odds pasar (internal): bobot dipelajari dari riwayat prediksi yang sudah punya peluang koreksi + odds sebelum kickoff
         const H0=await pullS("bsd-history.json");const MR=(Array.isArray(H0)?H0:[]).filter(e=>e.r&&e.sk).map(e=>({o:e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,t:Date.parse(e.u),q:e.sk,m:marketP(e.pc||e.po||e.o)}));
         STK.mk=trainMarket(MR);STK.updated=new Date(now).toISOString()}catch(e){errors.push("lapisan koreksi: "+e.message)}

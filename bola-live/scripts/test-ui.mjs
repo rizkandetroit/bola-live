@@ -271,7 +271,7 @@ console.log("test-ui V33 ok");
 console.log("test-ui V34 ok");
 {const F=new Function(pre+";return {rlId,h2d}")();
  assert.equal(F.rlId("Regular season · Matchday 15"),"Musim reguler · Pekan 15");assert.equal(F.rlId("League phase · Round 5"),"Fase liga · Babak 5");assert.equal(F.rlId("Quarter-finals"),"Perempat final");assert.equal(F.rlId("Round of 16"),"16 besar");assert.equal(F.rlId(null),"");
- assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V56</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
+ assert(/19 Feb 2026/.test(F.h2d("2026-02-19")),F.h2d("2026-02-19"));assert(html.includes(">V57</span>")&&html.includes("Favorit belum main")&&!html.includes("Rata-rata keunggulan</span>"))}
 console.log("test-ui V34c ok");
 {const F=new Function(pre+";return {dataQ}")();const b={p:{h:30,d:30,a:40,xg:1},src:"BSD",odds:{},home:{name:"A"},away:{name:"B"}};
  assert.equal(F.dataQ({...b,bl:{src:"abs",lsrc:"pred",lu:[1,1,1,1]}}).L[3][1],false,"line-up perkiraan bukan resmi");assert.equal(F.dataQ({...b,bl:{src:"xi",lsrc:"xi"}}).L[3][1],true)}
@@ -642,3 +642,13 @@ console.log("test-ui V39 ok");
  F.RK.idx={months:[{m:"2026-11",n:3,done:1,vd:1}]};F.RK.m="2026-11";F.RK.rows=R;F.RK.f={};F.RK.pg=0;const h=F.rekHtml();
  assert(/>ditunda</.test(h)&&/Ditunda \/ dibatalkan/.test(h),"label & filter tampil");assert(!/\bundefined\b|\bNaN\b/.test(h.replace(/<[^>]*>/g," ")))
  console.log("test-ui V56 rekam jejak laga ditunda/batal ok")}
+// V57: baris uji coba faktor saja di Evaluasi Model BL (hanya informasi; tidak mengubah prediksi)
+{const F=new Function(pre+";return {mblHtml}")(),sc={acc:50,brier:.6,ll:.97};
+ const M={updated:"2026-11-26T00:00:00Z",temp:1,xgCov:40,cfg:{},hfa:.2,rest:{own:0,opp:0},cov:{nXr:0,gA:0,gD:0},xrHist:0,core:{own:.035,opp:.025},w:1,useful:false,nMatches:100,span:365,nTeams:20,
+  bt:{days:90,joined:400,bsd:sc,modelJ:sc,calib:[],holdout:{w:1,bsd:sc,model:sc,blend:sc,n:200,nTune:200,sel:1}},
+  stk:{fx:{on:false,pass:false,folds:[{},{},{}],val:{bsd:.975,fx:.974,wins:1},test:{n:1710,bsd:{ll:.965},fx:{ll:.966}}}}};
+ const t=F.mblHtml(M).replace(/<[^>]*>/g," ");assert(/klasemen, pelatih baru, dan habis laga Eropa/.test(t)&&/1\.710 laga/.test(t)&&/\(belum lolos\)/.test(t)&&/Tidak mengubah prediksi/.test(t),t.slice(-500));
+ const t2=F.mblHtml({...M,stk:{fx:{...M.stk.fx,pass:true,test:{n:1710,bsd:{ll:.965},fx:{ll:.96}}}}}).replace(/<[^>]*>/g," ");assert(/lolos validasi; masih perlu uji maju/.test(t2));
+ const t3=F.mblHtml({...M,stk:{fx:{...M.stk.fx,pass:true}}}).replace(/<[^>]*>/g," ");assert(/lolos validasi, tetapi test akhir tidak lebih baik dari BSD/.test(t3)&&!/masih perlu uji maju/.test(t3),"tidak mengklaim berhasil bila test akhir tidak lebih baik");
+ assert(!/undefined|NaN/.test(F.mblHtml({...M,stk:{fx:{on:false,n:10,why:"data kurang"}}})),"data kurang: tidak tampil rusak");
+ console.log("test-ui V57 uji coba faktor ok")}
