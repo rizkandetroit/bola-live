@@ -14,7 +14,7 @@ const isoOr=v=>{const t=Date.parse(v);return Number.isFinite(t)?new Date(t).toIS
 export const FRIENDLY_RE=/friendl|persahabatan|amical|amistos|testspiel/i;   // V46: sama dengan FRIENDLY di index.html
 import {level,r1} from "./lib.mjs";
 // V32: sakelar pemasangan hasil uji coba. Dinyalakan HANYA setelah lolos uji mundur dan disetujui pemilik (lihat Evaluasi > Uji coba).
-export const ACT={lean:false,drawCorr:false};
+export const ACT={lean:false,drawCorr:false,stack:false};   // V58: stack = lapisan koreksi V21 (dulu menyala otomatis bila lolos uji; kini perlu persetujuan)
 
 // SUMBER UTAMA SEMUA LIGA: BSD (sports.bzzoiro.com, Football API paket gratis, 7.500 permintaan/hari).
 // Satu langkah ini menggantikan API-Football (jadwal), SportAPI (jadwal + riwayat), H2H API-Football, H2H FotMob
@@ -703,7 +703,7 @@ async function main(){
       const blLg={};{const top=a=>a.indexOf(Math.max(...a)),G=new Map();for(const r of J){const g=G.get(r.l)||[0,0,0];g[0]++;if(top(r.b)===r.o)g[1]++;if(top(r.p)===r.o)g[2]++;G.set(r.l,g)}
         for(const [l,g] of G)if(g[0]>=20)blLg[l]=[g[0],Math.round(g[1]/g[0]*1000)/10,Math.round(g[2]/g[0]*1000)/10]}
       // V21: lapisan koreksi BSD (diuji pada 30% laga terakhir; aktif hanya bila lebih baik dari BSD & gabungan lama)
-      let STK=null;try{const SR=J.map(r=>{const f=FE.get(r.id)||{};return{o:r.o,b:r.b,p:r.p,l:r.l,t:r.t,tb:f.tb||null,nc:f.nc||null,eu:f.eu||null}});STK=trainStack(SR);if(process.env.BL_FX!=="0")try{STK.fx=trainFx(SR,{minN:Number(process.env.BL_FX_MIN??600)})}catch(e){errors.push("uji faktor saja: "+e.message)}   // V57 uji coba (tidak dipakai prediksi); BL_FX=0 mematikan
+      let STK=null;try{const SR=J.map(r=>{const f=FE.get(r.id)||{};return{o:r.o,b:r.b,p:r.p,l:r.l,t:r.t,tb:f.tb||null,nc:f.nc||null,eu:f.eu||null}});STK=trainStack(SR);if(STK)STK.use=!!(STK.on&&ACT.stack);if(process.env.BL_FX!=="0")try{STK.fx=trainFx(SR,{minN:Number(process.env.BL_FX_MIN??600)})}catch(e){errors.push("uji faktor saja: "+e.message)}   // V57 uji coba (tidak dipakai prediksi); BL_FX=0 mematikan
         try{STK.lean=trainLean(SR)}catch(e){errors.push("koreksi terarah: "+e.message)}   // V29 uji coba
         // odds pasar (internal): bobot dipelajari dari riwayat prediksi yang sudah punya peluang koreksi + odds sebelum kickoff
         const H0=await pullS("bsd-history.json");const MR=(Array.isArray(H0)?H0:[]).filter(e=>e.r&&e.sk).map(e=>({o:e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,t:Date.parse(e.u),q:e.sk,m:marketP(e.pc||e.po||e.o)}));
@@ -752,14 +752,15 @@ async function main(){
         // V20: tebakan skor di catatan kartu memakai Model BL (skor BSD sering seragam 1-1 di liga kecil)
         if(m.note&&pr.ms)m.note=m.note.replace(/Skor paling mungkin [^.]*\./,"Skor paling mungkin "+pr.ms[0]+"-"+pr.ms[1]+" (Model BL).");
         // V21: peluang setelah koreksi (selalu dihitung & dicatat; tampil sebagai angka utama hanya bila lolos uji), label keyakinan, alasan
-        {const f=q.f||{},S=MB.stk;if(S&&S.m&&m.p&&!m.np&&m.p.h!=null){const b=[m.p.h,m.p.d,m.p.a];let sk=applyStack(S.m,{b,p:pr.p,l:m.lid,tb:f.tb,nc:f.nc,eu:f.eu});
+        {const f=q.f||{},S=MB.stk;if(S&&S.m&&m.p&&!m.np&&m.p.h!=null){const SON=!!(S.on&&ACT.stack);   // V58: lolos uji saja tidak cukup, sakelar harus menyala
+            const b=[m.p.h,m.p.d,m.p.a];let sk=applyStack(S.m,{b,p:pr.p,l:m.lid,tb:f.tb,nc:f.nc,eu:f.eu});
             // V32: jalur pemasangan hasil uji (mati sampai disetujui): koreksi terarah & koreksi seri per liga — hanya bila lolos uji DAN sakelar ACT menyala
-            let useN=false;if(!S.on&&ACT.lean&&S.lean&&S.lean.on&&S.lean.m){sk=applyStack(S.lean.m,{b,p:null,l:m.lid,tb:f.tb,nc:f.nc,eu:f.eu});useN=true}
+            let useN=false;if(!SON&&ACT.lean&&S.lean&&S.lean.on&&S.lean.m){sk=applyStack(S.lean.m,{b,p:null,l:m.lid,tb:f.tb,nc:f.nc,eu:f.eu});useN=true}
             const DC=MB.drw&&MB.drw.corr;if(ACT.drawCorr&&DC&&DC.pass&&DC.dl&&DC.dl[m.lid]!=null){sk=drawShift(sk,DC.dl[m.lid]);useN=true}
             const mk=marketP(m.pin&&(m.pin.c||m.pin.o))||marketP(m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:null);
             if(S.mk&&S.mk.on&&mk)sk=poolMarket(sk,mk,S.mk.beta);
-            m.sk={h:r1(sk[0]),d:r1(sk[1]),a:r1(sk[2]),u:S.on||useN?1:0,mk:S.mk&&S.mk.on&&mk?1:0,src:S.on?"stack":useN?"lean":null};
-            const disp=S.on||useN?sk:b,k=labelOf(disp,b,pr.p),L=S.lab&&S.lab[k];m.cf={k,hit:L&&L.n>=50?L.hit:null,n:L&&L.n}}
+            m.sk={h:r1(sk[0]),d:r1(sk[1]),a:r1(sk[2]),u:SON||useN?1:0,mk:S.mk&&S.mk.on&&mk?1:0,src:SON?"stack":useN?"lean":null};
+            const disp=SON||useN?sk:b,k=labelOf(disp,b,pr.p),L=S.lab&&S.lab[k];m.cf={k,hit:L&&L.n>=50?L.hit:null,n:L&&L.n}}
           m.why=whyOf(m,f,pr.p)}
         if(MB.useful&&m.p&&!m.np&&m.p.h!=null){const w=MB.w,g=[m.p.h,m.p.d,m.p.a].map((x,i)=>w*x+(1-w)*pr.p[i]),t=g[0]+g[1]+g[2];m.bg={h:r1(g[0]/t*100),d:r1(g[1]/t*100),a:r1(g[2]/t*100),w}}}
     }

@@ -417,7 +417,7 @@ console.log("OK    V30: analisis seri");
  assert(F.pialaUnggulan&&F.pialaUnggulan.n===40&&F.pialaUnggulan.win===0,"unggulan piala: "+JSON.stringify(F.pialaUnggulan));assert(F.habisEropa&&F.habisEropa.n===40,"habis Eropa tetap jalan")}
 console.log("OK    V30b: faktor rotasi");
 {// V32: jalur pemasangan — sakelar mati, model terarah & geseran seri siap dipakai
- assert.deepEqual(ACT,{lean:false,drawCorr:false},"sakelar default mati");
+ assert.deepEqual(ACT,{lean:false,drawCorr:false,stack:false},"sakelar default mati (V58: termasuk lapisan koreksi V21)");
  const q=drawShift([50,25,25],Math.log(1.2));assert(Math.abs(q[0]+q[1]+q[2]-100)<1e-9&&q[1]>25&&q[0]/q[2]===2,"geser seri: "+q);assert.deepEqual(drawShift([50,25,25],null),[50,25,25]);
  let x=3;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];for(let i=0;i<1500;i++){const nc=[rnd()<.2?1:0,0];const z=-.6*nc[0],e=[.45*Math.exp(z),.27,.28*Math.exp(-z)],t=e[0]+e[1]+e[2],u=rnd()*t;R.push({o:u<e[0]?0:u<e[0]+e[1]?1:2,b:[45,27,28],p:null,l:1,t:i,nc,eu:[0,0],tb:null})}
  const L=trainLean(R),p=applyStack(L.m,{b:[45,27,28],p:null,l:1,nc:[1,0],eu:[0,0],tb:null});assert(p&&p.every(Number.isFinite)&&p[0]<45,"model terarah langsung bisa dipakai: "+p);
@@ -776,7 +776,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     // V21: lapisan koreksi terlatih & teruji, peluang koreksi + label + alasan di laga, tercatat di riwayat
     assert(M.stk&&M.stk.n>=300&&typeof M.stk.on==="boolean"&&M.stk.m&&M.stk.lab,"lapisan koreksi: "+JSON.stringify(M.stk&&{n:M.stk.n,on:M.stk.on,why:M.stk.why}));
     assert(M.stk.test.stack&&M.stk.test.bsd&&M.stk.mk&&M.stk.mk.on===false,"uji koreksi tercatat; odds pasar belum aktif (data riwayat belum cukup)");
-    assert(mU.sk&&Math.abs(mU.sk.h+mU.sk.d+mU.sk.a-100)<.5&&(mU.sk.u===1)===M.stk.on,"peluang koreksi di laga: "+JSON.stringify(mU.sk));
+    assert(mU.sk&&Math.abs(mU.sk.h+mU.sk.d+mU.sk.a-100)<.5&&mU.sk.u===0&&mU.sk.src===null,"peluang koreksi dicatat tapi tidak dipakai (V58: sakelar mati): "+JSON.stringify(mU.sk));assert.equal(M.stk.use,false,"V58: stk.use mati walau lolos uji");
     assert(mU.cf&&["jelas","cukup","terbuka"].includes(mU.cf.k),"label keyakinan");assert(Array.isArray(mU.why),"alasan");
     {const H2=JSON.parse(readFileSync(join(st,"bsd-history.json"),"utf8"));const e=H2.find(x=>x.id===U.id);assert(e&&e.sk&&e.sk.length===3,"peluang koreksi tercatat sebelum kickoff")}
     if(mU.note&&/Skor paling mungkin/.test(mU.note))assert(/Skor paling mungkin \d+-\d+ \(Model BL\)/.test(mU.note),"skor dari Model BL: "+mU.note);
@@ -798,6 +798,8 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     const h2=JSON.parse(readFileSync(join(st,"bsd-history.json"),"utf8")).find(e=>e.id===U.id);assert(h2&&h2.bl,"riwayat menyimpan prediksi Model BL");
     // run 3 (ringan): model dibawa, tidak dilatih ulang, prediksi tetap menempel
     for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json","xi.json"])cp(r2.out,f);hits.length=0;
+    // V58: paksa lapisan koreksi "lolos uji" — prediksi tetap BSD karena sakelar ACT.stack mati
+    {const MF=JSON.parse(readFileSync(join(st,"model-bl.json"),"utf8"));MF.stk.on=true;delete MF.stk.use;writeFileSync(join(st,"model-bl.json"),JSON.stringify(MF))}
     const r3=await new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",BSD_MODE:"light",GAP_MS:"0",RETRY_MS:"0",BSD_NOW:new Date(NOW+36e5).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json"),PREV_DIR:r2.out}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
     assert.equal(r3.c,0,r3.e);assert(!hits.some(h=>/status=finished|\/stats\/|player-stats|\/players\//.test(h)),"run ringan tidak mengunduh riwayat / xG / data pemain");
     assert(existsSync(join(r3.out,"teams.json")),"file turunan tetap tayang");
@@ -805,6 +807,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
      assert(m2>1&&m3>=m2-1,"Match Center dibawa dari salinan run sebelumnya tanpa unduh ulang: "+m2+" -> "+m3)}
     for(const f of ["results.json","xg.json","players.json","values.json","xi.json","starters.json","bsd-history.json","pin.json"]){assert(!existsSync(join(r3.out,f)),"data internal tidak tayang: "+f);assert(f==="pin.json"||existsSync(join(st,f)),"data internal tersimpan: "+f)}
     const a3=JSON.parse(readFileSync(join(r3.out,"all.json"),"utf8"));assert(a3.matches.find(x=>x.eid===U.id).bl,"prediksi dibawa di run ringan");
+    {const ks=a3.matches.filter(x=>x.sk);assert(ks.length>0&&ks.every(x=>x.sk.u===0&&x.sk.src===null),"V58: koreksi lolos uji tetap tidak tampil tanpa persetujuan: "+JSON.stringify(ks.slice(0,2).map(x=>x.sk)));}
     const M3=JSON.parse(readFileSync(join(r3.out,"model-bl.json"),"utf8"));assert.equal(M3.updated,M.updated,"run ringan tidak melatih ulang");assert(M.temp>=.8&&M.temp<=1.4,"suhu kalibrasi "+M.temp);
     // V22c: bawaan = line-up historis TIDAK dipakai melatih (bocor); koreksi pemain absen tetap jalan lewat hitungan pemain inti
     {const {unlinkSync}=await import("node:fs");try{unlinkSync(join(st,"model-bl.json"))}catch(e){}
