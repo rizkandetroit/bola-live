@@ -37,11 +37,11 @@ console.log("halaman:", page, "· entri:", rows.length);
 for (const e of rows.slice(0, 3)) console.log("contoh:", JSON.stringify(e).slice(0, 900));
 
 // Cari nama field secara otomatis
-const keys = new Set(rows.flatMap(e => Object.keys(flat(e))));
+const keys = new Set(rows.flatMap(e => Object.keys(flat(e))));   // panggil flat(e) saja (bukan flat sebagai callback map)
 function flat(o, p = "", out = {}) { for (const [k, v] of Object.entries(o || {})) { const q = p ? p + "." + k : k; if (v && typeof v === "object" && !Array.isArray(v)) flat(v, q, out); else out[q] = v; } return out; }
 const pick = re => [...keys].find(k => re.test(k));
 const fConf = pick(/(^|\.)(confidence|probability|prob|p_call|pct|percent)$/i) || pick(/conf|prob/i);
-const fRes = pick(/(^|\.)(result|outcome|status|graded|verdict)$/i) || pick(/result|outcome|correct|hit|won/i);
+const fRes = keys.has("outcome") ? "outcome" : pick(/(^|\.)(result|outcome|graded|verdict)$/i);
 const fOk = pick(/(^|\.)(correct|is_correct|hit|won|success)$/i);
 const fSide = pick(/(^|\.)(side|team_side|called_side|pick)$/i);
 const fMin = pick(/(^|\.)(minute|min|called_minute)$/i);
@@ -50,7 +50,7 @@ const fAt = pick(/(created|called)_?at|timestamp|(^|\.)time$/i);
 console.log("\n== Field yang dipakai:", JSON.stringify({ fConf, fRes, fOk, fSide, fMin, fLg, fAt }));
 console.log("semua field:", [...keys].sort().join(", "));
 
-const F = rows.map(flat);
+const F = rows.map(e => flat(e));
 const vals = f => { const m = new Map(); for (const e of F) { const v = String(e[f]); m.set(v, (m.get(v) || 0) + 1); } return [...m].sort((a, b) => b[1] - a[1]).slice(0, 12); };
 if (fRes) console.log("nilai", fRes, ":", JSON.stringify(vals(fRes)));
 if (fSide) console.log("nilai", fSide, ":", JSON.stringify(vals(fSide)));
@@ -60,6 +60,7 @@ function verdict(e) {
   if (fOk && e[fOk] != null) return e[fOk] === true || e[fOk] === 1 || e[fOk] === "true" ? "benar" : e[fOk] === false || e[fOk] === 0 || e[fOk] === "false" ? "salah" : "lain";
   const v = String(e[fRes] ?? "").toLowerCase();
   if (/pending|open|live|waiting|null|undefined|^$/.test(v)) return "belum";
+  if (v === "hit") return "benar"; if (v === "miss") return "salah";
   if (/no.?goal|void|none|expired|no_more/.test(v)) return "tanpa gol";
   if (/(^|_)(hit|correct|won|win|success|scored|yes|true)/.test(v)) return "benar";
   if (/(miss|wrong|lost|lose|fail|other|no|false)/.test(v)) return "salah";
