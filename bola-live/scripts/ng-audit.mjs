@@ -116,9 +116,14 @@ if (G.length) {
 // Pembanding sederhana pada call yang SAMA: "tim unggulan sebelum laga (peluang BSD pra-laga) mencetak gol berikutnya",
 // dan "tuan rumah mencetak gol berikutnya". Dari outcome: bila tebakan sederhana = sisi yang dipanggil, benar = hit; bila beda, benar = miss.
 try {
-  const H = await (await fetch("https://rizkandetroit.github.io/bola-live/bsd-history.json?t=" + Date.now())).json();
-  const list = Array.isArray(H) ? H : H.rows || H.items || H.h || [];
-  const byId = new Map(list.map(e => [String(e.id ?? e.eid), e]));
+  // peluang pra-laga BSD dari /predictions/ (per 7 hari), untuk laga-laga yang punya call
+  const ids = new Set(F.map(e => String(e["event.id"]))), ds = F.map(e => Date.parse(e["event.event_date"])).filter(isFinite);
+  const byId = new Map(), day = 864e5, iso = t => new Date(t).toISOString().slice(0, 10);
+  for (let t = Math.min(...ds) - day; t <= Math.max(...ds) + day; t += 7 * day) {
+    let u = `${BASE}/predictions/?date_from=${iso(t)}&date_to=${iso(t + 6 * day)}&limit=200`, k = 0;
+    while (u && k++ < 60) { const j = await get(u); for (const q of j.results || []) { const id = q.event && String(q.event.id); const mr = q.markets && q.markets.match_result; if (id && ids.has(id) && mr) byId.set(id, { p: [+mr.prob_home, +mr.prob_draw, +mr.prob_away] }) } u = j.next || null; await sleep(200) }
+  }
+  const list = [...byId.values()];
   const R = F.filter(e => e.outcome === "hit" || e.outcome === "miss");
   let n = 0, nb = 0, nf = 0, same = 0, nh = 0;
   for (const e of R) {
@@ -129,7 +134,7 @@ try {
     if (hit) nb++; if ((fav === e.side) === hit) nf++;
   }
   console.log("\n== Pembanding sederhana (call yang sama)");
-  console.log(`riwayat BSD publik: ${list.length} laga; cocok dengan call: ${n} dari ${R.length}`);
+  console.log(`prediksi pra-laga BSD ditemukan: ${list.length} laga; cocok dengan call: ${n} dari ${R.length}`);
   console.log(`selalu tuan rumah: ${(nh / R.length * 100).toFixed(1)}% (n=${R.length}) vs Next to Score ${(R.filter(e => e.outcome === "hit").length / R.length * 100).toFixed(1)}%`);
   if (n) console.log(`unggulan pra-laga: ${(nf / n * 100).toFixed(1)}% vs Next to Score ${(nb / n * 100).toFixed(1)}% pada ${n} call yang sama · sisi call = unggulan pra-laga pada ${(same / n * 100).toFixed(1)}% call`);
   if (n) { const D = R.filter(e => { const h = byId.get(String(e["event.id"])); const p = h && (h.p || h.p0); return p && (p[0] >= p[2] ? "home" : "away") !== e.side }); const dh = D.filter(e => e.outcome === "hit").length; console.log(`saat call MELAWAN unggulan pra-laga: n=${D.length} · Next to Score benar ${D.length ? (dh / D.length * 100).toFixed(1) : "-"}%`) }
