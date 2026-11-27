@@ -43,7 +43,7 @@ jobs:
 
       - name: Pulihkan data run sebelumnya (cache)
         id: restore
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             bola-live/prev
@@ -111,7 +111,7 @@ jobs:
 
       - name: Simpan data untuk run berikutnya (cache)
         run: rm -rf bola-live/prev && cp -r bola-live/site bola-live/prev
-      - uses: actions/cache/save@v4
+      - uses: actions/cache/save@v5
         with:
           path: |
             bola-live/prev
