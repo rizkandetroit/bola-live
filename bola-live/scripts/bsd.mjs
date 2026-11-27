@@ -203,7 +203,7 @@ export function updateHistory(hist,matches,now,o={}){
       const v=bestVal(m),P=[m.p.h,m.p.d,m.p.a],nowI=new Date(now).toISOString();
       H.set(m.eid,{id:m.eid,lg:m.league,u:m.utc,h:m.home.name,a:m.away.name,p:P,t0:e?(e.t0??null):nowI,p0:e?(e.p0??null):P,ts:nowI,tc:e&&e.p&&e.p.join()===P.join()?(e.tc??null):nowI,pu:m.p.pu??null,mv:m.p.mv??null,ou:m.p.ou??null,bt:m.p.bt??null,
         o:m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:(e&&e.o)||null,v:v,r:e&&e.r||null,
-        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null,sk:m.sk?[m.sk.h,m.sk.d,m.sk.a]:(e&&e.sk)||null,lu:m.bl&&m.bl.lu?m.bl.lu:(e&&e.lu)||null,xq:m.p.xg!=null?1:0,xg:m.p.xg||(e&&e.xg)||null});   // V25c: xq = BSD punya xG (syarat data lengkap tab Favorit)
+        po:(e&&e.po)||(m.pin&&m.pin.o)||null,pc:(m.pin&&m.pin.c)||(e&&e.pc)||null,ab:m.ab?[m.ab.nh,m.ab.na]:(e&&e.ab)||null,bl:m.bl?[m.bl.h,m.bl.d,m.bl.a]:(e&&e.bl)||null,sk:m.sk?[m.sk.h,m.sk.d,m.sk.a]:(e&&e.sk)||null,fx:m.fx||(e&&e.fx)||null,lu:m.bl&&m.bl.lu?m.bl.lu:(e&&e.lu)||null,xq:m.p.xg!=null?1:0,xg:m.p.xg||(e&&e.xg)||null});   // V25c: xq = BSD punya xG (syarat data lengkap tab Favorit)
       lineupSnap(H.get(m.eid),e,m,o.lu?o.lu(m.eid):null,nowI);
     }
     // V22c: skor akhir BSD = skor 90 menit (gol perpanjangan waktu terpisah di m.et). Saat laga baru selesai BSD kadang sempat
@@ -321,6 +321,13 @@ export function evalBL(hist){const R=(hist||[]).filter(e=>e.r&&e.p&&e.bl);if(!R.
   const sc=k=>{let a=0,b=0,l=0;for(const e of R){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e[k].map(x=>x/100);if(p.indexOf(Math.max(...p))===o)a++;b+=p.reduce((s,x,i)=>s+(x-(i===o?1:0))**2,0);l-=Math.log(Math.max(p[o],1e-6))}return{acc:a/R.length*100,brier:b/R.length,ll:l/R.length}};
   const R2=(hist||[]).filter(e=>e.r&&e.p&&e.sk),sc2=k=>{let a=0,l=0;for(const e of R2){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,p=e[k].map(x=>x/100);if(p.indexOf(Math.max(...p))===o)a++;l-=Math.log(Math.max(p[o],1e-6))}return{acc:a/R2.length*100,ll:l/R2.length}};
   return{n:R.length,model:sc("bl"),bsd:sc("p"),sk:R2.length?{n:R2.length,stack:sc2("sk"),bsd:sc2("p")}:{n:0}}}   // V21: penilaian langsung lapisan koreksi
+// V59: penilaian UJI MAJU koreksi faktor saja — hanya laga dengan angka fx yang tercatat sebelum kickoff (riwayat dibekukan saat kickoff).
+// diff = rata-rata (log loss fx − log loss BSD) per laga (negatif = faktor lebih baik), se = galat baku. Laga tanpa hasil/ditunda tidak dinilai.
+export function evalFx(hist){const R=(hist||[]).filter(e=>e&&e.r&&e.p&&e.fx&&e.fx.length===3);if(!R.length)return{n:0};
+  const L=(p,o)=>-Math.log(Math.max(p[o]/100,1e-6)),am=p=>p.indexOf(Math.max(...p));let lb=0,lf=0,ab=0,af=0;const d=[];
+  for(const e of R){const o=e.r[0]>e.r[1]?0:e.r[0]===e.r[1]?1:2,x=L(e.p,o),y=L(e.fx,o);lb+=x;lf+=y;d.push(y-x);if(am(e.p)===o)ab++;if(am(e.fx)===o)af++}
+  const n=R.length,md=d.reduce((a,x)=>a+x,0)/n,se=n>1?Math.sqrt(d.reduce((a,x)=>a+(x-md)**2,0)/(n-1)/n):null,r4=x=>Math.round(x*1e4)/1e4;
+  return{n,bsd:{ll:r4(lb/n),acc:ab/n*100},fx:{ll:r4(lf/n),acc:af/n*100},diff:r4(md),se:se==null?null:r4(se),from:R.reduce((a,e)=>e.u<a?e.u:a,R[0].u)}}
 // V25 (Favorit): kalibrasi "tidak kalah" (menang atau seri) untuk tim yang lebih diunggulkan.
 // Dipakai untuk membuktikan angka >=80% sebelum tab Favorit tayang. hit = tim itu tidak kalah.
 export function dcCalib(rows){const B=[[80,85],[85,90],[90,95],[95,101]].map(([lo,hi])=>({lo,hi,n:0,hit:0,sum:0})),all={n:0,hit:0,sum:0};
@@ -757,6 +764,7 @@ async function main(){
             // V32: jalur pemasangan hasil uji (mati sampai disetujui): koreksi terarah & koreksi seri per liga — hanya bila lolos uji DAN sakelar ACT menyala
             let useN=false;if(!SON&&ACT.lean&&S.lean&&S.lean.on&&S.lean.m){sk=applyStack(S.lean.m,{b,p:null,l:m.lid,tb:f.tb,nc:f.nc,eu:f.eu});useN=true}
             const DC=MB.drw&&MB.drw.corr;if(ACT.drawCorr&&DC&&DC.pass&&DC.dl&&DC.dl[m.lid]!=null){sk=drawShift(sk,DC.dl[m.lid]);useN=true}
+            if(S.fx&&S.fx.m&&S.fx.m.th){const q=applyStack(S.fx.m,{b,p:null,l:m.lid,tb:f.tb,nc:f.nc,eu:f.eu});if(q&&q.every(Number.isFinite))m.fx=[r1(q[0]),r1(q[1]),r1(q[2])]}   // V59: uji maju faktor saja (dicatat, tidak tampil, tidak dipakai)
             const mk=marketP(m.pin&&(m.pin.c||m.pin.o))||marketP(m.odds?[m.odds.h&&m.odds.h.o,m.odds.d&&m.odds.d.o,m.odds.a&&m.odds.a.o]:null);
             if(S.mk&&S.mk.on&&mk)sk=poolMarket(sk,mk,S.mk.beta);
             m.sk={h:r1(sk[0]),d:r1(sk[1]),a:r1(sk[2]),u:SON||useN?1:0,mk:S.mk&&S.mk.on&&mk?1:0,src:SON?"stack":useN?"lean":null};
@@ -783,7 +791,7 @@ async function main(){
     {const HM=new Map(hist.map(e=>[e.id,e]));for(const m of matches){if(m.status!=="FT"||!m.eid)continue;const e=HM.get(m.eid);if(e&&e.p)m.pm={p:e.p,bl:e.bl||null}}}
     // V52: potret sebelum/sesudah line-up resmi ikut tayang di laga (tanpa daftar line-up perkiraan)
     {const HM=new Map(hist.map(e=>[e.id,e]));for(const m of matches){if(!m.eid)continue;const e=HM.get(m.eid);if(e&&(e.sp||e.sx))m.lx={sp:e.sp?{t:e.sp.t,p:e.sp.p,bl:e.sp.bl,k:e.sp.k}:null,sx:e.sx||null}}}deep.missF=fillMissFacts(hist,now,id=>{try{return JSON.parse(readFileSync(dir+"m/"+id+".json","utf8"))}catch(e){return null}});
-    writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),rk:recapOf(hist,now),miss:evalMiss(hist,now)}))}
+    writeState("bsd-history.json",hist,{dir});writeFileSync(dir+"bsd-eval.json",JSON.stringify({updated:new Date(now).toISOString(),...evalHistory(hist),move:evalMove(hist),risk:evalRisk(hist),bl:evalBL(hist),fxf:evalFx(hist),rk:recapOf(hist,now),miss:evalMiss(hist,now)}))}
     // V50: arsip rekam jejak per bulan (tayang + data internal). Hanya bila riwayat terbaca (tidak menulis arsip dari riwayat kosong).
     if(hist.length){try{const I0=await readState("rekam-index.json"),prev=[],miss=[];if(I0&&Array.isArray(I0.months))for(const q of I0.months){const R=await readState("rekam-"+q.m+".json");if(R&&Array.isArray(R.rows))prev.push(...R.rows);else miss.push(q.m)}
       if(miss.length)throw new Error("arsip bulan "+miss.join(", ")+" tidak terbaca; arsip tidak ditulis ulang agar tidak menyusut");

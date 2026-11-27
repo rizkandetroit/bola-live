@@ -565,7 +565,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V58</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V59</span>
     <button id="hd-dot" class="hdot" data-hd="1" title="Kesehatan data" aria-label="Kesehatan data" hidden></button>
   </div>
   <div class="nvb">
@@ -1057,6 +1057,8 @@ function mblHtml(M,live){
     h+='<p class="cap">Koreksi terarah BSD (hanya pola yang terbukti: klasemen, pelatih baru, habis laga Eropa; tanpa angka per liga): log loss '+f3(Ln.test.bsd.ll)+' → '+f3(Ln.test.lean.ll)+', akurasi '+pc(Ln.test.bsd.acc)+' → '+pc(Ln.test.lean.acc)+' pada '+Ln.nTest+' laga uji'+(Ln.on?' <b>(lolos)</b>':' (belum lolos)')+'. Arah koreksi: pelatih baru '+(th[1]<0?'menurunkan':'menaikkan')+' peluang, habis Eropa '+(th[2]>0?'menaikkan':'menurunkan')+'.</p>'}
   /* V57: uji coba koreksi BSD hanya dari 3 faktor (walk-forward 3 blok + test akhir terkunci); tidak dipakai prediksi */
   var Fx=M.stk&&M.stk.fx;if(Fx&&Fx.val&&Fx.test&&Fx.test.bsd&&Fx.test.fx)h+='<p class="cap">Koreksi BSD hanya dari faktor klasemen, pelatih baru, dan habis laga Eropa (uji walk-forward '+Fx.folds.length+' blok, lalu test akhir yang tidak dipakai memilih): validasi log loss BSD '+f3(Fx.val.bsd)+' → '+f3(Fx.val.fx)+' (lebih baik di '+Fx.val.wins+' dari '+Fx.folds.length+' blok); test akhir '+Fx.test.n.toLocaleString("id-ID")+' laga: '+f3(Fx.test.bsd.ll)+' → '+f3(Fx.test.fx.ll)+(Fx.pass?(Fx.test.fx.ll<Fx.test.bsd.ll?' <b>(lolos validasi; masih perlu uji maju sebelum dipakai)</b>':' (lolos validasi, tetapi test akhir tidak lebih baik dari BSD)'):' (belum lolos)')+'. Tidak mengubah prediksi.</p>';
+  /* V59: uji maju koreksi faktor saja — angka dicatat sebelum kickoff, dinilai setelah laga selesai */
+  if(Fx&&Fx.m){var Q=EV&&EV.fxf;h+='<p class="cap">Uji maju (angka dicatat sebelum kickoff dan dikunci, sejak 27 Nov 2026): '+(Q&&Q.n?Q.n.toLocaleString("id-ID")+' laga selesai · log loss BSD '+f3(Q.bsd.ll)+' → faktor '+f3(Q.fx.ll)+' · tepat '+pc(Q.bsd.acc)+' → '+pc(Q.fx.acc)+(Q.se!=null?' · selisih '+(Q.diff>0?'+':'')+Q.diff.toFixed(4).replace(".",",")+' ± '+Q.se.toFixed(4).replace(".",","):''):'belum ada laga yang selesai')+'. Dinilai setelah ±1.500 laga; tetap tidak dipakai tanpa persetujuan.</p>'}
   /* V28: uji coba koreksi line-up tahap 2 (nilai pemain dari laga sebelumnya saja) */
   var U=M.lu2;if(U&&U.n){var ul=function(q,t){return q?t+': log loss '+f3(q.ll0)+' → '+f3(q.ll1)+', akurasi '+pc(q.acc0)+' → '+pc(q.acc1)+' pada '+q.n+' laga uji'+(q.pass?' <b>(lolos)</b>':' (belum lolos)'):""};
     h+='<p class="cap">Koreksi line-up tahap 2 (nilai tiap pemain hanya dari laga sebelum tanggal laga): '+U.n.toLocaleString("id-ID")+' laga punya line-up resmi + nilai pemain'+(U.note?' — '+U.note+'.':'. '+[ul(U.bsd,"BSD"),ul(U.bl,"Model BL")].filter(Boolean).join("; ")+'.')+'</p>'}

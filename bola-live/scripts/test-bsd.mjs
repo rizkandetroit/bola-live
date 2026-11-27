@@ -394,6 +394,18 @@ console.log("OK    V29: koreksi terarah BSD");
  const b=Math.floor((R.length-Math.floor(R.length*.25))/4),R3=R.map((r,i)=>i>=3*b&&i<cut?{...r,o:2-r.o}:r),F3=trainFx(R3);assert.equal(JSON.stringify(F3.folds.slice(0,2)),JSON.stringify(F.folds.slice(0,2)));
  assert.equal(trainFx(R.slice(0,300)).on,false)}
 console.log("OK    V57: uji coba faktor saja (walk-forward, test akhir terkunci)");
+{// V59: uji maju — angka fx dicatat sebelum kickoff, dikunci saat kickoff, dinilai benar
+ const {evalFx}=await import("./bsd.mjs"),{mergeRekam,PRED_FIELDS}=await import("./rekam.mjs");assert(PRED_FIELDS.includes("fx"),"fx dikunci di rekam jejak");
+ const ko=Date.parse("2026-12-01T12:00:00Z"),mk=fx=>({eid:9,utc:new Date(ko).toISOString(),status:"NS",league:"L",home:{name:"A"},away:{name:"B"},p:{h:50,d:25,a:25},fx});
+ let H=updateHistory([],[mk([40,30,30])],ko-36e5);assert.deepEqual(H[0].fx,[40,30,30],"tercatat sebelum kickoff");
+ H=updateHistory(H,[mk([45,28,27])],ko-6e5);assert.deepEqual(H[0].fx,[45,28,27],"boleh diperbarui sebelum kickoff");
+ H=updateHistory(H,[{...mk([10,10,80]),status:"LIVE"}],ko+6e5);assert.deepEqual(H[0].fx,[45,28,27],"terkunci setelah kickoff");
+ const K1=mergeRekam([],H,ko-6e5).rows,K2=mergeRekam(K1,[{...H[0],fx:[1,1,98],r:[1,0]}],ko+3*36e5);assert.deepEqual(K2.rows[0].fx,[45,28,27],"rekam jejak menolak angka baru setelah kickoff");assert.deepEqual(K2.rows[0].r,[1,0]);
+ assert.equal(evalFx([]).n,0);const E=[{u:"a",p:[50,25,25],fx:[60,20,20],r:[1,0]},{u:"b",p:[50,25,25],fx:[40,35,25],r:[0,0]},{u:"c",p:[50,25,25],fx:null,r:[0,1]},{u:"d",p:[50,25,25],fx:[50,25,25],r:null}];
+ const Q=evalFx(E),L=x=>-Math.log(x);assert.equal(Q.n,2,"hanya laga selesai dengan fx");
+ assert(Math.abs(Q.diff-((L(.6)-L(.5))+(L(.35)-L(.25)))/2)<1e-4&&Math.abs(Q.bsd.ll-(L(.5)+L(.25))/2)<1e-4&&Math.abs(Q.fx.ll-(L(.6)+L(.35))/2)<1e-4,"hitungan log loss & selisih: "+JSON.stringify(Q));
+ assert.equal(Q.bsd.acc,50);assert.equal(Q.fx.acc,50);assert(Q.se>0)}
+console.log("OK    V59: uji maju faktor saja (tercatat sebelum kickoff, terkunci, dinilai)");
 {// V29b: RPS & kelompok liga & pembanding pasar di evaluasi
  const H=[{lg:"Premier League",u:"2026-11-20T10:00:00Z",p:[60,25,15],r:[1,0],o:[1.6,4,6]},{lg:"Coupe de France",u:"2026-11-20T11:00:00Z",p:[60,25,15],r:[0,0]},{lg:"Liga X",u:"2026-11-20T12:00:00Z",p:[40,30,30],r:[0,2]}];
  const ev=evalHistory(H);assert(Math.abs(ev.rps-((.4**2+.15**2)/2+(.6**2+.15**2)/2+(.4**2+.7**2)/2)/3)<1e-9,"RPS benar: "+ev.rps);
@@ -875,11 +887,19 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
      const on=await run({BL_FX_MIN:"100"}),off=await run({BL_FX:"0"});
      assert(on.M.stk.fx&&Array.isArray(on.M.stk.fx.folds)&&on.M.stk.fx.folds.length===3&&on.M.stk.fx.test&&on.M.stk.fx.on===false,"eksperimen benar-benar dijalankan: "+JSON.stringify(on.M.stk.fx).slice(0,300));
      assert.equal(off.M.stk.fx,undefined,"BL_FX=0 mematikan eksperimen");
-     const prodM=M=>{const c=JSON.parse(JSON.stringify(M));delete c.stk.fx;return JSON.stringify(c)},prodA=A=>JSON.stringify({...A,bsd:{...A.bsd,tm:null},errors:A.errors});
+     // V59: bedanya hanya catatan uji maju (stk.fx, m.fx di laga, fx di riwayat & rekam jejak); semua angka produksi identik
+     const noFx=o=>JSON.parse(JSON.stringify(o,(k,v)=>k==="fx"?undefined:v));
+     const prodM=M=>{const c=JSON.parse(JSON.stringify(M));delete c.stk.fx;return JSON.stringify(c)},prodA=A=>JSON.stringify(noFx({...A,bsd:{...A.bsd,tm:null},errors:A.errors}));
      assert.equal(prodM(on.M),prodM(off.M),"model produksi identik (kecuali catatan stk.fx)");
      assert.equal(prodA(on.A),prodA(off.A),"semua laga & peluang tayang identik");
-     assert.equal(JSON.stringify(on.H),JSON.stringify(off.H),"riwayat prediksi identik");assert.equal(JSON.stringify(on.K),JSON.stringify(off.K),"rekam jejak identik");
-     assert(!JSON.stringify(on.A.matches).includes('"fx"')&&!JSON.stringify(on.H).includes('"fx"'),"hasil eksperimen tidak masuk laga/riwayat");
+     assert.equal(JSON.stringify(noFx(on.H)),JSON.stringify(noFx(off.H)),"riwayat prediksi identik (kecuali catatan uji maju)");assert.equal(JSON.stringify(noFx(on.K)),JSON.stringify(noFx(off.K)),"rekam jejak identik (kecuali catatan uji maju)");
+     assert(!JSON.stringify(off.A.matches).includes('"fx"')&&!JSON.stringify(off.H).includes('"fx":[')&&off.K.every(k=>k.rows.every(r=>r.fx==null)),"BL_FX=0: tidak ada catatan uji maju");
+     // V59 uji maju: model akhir dilatih dari laga yang sudah selesai; angka dicatat untuk laga yang belum mulai, sebelum kickoff
+     {const fm=on.M.stk.fx.m;assert(fm&&fm.th.length===3&&fm.t0===0&&fm.d0===0&&fm.w0===0&&fm.to<=NOW,"model uji maju hanya 3 faktor, dari laga sebelum sekarang: "+JSON.stringify(fm));
+      const ns=on.A.matches.filter(x=>x.status==="NS"&&x.p&&x.p.h!=null&&!x.np&&x.sk);assert(ns.length>0&&ns.every(x=>Array.isArray(x.fx)&&Math.abs(x.fx[0]+x.fx[1]+x.fx[2]-100)<.5),"angka uji maju di laga belum mulai");
+      assert(ns.every(x=>x.sk.u===0),"uji maju tidak mengubah angka tampil");
+      const hf=on.H.filter(e=>e.fx);assert(hf.length>0&&hf.every(e=>e.ts&&Date.parse(e.ts)<Date.parse(e.u)),"tercatat di riwayat sebelum kickoff");
+      const kf=on.K.flatMap(k=>k.rows).filter(r=>r.fx);assert(kf.length===hf.length,"ikut ke rekam jejak: "+kf.length+" vs "+hf.length)}
      rmSync(st,{recursive:true,force:true});cpSync(snap,st,{recursive:true});rmSync(snap,{recursive:true,force:true})}
     return `${res2.rows.length} laga, xG ${M.xgCov}%, cfg ${JSON.stringify(M.cfg.xga)}, uji mundur ${M.bt.joined} laga: model ll ${M.bt.modelJ.ll.toFixed(3)} vs BSD ${M.bt.bsd.ll.toFixed(3)}, bobot BSD ${M.w}, berguna ${M.useful}`;
   }finally{H.close()}

@@ -137,5 +137,8 @@ export function trainFx(rows,{folds=3,fracTest=.25,margin=.001,minN=600,gap=3*36
   const val={bsd:avg("bsd"),fx:avg("fx"),wins},pass=val.fx<val.bsd-margin&&wins>=Math.ceil(folds/2+.01);
   const trT=dev.filter(r=>r.t<=test[0].t-gap),M=fitStack(trT,o),d=test.map(r=>{const q=applyStack(M,r);return-Math.log(Math.max(q[r.o]/100,1e-6))+Math.log(Math.max(r.b[r.o]/100,1e-6))}),md=d.reduce((a,x)=>a+x,0)/d.length,se=Math.sqrt(d.reduce((a,x)=>a+(x-md)**2,0)/(d.length-1)/d.length);
   const tst={n:test.length,nTrain:trT.length,trTo:trT.length?trT[trT.length-1].t:null,from:test[0].t,bsd:scoreP(test,r=>r.b),fx:scoreP(test,r=>applyStack(M,r)),diff:r4(md),se:r4(se),th:M.th};
-  return{on:false,pass,n:R.length,gap,folds:F.map(f=>({...f,bsd:r4(f.bsd),fx:r4(f.fx)})),val:{bsd:r4(val.bsd),fx:r4(val.fx),wins},test:tst,note:"uji coba; tidak dipakai prediksi (perlu uji maju & persetujuan)"};
+  // V59: model untuk UJI MAJU — dilatih dari SEMUA laga yang sudah selesai saat ini, dipakai ke laga yang BELUM mulai, angkanya dicatat
+  //   sebelum kickoff & dikunci saat kickoff (riwayat + rekam jejak). Tidak mengubah prediksi; dinilai di bsd-eval.json (fxf).
+  const MA=fitStack(R,o),m=MA?{t0:0,d0:0,th:MA.th.map(r4),w0:0,lg:{},to:R[R.length-1].t}:null;
+  return{on:false,pass,n:R.length,gap,folds:F.map(f=>({...f,bsd:r4(f.bsd),fx:r4(f.fx)})),val:{bsd:r4(val.bsd),fx:r4(val.fx),wins},test:tst,m,note:"uji coba; tidak dipakai prediksi (uji maju berjalan sejak V59; perlu persetujuan sebelum dipakai)"};
 }
