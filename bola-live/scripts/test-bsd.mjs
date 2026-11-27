@@ -429,7 +429,7 @@ console.log("OK    V30: analisis seri");
  assert(F.pialaUnggulan&&F.pialaUnggulan.n===40&&F.pialaUnggulan.win===0,"unggulan piala: "+JSON.stringify(F.pialaUnggulan));assert(F.habisEropa&&F.habisEropa.n===40,"habis Eropa tetap jalan")}
 console.log("OK    V30b: faktor rotasi");
 {// V32: jalur pemasangan — sakelar mati, model terarah & geseran seri siap dipakai
- assert.deepEqual(ACT,{lean:false,drawCorr:false,stack:false},"sakelar default mati (V58: termasuk lapisan koreksi V21)");
+ assert.deepEqual(ACT,{lean:false,drawCorr:false,stack:false,blend:false,rel:false,drawRule:true},"sakelar default: semua mati kecuali rawan seri yang sudah tampil sebelum V60");
  const q=drawShift([50,25,25],Math.log(1.2));assert(Math.abs(q[0]+q[1]+q[2]-100)<1e-9&&q[1]>25&&q[0]/q[2]===2,"geser seri: "+q);assert.deepEqual(drawShift([50,25,25],null),[50,25,25]);
  let x=3;const rnd=()=>(x=(x*16807)%2147483647)/2147483647,R=[];for(let i=0;i<1500;i++){const nc=[rnd()<.2?1:0,0];const z=-.6*nc[0],e=[.45*Math.exp(z),.27,.28*Math.exp(-z)],t=e[0]+e[1]+e[2],u=rnd()*t;R.push({o:u<e[0]?0:u<e[0]+e[1]?1:2,b:[45,27,28],p:null,l:1,t:i,nc,eu:[0,0],tb:null})}
  const L=trainLean(R),p=applyStack(L.m,{b:[45,27,28],p:null,l:1,nc:[1,0],eu:[0,0],tb:null});assert(p&&p.every(Number.isFinite)&&p[0]<45,"model terarah langsung bisa dipakai: "+p);
@@ -795,7 +795,7 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     const S=JSON.parse(readFileSync(join(st,"starters.json"),"utf8"));assert((S.t[U.home_team_id]||[]).length>=3,"line-up resmi tercatat");
     assert.equal(mU.bl.k[0],3,"3 pemain inti tuan rumah absen: "+JSON.stringify(mU.bl));assert.equal(mU.bl.k[1],0);
     const q=M.pred[U.id];assert(mU.bl.xg[0]<q.x[0]&&mU.bl.xg[1]>q.x[1],"koreksi menurunkan serangan tuan rumah");
-    if(M.useful)assert(mU.bg&&Math.abs(mU.bg.h+mU.bg.d+mU.bg.a-100)<.5);else assert(!mU.bg);
+    assert(!mU.bg,"V60: gabungan tidak tampil tanpa persetujuan (lolos uji di data contoh: "+M.useful+")");assert.equal(M.useful,true,"data contoh memang membuat gabungan lolos uji, jadi sakelar benar-benar diuji");
     // Tahap 1: data pemain, nilai pasar, ringkasan tim, uji klasemen
     const PJ=JSON.parse(readFileSync(join(st,"players.json"),"utf8")).t,VJ=JSON.parse(readFileSync(join(st,"values.json"),"utf8")).p;
     assert(PJ[U.home_team_id]&&PJ[U.home_team_id].ev.length>=3,"statistik pemain tim yang akan main terkumpul");
@@ -811,7 +811,8 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
     // run 3 (ringan): model dibawa, tidak dilatih ulang, prediksi tetap menempel
     for(const f of ["results.json","starters.json","model-bl.json","bsd-backtest.json","bsd-history.json","xg.json","players.json","values.json","teams.json","xi.json"])cp(r2.out,f);hits.length=0;
     // V58: paksa lapisan koreksi "lolos uji" — prediksi tetap BSD karena sakelar ACT.stack mati
-    {const MF=JSON.parse(readFileSync(join(st,"model-bl.json"),"utf8"));MF.stk.on=true;delete MF.stk.use;writeFileSync(join(st,"model-bl.json"),JSON.stringify(MF))}
+    {const MF=JSON.parse(readFileSync(join(st,"model-bl.json"),"utf8"));MF.stk.on=true;delete MF.stk.use;MF.useful=true;MF.w=.6;writeFileSync(join(st,"model-bl.json"),JSON.stringify(MF))}   // V60: gabungan juga dipaksa "lolos"
+    {let nF=0;for(const BF of [join(r2.out,"bsd-backtest.json"),join(st,"bsd-backtest.json")]){if(!existsSync(BF))continue;const B=JSON.parse(readFileSync(BF,"utf8"));B.rl={...(B.rl||{}),verdict:"lolos",w:[0,.1,.1,.1],t:[-1,1],lg:(B.rl&&B.rl.lg)||{}};writeFileSync(BF,JSON.stringify(B));nF++}assert(nF>0,"V60: ringkasan reliabilitas tersedia untuk dipaksa lolos")}   // V60: reliabilitas dipaksa "lolos"
     const r3=await new Promise(res=>{const out=mkdtempSync(join(tmpdir(),"bl-"));const p=spawn(process.execPath,[join(here,"bsd.mjs")],{env:{PATH:process.env.PATH,OUT_DIR:out,BSD_API:base(),BSD_API_KEY:"k",BSD_DEEP:"1",BSD_MODE:"light",GAP_MS:"0",RETRY_MS:"0",BSD_NOW:new Date(NOW+36e5).toISOString(),BL_STATE_DIR:st,BSD_HISTORY_FILE:join(st,"bsd-history.json"),PREV_DIR:r2.out}});let e="";p.stderr.on("data",d=>e+=d);p.stdout.on("data",d=>e+=d);p.on("close",c=>res({c,e,out}))});
     assert.equal(r3.c,0,r3.e);assert(!hits.some(h=>/status=finished|\/stats\/|player-stats|\/players\//.test(h)),"run ringan tidak mengunduh riwayat / xG / data pemain");
     assert(existsSync(join(r3.out,"teams.json")),"file turunan tetap tayang");
@@ -819,7 +820,9 @@ sc("Model BL: riwayat setahun, uji mundur vs BSD, bobot gabungan, koreksi pemain
      assert(m2>1&&m3>=m2-1,"Match Center dibawa dari salinan run sebelumnya tanpa unduh ulang: "+m2+" -> "+m3)}
     for(const f of ["results.json","xg.json","players.json","values.json","xi.json","starters.json","bsd-history.json","pin.json"]){assert(!existsSync(join(r3.out,f)),"data internal tidak tayang: "+f);assert(f==="pin.json"||existsSync(join(st,f)),"data internal tersimpan: "+f)}
     const a3=JSON.parse(readFileSync(join(r3.out,"all.json"),"utf8"));assert(a3.matches.find(x=>x.eid===U.id).bl,"prediksi dibawa di run ringan");
-    {const ks=a3.matches.filter(x=>x.sk);assert(ks.length>0&&ks.every(x=>x.sk.u===0&&x.sk.src===null),"V58: koreksi lolos uji tetap tidak tampil tanpa persetujuan: "+JSON.stringify(ks.slice(0,2).map(x=>x.sk)));}
+    {const ks=a3.matches.filter(x=>x.sk);assert(ks.length>0&&ks.every(x=>x.sk.u===0&&x.sk.src===null),"V58: koreksi lolos uji tetap tidak tampil tanpa persetujuan: "+JSON.stringify(ks.slice(0,2).map(x=>x.sk)));
+     assert(a3.matches.every(x=>!x.bg),"V60: gabungan lolos uji tetap tidak tampil tanpa persetujuan");assert(a3.matches.every(x=>!x.rel),"V60: label reliabilitas tidak ditempel tanpa persetujuan");
+     assert.deepEqual(a3.act,{lean:false,drawCorr:false,stack:false,blend:false,rel:false,drawRule:true},"V60: status sakelar ikut tayang di all.json");}
     const M3=JSON.parse(readFileSync(join(r3.out,"model-bl.json"),"utf8"));assert.equal(M3.updated,M.updated,"run ringan tidak melatih ulang");assert(M.temp>=.8&&M.temp<=1.4,"suhu kalibrasi "+M.temp);
     // V22c: bawaan = line-up historis TIDAK dipakai melatih (bocor); koreksi pemain absen tetap jalan lewat hitungan pemain inti
     {const {unlinkSync}=await import("node:fs");try{unlinkSync(join(st,"model-bl.json"))}catch(e){}

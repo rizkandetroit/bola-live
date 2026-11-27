@@ -14,7 +14,10 @@ const isoOr=v=>{const t=Date.parse(v);return Number.isFinite(t)?new Date(t).toIS
 export const FRIENDLY_RE=/friendl|persahabatan|amical|amistos|testspiel/i;   // V46: sama dengan FRIENDLY di index.html
 import {level,r1} from "./lib.mjs";
 // V32: sakelar pemasangan hasil uji coba. Dinyalakan HANYA setelah lolos uji mundur dan disetujui pemilik (lihat Evaluasi > Uji coba).
-export const ACT={lean:false,drawCorr:false,stack:false};   // V58: stack = lapisan koreksi V21 (dulu menyala otomatis bila lolos uji; kini perlu persetujuan)
+// V60: SEMUA jalur yang mengubah tampilan kartu bila lolos uji ada di sini. Lolos uji saja tidak cukup; sakelar harus menyala (persetujuan Abang).
+//   stack = lapisan koreksi V21 (V58) · blend = baris "Prediksi gabungan BSD + Model BL" · rel = label reliabilitas per laga
+//   drawRule = tanda "rawan seri" (sudah tampil & diterima sebelum V60, jadi menyala) · lean/drawCorr = V32
+export const ACT={lean:false,drawCorr:false,stack:false,blend:false,rel:false,drawRule:true};
 
 // SUMBER UTAMA SEMUA LIGA: BSD (sports.bzzoiro.com, Football API paket gratis, 7.500 permintaan/hari).
 // Satu langkah ini menggantikan API-Football (jadwal), SportAPI (jadwal + riwayat), H2H API-Football, H2H FotMob
@@ -770,7 +773,7 @@ async function main(){
             m.sk={h:r1(sk[0]),d:r1(sk[1]),a:r1(sk[2]),u:SON||useN?1:0,mk:S.mk&&S.mk.on&&mk?1:0,src:SON?"stack":useN?"lean":null};
             const disp=SON||useN?sk:b,k=labelOf(disp,b,pr.p),L=S.lab&&S.lab[k];m.cf={k,hit:L&&L.n>=50?L.hit:null,n:L&&L.n}}
           m.why=whyOf(m,f,pr.p)}
-        if(MB.useful&&m.p&&!m.np&&m.p.h!=null){const w=MB.w,g=[m.p.h,m.p.d,m.p.a].map((x,i)=>w*x+(1-w)*pr.p[i]),t=g[0]+g[1]+g[2];m.bg={h:r1(g[0]/t*100),d:r1(g[1]/t*100),a:r1(g[2]/t*100),w}}}
+        if(MB.useful&&ACT.blend&&m.p&&!m.np&&m.p.h!=null){const w=MB.w,g=[m.p.h,m.p.d,m.p.a].map((x,i)=>w*x+(1-w)*pr.p[i]),t=g[0]+g[1]+g[2];m.bg={h:r1(g[0]/t*100),d:r1(g[1]/t*100),a:r1(g[2]/t*100),w}}}
     }
   }
   const T={2:matches.filter(x=>x.tier===2).length,3:0,4:0};
@@ -779,7 +782,7 @@ async function main(){
   let hist=[];{if(process.env.BSD_HISTORY_FILE){try{hist=JSON.parse(readFileSync(process.env.BSD_HISTORY_FILE,"utf8"))}catch(e){}}
     else{const h=await readState("bsd-history.json");if(Array.isArray(h))hist=h}}
   // V53: reliabilitas per laga — HANYA bila uji tanpa bocor lolos (lihat reliab.mjs); kalau tidak, tidak ada yang ditempel
-  if(BTS&&BTS.rl&&BTS.rl.verdict==="lolos"){for(const m of every){if(m.status==="FT"||!m.p||m.np)continue;const q=relOf(BTS.rl,m);if(q)m.rel=q}}
+  if(BTS&&BTS.rl&&BTS.rl.verdict==="lolos"&&ACT.rel){for(const m of every){if(m.status==="FT"||!m.p||m.np)continue;const q=relOf(BTS.rl,m);if(q)m.rel=q}}
   // V52: status & susunan line-up dari detail Match Center (hanya laga BSD yang belum mulai)
   const LUX=new Map();for(const m of every){if(m.status!=="NS"||!m.dx||m.src==="HL"||!m.eid)continue;let o=null;try{o=JSON.parse(readFileSync(dir+"m/"+m.eid+".json","utf8"))}catch(e){}const lu=o&&o.lineups;if(!lu||!lu.lineup_status)continue;
     const side=s=>lu.lineups&&lu.lineups[s],ids=s=>{const L=side(s);return L&&Array.isArray(L.players)&&L.players.length>=11?L.players.map(p=>p&&p.id).filter(x=>x!=null):null},nm={};
@@ -800,7 +803,7 @@ async function main(){
     try{const LP=morningReport(hist,now);writeFileSync(dir+"laporan.json",JSON.stringify(LP));writeFileSync(dir+"laporan.txt",reportText(LP))}catch(e){errors.push("laporan pagi: "+e.message)}   // V48
   const links=(linked||[]).map(r=>({oid:r.oid,eid:r.eid,lid:r.lid,hid:r.hid,aid:r.aid,rl:r.rl,odds:r.odds,dx:r.dx,bp:r.p&&!r.np?{h:r.p.h,d:r.p.d,a:r.p.a}:null}));
   const all={updated:new Date(now).toISOString(),week:[from,to],errors:errors.slice(0,30).map(e=>"BSD: "+e),matches,links,
-    heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,ghost,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};
+    heavyAt:(DEEP&&!LIGHT)?new Date(now).toISOString():(prevHeavy||null),act:{...ACT},tiers:T,nPred:T[2],nLeagues:new Set(matches.map(x=>x.league)).size,bsd:{calls,dup,skipped,ghost,fatal,mode:DEEP?(LIGHT?"light":"heavy"):"basic",...deep}};
   writeFileSync(dir+"all.json",JSON.stringify(all));
   if(errors.length)ghWarn("bsd: "+errors.slice(0,10).join(" ; "));
   console.log("OK bsd:",matches.length,"laga,",T[2],"berprediksi,",all.nLeagues,"liga;",dup,"sudah dimodelkan sendiri;",calls,"permintaan;",errors.length,"error; deep",JSON.stringify(deep));
