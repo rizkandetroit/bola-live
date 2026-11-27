@@ -1,0 +1,17 @@
+name: Cek rekam jejak Next to Score BSD (sekali jalan)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cek:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: node bola-live/scripts/ng-audit.mjs
+        env:
+          BSD_API_KEY: ${{ secrets.BSD_API_KEY }}
