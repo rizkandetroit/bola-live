@@ -112,3 +112,25 @@ if (G.length) {
     for (const [k, [n, hb]] of [...m].sort((a, b) => b[1][0] - a[1][0]).slice(0, 10)) console.log(`  ${k}: n=${n} · benar ${(hb / n * 100).toFixed(1)}%`);
   }
 }
+
+// Pembanding sederhana pada call yang SAMA: "tim unggulan sebelum laga (peluang BSD pra-laga) mencetak gol berikutnya",
+// dan "tuan rumah mencetak gol berikutnya". Dari outcome: bila tebakan sederhana = sisi yang dipanggil, benar = hit; bila beda, benar = miss.
+try {
+  const H = await (await fetch("https://rizkandetroit.github.io/bola-live/bsd-history.json?t=" + Date.now())).json();
+  const list = Array.isArray(H) ? H : H.rows || H.items || H.h || [];
+  const byId = new Map(list.map(e => [String(e.id ?? e.eid), e]));
+  const R = F.filter(e => e.outcome === "hit" || e.outcome === "miss");
+  let n = 0, nb = 0, nf = 0, same = 0, nh = 0;
+  for (const e of R) {
+    const hit = e.outcome === "hit";
+    nh += (e.side === "home") === hit ? 1 : 0;   // tebak selalu tuan rumah
+    const h = byId.get(String(e["event.id"])); const p = h && (h.p || h.p0); if (!p || p.length !== 3) continue;
+    n++; const fav = p[0] >= p[2] ? "home" : "away"; if (fav === e.side) same++;
+    if (hit) nb++; if ((fav === e.side) === hit) nf++;
+  }
+  console.log("\n== Pembanding sederhana (call yang sama)");
+  console.log(`riwayat BSD publik: ${list.length} laga; cocok dengan call: ${n} dari ${R.length}`);
+  console.log(`selalu tuan rumah: ${(nh / R.length * 100).toFixed(1)}% (n=${R.length}) vs Next to Score ${(R.filter(e => e.outcome === "hit").length / R.length * 100).toFixed(1)}%`);
+  if (n) console.log(`unggulan pra-laga: ${(nf / n * 100).toFixed(1)}% vs Next to Score ${(nb / n * 100).toFixed(1)}% pada ${n} call yang sama · sisi call = unggulan pra-laga pada ${(same / n * 100).toFixed(1)}% call`);
+  if (n) { const D = R.filter(e => { const h = byId.get(String(e["event.id"])); const p = h && (h.p || h.p0); return p && (p[0] >= p[2] ? "home" : "away") !== e.side }); const dh = D.filter(e => e.outcome === "hit").length; console.log(`saat call MELAWAN unggulan pra-laga: n=${D.length} · Next to Score benar ${D.length ? (dh / D.length * 100).toFixed(1) : "-"}%`) }
+} catch (e) { console.log("pembanding gagal:", e.message) }
