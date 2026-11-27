@@ -565,7 +565,7 @@ table.kl td b{font-family:var(--mono)}
 <div class="hdr">
   <div class="logo">
     <div class="logo-icon">⚽</div>
-    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V60</span>
+    Bola Live <span style="color:var(--mut);font-weight:400;margin-left:2px">V61</span>
     <button id="hd-dot" class="hdot" data-hd="1" title="Kesehatan data" aria-label="Kesehatan data" hidden></button>
   </div>
   <div class="nvb">
@@ -971,7 +971,7 @@ function favDayTxt(d){var w=new Intl.DateTimeFormat("id-ID",{timeZone:"UTC",day:
 function favHead(L,td){var b=BT&&BT.dc&&BT.dc.all,r=EV&&EV.rk&&EV.rk.days,last=null;
   if(r)for(var i=0;i<r.length;i++)if(r[i].d<td&&r[i].fv){last=r[i];break}
   return'<div class="c favh"><div class="fht">🛡️ Favorit <small>'+L.length+' laga belum main</small></div>'
-    +'<p class="cap">Tim unggulan yang peluang <b>tidak kalah</b>-nya (menang atau seri) ≥'+FAVMIN+'%, hanya laga dengan data lengkap (xG BSD, riwayat kedua tim di Model BL, dan harga pasar). Diurutkan dari yang tertinggi.'
+    +'<p class="cap">Tim unggulan yang peluang <b>tidak kalah</b>-nya (menang atau seri) ≥'+FAVMIN+'%, hanya laga dengan data lengkap (xG BSD, riwayat kedua tim di Model BL, dan harga pasar). Dikelompokkan per hari, lalu per liga (urut abjad), lalu jam main.'
     +(b&&b.n?' Uji mundur '+(BT.days||90)+' hari: <b>'+String(Math.round(b.hit)).replace(".",",")+'%</b> dari '+b.n.toLocaleString("id-ID")+' laga dengan peluang tidak kalah ≥'+FAVMIN+'% memang tidak kalah (semua laga, belum disaring kelengkapan data).':'')
     +' Bukan kepastian: di angka 90%, wajarnya 1 dari 10 tetap meleset.</p>'
     +(last?'<p class="cap favr">'+(last.d===favPrev(td)?'Kemarin':favDayTxt(last.d))+': Favorit tidak kalah <b>'+last.fv.hit+' dari '+last.fv.n+'</b> ('+Math.round(last.fv.hit/last.fv.n*100)+'%) · <button class="lnk" data-n="e">rincian di Evaluasi</button></p>':'')
@@ -1488,7 +1488,9 @@ function draw(){
   var L=M.filter(function(x){return(S.lg==="Semua"||x.league===S.lg)&&stOk(x)&&(!q||(x.home.name+" "+x.away.name+" "+x.league+" "+lgLabel(x.league,x.lc)).toLowerCase().indexOf(q)>-1)});
   L=dateStrip(L,td,dkf2);
   var fk=[S.st,S.lg,S.dt,S.q,S.v,S.so].join("|");if(fk!==S.fk){S.fk=fk;S.lim=60}var nAll=L.length;   /* V34: gambar 60 laga dulu, sisanya lewat tombol */
-  L.sort(S.st==="FAV"?function(a,b){return favOf(b).v-favOf(a).v||a.utc.localeCompare(b.utc)}:S.so==="jam"?(S.st==="FT"?function(a,b){return b.utc.localeCompare(a.utc)}:function(a,b){return a.utc.localeCompare(b.utc)}):function(a,b){return(b.edge||0)-(a.edge||0)});
+  /* V61: Favorit diurutkan per hari (WITA) → nama liga (abjad) → jam main; dulu: peluang tertinggi */
+  var favLg=function(x){return lgLabel(x.league,x.lc)};
+  L.sort(S.st==="FAV"?function(a,b){return dkf2.format(new Date(a.utc)).localeCompare(dkf2.format(new Date(b.utc)))||favLg(a).localeCompare(favLg(b),"id",{sensitivity:"base"})||String(a.league).localeCompare(String(b.league))||a.utc.localeCompare(b.utc)}:S.so==="jam"?(S.st==="FT"?function(a,b){return b.utc.localeCompare(a.utc)}:function(a,b){return a.utc.localeCompare(b.utc)}):function(a,b){return(b.edge||0)-(a.edge||0)});
   if(L.length>S.lim)L=L.slice(0,S.lim);
   var groups={},order=[];L.forEach(function(x){var k=dkf2.format(new Date(x.utc));if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(x)});
   var h=(S.st==="FAV"?favHead(L,td):catHtml(q))+(D.extra&&S.st!=="FAV"?'<p class="cap">Belum ada laga yang akan tayang pada sisa bulan ini.</p>':"");
@@ -1496,6 +1498,8 @@ function draw(){
   order.forEach(function(k){
     h+='<div class="day">'+dnf.format(new Date(groups[k][0].utc))+(k===td?" (hari ini)":"")+'</div>';
     if(S.v==="list"){var bl={},ol=[];groups[k].forEach(function(x){if(!bl[x.league]){bl[x.league]=[];ol.push(x.league)}bl[x.league].push(x)});h+=ol.map(function(l){return'<div class="plg">'+cr(bl[l][0].lgc,"lgc")+lgName(bl[l][0])+'<span>'+bl[l].length+'</span></div>'+bl[l].map(prow).join("")}).join("");return}
+    if(S.st==="FAV"&&S.v==="card"){var fb={},fo=[];groups[k].forEach(function(x){var q=favLg(x)+"|"+x.league;if(!fb[q]){fb[q]=[];fo.push(q)}fb[q].push(x)});   /* V61: judul per liga */
+      h+=fo.map(function(q){var g=fb[q];return'<div class="plg">'+cr(g[0].lgc,"lgc")+lgName(g[0])+'<span>'+g.length+'</span></div><div class="g">'+g.map(function(x){return card(x)}).join("")+'</div>'}).join("");return}
     h+=S.v==="card"?'<div class="g">'+groups[k].map(function(x){return card(x)}).join("")+'</div>':'<div class="ov"><div class="tb">'+groups[k].map(row).join("")+'</div></div>'
   });
   if(nAll>L.length)h+='<div style="text-align:center;margin:14px 0"><button class="more" data-more="1">Tampilkan 60 laga lagi <small>(sisa '+(nAll-L.length)+')</small></button></div>';
