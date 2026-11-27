@@ -50,7 +50,9 @@ export function dataHealth(dir,{now=Date.now(),guard={},warn=[]}={}){
   let site=null;try{const h=readFileSync(dir+"index.html","utf8").match(/Bola Live <span[^>]*>(V[\w.]+)</);site=h&&h[1]}catch(e){}
   const MB=J(dir+"model-bl.json");
   const ver={site,bsd:mv,modelBL:MB?{updated:MB.updated||null,n:MB.nMatches||null,partial:!!MB.partial}:null};
-  const RI=J(dir+"rekam-index.json");if(RI)add("rekam","Rekam jejak prediksi",RI.st&&RI.st.conflicts?"warn":"ok",(RI.total||0)+" catatan",RI.st&&RI.st.conflicts?RI.st.conflicts+" laga mendapat angka berbeda setelah kickoff (angka lama dipertahankan)":"0 konflik, "+(RI.st&&RI.st.dup||0)+" duplikat");
+  const RI=J(dir+"rekam-index.json");if(RI){const s=RI.st||{},nm=L=>(L||[]).slice(0,5).map(x=>x.h+" vs "+x.a+" ("+(x.f||[]).join(", ")+")").join("; ");   // V62: sebut laganya
+    add("rekam","Rekam jejak prediksi",s.conflicts?"warn":"ok",(RI.total||0)+" catatan",s.conflicts?s.conflicts+" laga mendapat angka peluang berbeda setelah kickoff (angka lama dipertahankan): "+nm(s.cx):"0 konflik angka peluang, "+(s.dup||0)+" duplikat");
+    if(s.moved)add("rekam-mv","Jadwal bergeser sesudah kickoff tercatat","info",s.moved+" laga",(nm(s.mvL)||"")+" — arsip tetap memakai angka saat kickoff semula; tidak dianggap masalah.")}
   // kelengkapan per laga
   const LG=new Map(),MD=new Map();
   const mh=matchHealth(M,now,{lg:id=>{if(!LG.has(id))LG.set(id,J(dir+"lg/"+id+".json"));return LG.get(id)},md:id=>{if(!MD.has(id))MD.set(id,existsSync(dir+"m/"+id+".json")?J(dir+"m/"+id+".json"):null);return MD.get(id)}});

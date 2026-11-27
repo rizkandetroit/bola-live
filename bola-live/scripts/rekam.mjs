@@ -5,6 +5,8 @@
 //  - bila sumber membawa angka berbeda untuk laga yang sudah kickoff, arsip tetap memakai angka lama dan menghitung "konflik";
 //  - satu id = satu catatan (tanpa duplikasi); laga yang dijadwal ulang ke masa depan sebelum ada hasil boleh diperbarui.
 // Arsip tidak ikut terpotong 120 hari seperti bsd-history, jadi rekam jejak lama tetap ada.
+// V62: hanya ANGKA peluang yang dihitung sebagai konflik setelah kickoff; stempel waktu (t0/ts/tc/pu), versi (mv), xq, potret line-up (sp/sx) tidak
+export const VAL_FIELDS=["p0","p","bl","sk","fx","ou","bt"];
 export const PRED_FIELDS=["p0","p","bl","sk","ou","bt","t0","ts","tc","pu","mv","xq","sp","sx","fx"];   // V59: fx = uji maju koreksi faktor saja (tidak dipakai prediksi)   // V52: sp/sx = potret sebelum/sesudah line-up resmi
 const H48=48*36e5;
 export const monthOf=u=>new Date(Date.parse(u)+8*36e5).toISOString().slice(0,7);
@@ -19,7 +21,11 @@ export function mergeRekam(prev,hist,now){
     const ko=Date.parse(o.u),started=Number.isFinite(ko)&&ko<=now;
     if(!started||(!o.r&&Date.parse(n.u)>now&&Date.parse(n.u)>ko)){   // belum kickoff (atau dijadwal ulang ke masa depan, belum ada hasil): boleh diperbarui
       const t=o.t0??n.t0,p0=o.p0??n.p0;if(!same({...o,t0:t,p0},{...n,t0:t,p0})){M.set(e.id,{...n,t0:t,p0});st.updated++}continue}
-    st.locked++;let c=false;for(const k of PRED_FIELDS)if(o[k]!=null&&n[k]!=null&&!same(o[k],n[k]))c=true;if(c)st.conflicts++;
+    st.locked++;const df=VAL_FIELDS.filter(k=>o[k]!=null&&n[k]!=null&&!same(o[k],n[k]));
+    if(df.length){const it={id:e.id,h:o.h,a:o.a,u:o.u,f:df};
+      if(n.u&&n.u!==o.u){st.moved=(st.moved||0)+1;it.nu=n.u;(st.mvL||(st.mvL=[])).length<20&&st.mvL.push(it)}   // V62: jam kickoff di sumber bergeser sesudah arsip terkunci
+      else{st.conflicts++;(st.cx||(st.cx=[])).length<20&&st.cx.push(it)}}
+    else if(PRED_FIELDS.some(k=>o[k]!=null&&n[k]!=null&&!same(o[k],n[k])))st.meta=(st.meta||0)+1;   // V62: hanya stempel waktu/versi berbeda (bukan masalah)
     // angka prediksi yang kosong setelah kickoff sengaja TIDAK diisi dari sumber (tidak boleh ada pengisian sesudah laga mulai)
     if(n.r&&(!o.r||(!same(o.r,n.r)&&now-ko<H48))){M.set(e.id,{...o,r:n.r,x:null});st.results++}
     else if(!o.r&&!n.r&&n.x&&!same(o.x,n.x)){M.set(e.id,{...o,x:n.x});st.status=(st.status||0)+1}}   // V56: keterangan status boleh diisi/diperbarui selama belum ada hasil

@@ -316,7 +316,11 @@ console.log("OK    V49: tim penipu");
  const h2=updateHistory(h1,[m("NS",[58,22,20])],K0-10*6e4);let B=mergeRekam(A.rows,h2,K0-10*6e4);let r=B.rows.find(x=>x.id===77);assert.deepEqual(r.p,[58,22,20]);assert.deepEqual(r.p0,[50,25,25]);assert.equal(B.st.updated,1);
  // sesudah kickoff: sumber (mis. riwayat rusak/dibangun ulang) membawa angka lain -> arsip TETAP, konflik dihitung; hasil diisi
  const bad=h2.map(x=>x.id===77?{...x,p:[90,5,5],p0:[90,5,5],t0:iso(K0),r:[0,3]}:x);let C=mergeRekam(B.rows,bad,K0+3*H);r=C.rows.find(x=>x.id===77);
- assert.deepEqual(r.p,[58,22,20]);assert.deepEqual(r.p0,[50,25,25]);assert.deepEqual(r.r,[0,3]);assert.equal(C.st.conflicts,1);assert.equal(C.st.results,1);
+ assert.deepEqual(r.p,[58,22,20]);assert.deepEqual(r.p0,[50,25,25]);assert.deepEqual(r.r,[0,3]);assert.equal(C.st.conflicts,1);assert.equal(C.st.results,1);assert.deepEqual(C.st.cx.map(x=>[x.id,x.f.includes("p")]),[[77,true]],"V62: konflik menyebut laga & kolom");
+ {// V62: hanya stempel waktu berbeda -> bukan konflik; jam kickoff bergeser -> dicatat terpisah, bukan konflik
+  const ts=B.rows.map(x=>({...x})),hT=h2.map(x=>x.id===77?{...x,ts:iso(K0+2*H),tc:iso(K0+2*H)}:x);const T=mergeRekam(ts,hT,K0+3*H);assert.equal(T.st.conflicts,0,"stempel waktu saja bukan konflik");assert.equal(T.st.meta,1);
+  const hM=h2.map(x=>x.id===77?{...x,u:iso(K0+30*6e4),p:[61,20,19]}:x);const Mv=mergeRekam(B.rows,hM,K0+3*H);assert.equal(Mv.st.conflicts,0,"jadwal bergeser bukan konflik");assert.equal(Mv.st.moved,1);assert.equal(Mv.st.mvL[0].nu,iso(K0+30*6e4));
+  assert.deepEqual(Mv.rows.find(x=>x.id===77).p,[58,22,20],"arsip tetap angka saat kickoff semula")}
  // koreksi hasil sesudah 48 jam diabaikan; angka kosong tidak diisi sesudah kickoff
  const D2=mergeRekam(C.rows,bad.map(x=>x.id===77?{...x,r:[1,3],bl:[1,2,97]}:x),K0+60*H);r=D2.rows.find(x=>x.id===77);assert.deepEqual(r.r,[0,3]);assert.equal(r.bl,null);
  // riwayat terpotong (120 hari) -> arsip tetap menyimpan; berulang (idempoten); duplikat arsip dibuang
